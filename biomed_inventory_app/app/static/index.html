@@ -1,0 +1,834 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Biomedical Inventory ERP v4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://unpkg.com/html5-qrcode" defer></script>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#14213d;--muted:#637083;--primary:#1f4e78;--accent:#0f766e;--danger:#b42318;--warning:#b54708;--line:#d7dde8}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:22px;background:linear-gradient(135deg,#102a43,#1f4e78);color:white}header h1{margin:0 0 8px;font-size:clamp(22px,5vw,30px)}header p{margin:0;opacity:.9}
+main{padding:18px;max-width:1600px;margin:0 auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 10px 25px rgba(18,38,63,.06);margin-bottom:16px}
+.metric b{display:block;font-size:23px;margin-top:8px}.metric span{color:var(--muted);font-size:13px}
+.toolbar{display:grid;grid-template-columns:minmax(180px,1.4fr) .8fr .8fr repeat(5,auto);gap:10px;align-items:center;margin-bottom:14px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;background:white}
+button{border:none;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--primary);color:white;min-height:42px}
+button.secondary{background:var(--accent)}button.light{background:#e7edf6;color:var(--ink)}button.danger{background:var(--danger)}button.warning{background:var(--warning)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tabs button{width:auto}
+.panel{display:none}.panel.active{display:block}
+.table-wrap{max-height:650px;overflow:auto;border:1px solid var(--line);border-radius:18px}table{width:100%;border-collapse:collapse;background:white;min-width:1150px}
+th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{background:#eaf1f8;color:#102a43;position:sticky;top:0;z-index:1}
+.status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:900;background:#e7edf6;white-space:nowrap}
+.status.MISSING_FROM_SHELF,.status.MISMATCH{background:#fee4e2;color:var(--danger)}.status.FOUND_NOT_IN_ERP{background:#fff4d6;color:var(--warning)}.status.MATCHED{background:#dcfce7;color:#166534}
+.photo-thumb{width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}.modal.open{display:flex}
+.modal-card{background:white;width:min(980px,100%);max-height:92vh;overflow-y:auto;border-radius:22px;padding:20px;box-shadow:0 25px 80px rgba(0,0,0,.25)}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.wide{grid-column:span 3}.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px}
+.small{color:var(--muted);font-size:12px}#scannerBox{display:none;margin:12px 0;border:1px dashed var(--line);border-radius:16px;padding:12px;background:#f8fafc}#reader{width:100%;max-width:420px;margin:0 auto}.lookup-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.lookup-row a{color:var(--primary);font-weight:800}
+.qtybox{display:flex;gap:6px}.qtybox input{width:80px}
+@media(max-width:900px){main{padding:12px}.toolbar{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.wide{grid-column:span 1}.table-wrap{border:none;max-height:none}table,thead,tbody,th,td,tr{display:block;min-width:unset}thead{display:none}tr{background:white;border:1px solid var(--line);border-radius:16px;padding:10px;margin-bottom:12px;box-shadow:0 10px 20px rgba(18,38,63,.05)}td{border:none;display:grid;grid-template-columns:120px 1fr;gap:8px;padding:7px 4px;font-size:14px}td::before{content:attr(data-label);font-weight:800;color:var(--muted)}td.actions-cell{display:flex;gap:8px;flex-wrap:wrap}td.actions-cell::before{display:none}button{width:100%}.actions button{width:auto;flex:1}.qtybox{display:grid;grid-template-columns:1fr 1fr 1fr}}
+
+body{
+line-height:1.4;
+}
+
+header{
+padding:18px 16px;
+position:sticky;
+top:0;
+z-index:15;
+box-shadow:0 4px 18px rgba(0,0,0,.12);
+}
+
+header p{
+font-size:14px;
+max-width:850px;
+}
+
+main{
+padding:14px;
+}
+
+.card{
+border-radius:16px;
+}
+
+.toolbar{
+grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+}
+
+.compact-toolbar{
+margin-top:10px;
+}
+
+.table-wrap{
+background:white;
+border-radius:16px;
+overflow:auto;
+}
+
+th{
+font-size:12px;
+letter-spacing:.3px;
+}
+
+td{
+font-size:13px;
+}
+
+button{
+transition:.15s ease;
+}
+
+button:hover{
+transform:translateY(-1px);
+opacity:.96;
+}
+
+.tabs{
+position:sticky;
+top:82px;
+z-index:10;
+background:var(--bg);
+padding-bottom:8px;
+}
+
+.tabs button{
+border-radius:999px;
+padding:10px 16px;
+}
+
+.metric{
+text-align:center;
+padding:18px 10px;
+}
+
+.metric b{
+font-size:28px;
+}
+
+.qtybox{
+align-items:center;
+}
+
+.qtybox button{
+padding:8px 10px;
+min-height:auto;
+}
+
+.modal-card{
+border-radius:20px;
+}
+
+@media(max-width:900px){
+
+header{
+padding:14px;
+}
+
+header h1{
+font-size:24px;
+}
+
+.tabs{
+top:74px;
+overflow:auto;
+padding-bottom:10px;
+}
+
+.tabs button{
+white-space:nowrap;
+width:auto;
+flex:0 0 auto;
+}
+
+.toolbar{
+grid-template-columns:1fr;
+gap:8px;
+}
+
+.table-wrap{
+overflow:visible;
+background:transparent;
+border:none;
+}
+
+tr{
+padding:12px;
+border-radius:18px;
+}
+
+td{
+grid-template-columns:110px 1fr;
+padding:5px 0;
+}
+
+td.actions-cell{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+}
+
+td.actions-cell button,
+td.actions-cell a{
+width:100%;
+text-align:center;
+}
+
+.qtybox{
+grid-template-columns:48px 1fr 48px;
+}
+
+.qtybox input{
+width:100%;
+text-align:center;
+}
+
+.modal{
+padding:10px;
+}
+
+.modal-card{
+padding:16px;
+max-height:96vh;
+}
+
+.form-grid{
+gap:10px;
+}
+
+.photo-thumb{
+width:64px;
+height:64px;
+}
+
+}
+
+
+#cleanInventory h2{
+margin-top:0;
+}
+#cleanInventory table{
+min-width:760px;
+}
+#cleanItems td[data-label="Expected Qty"]{
+font-size:15px;
+}
+@media(max-width:900px){
+#cleanInventory table{
+min-width:unset;
+}
+#cleanInventory tr{
+border-left:5px solid var(--primary);
+}
+#cleanItems td[data-label="Expected Qty"] b{
+font-size:20px;
+color:var(--primary);
+}
+}
+
+.tx-line,.po-line{
+background:#f8fafc;
+border:1px solid var(--line);
+border-radius:16px;
+padding:12px;
+margin-bottom:10px;
+}
+@media(max-width:900px){
+.tx-line,.po-line{
+display:block;
+}
+.tx-line label,.po-line label{
+display:block;
+margin-bottom:10px;
+}
+}
+
+.burger{
+position:fixed;
+left:14px;
+top:92px;
+z-index:30;
+width:48px;
+height:48px;
+border-radius:50%;
+box-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+
+.drawer{
+position:fixed;
+left:-320px;
+top:0;
+bottom:0;
+width:300px;
+background:#ffffff;
+z-index:40;
+box-shadow:12px 0 35px rgba(0,0,0,.18);
+padding:16px;
+transition:.2s ease;
+overflow-y:auto;
+border-right:1px solid var(--line);
+}
+
+.drawer.open{
+left:0;
+}
+
+.drawer-backdrop{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(15,23,42,.35);
+z-index:35;
+}
+
+.drawer-backdrop.open{
+display:block;
+}
+
+.drawer-header{
+display:flex;
+align-items:center;
+justify-content:space-between;
+margin-bottom:12px;
+font-size:18px;
+}
+
+.drawer button{
+width:100%;
+margin:5px 0;
+text-align:left;
+}
+
+.drawer-metrics{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-bottom:12px;
+}
+
+.drawer-metric{
+background:#f5f7fb;
+border:1px solid var(--line);
+border-radius:12px;
+padding:10px;
+}
+
+.drawer-metric span{
+display:block;
+font-size:11px;
+color:var(--muted);
+}
+
+.drawer-metric b{
+display:block;
+font-size:18px;
+margin-top:4px;
+}
+
+main{
+padding-left:72px;
+}
+
+@media(max-width:900px){
+.burger{
+top:80px;
+left:12px;
+}
+main{
+padding-left:12px;
+padding-top:70px;
+}
+.drawer{
+width:86vw;
+left:-90vw;
+}
+}
+
+</style>
+</head>
+<body>
+<header><h1>Biomedical Inventory ERP</h1><p>Inventory reconciliation, stock control, barcode transactions, purchase orders, and audit history.</p></header>
+<main>
+
+<button class="burger" onclick="toggleDrawer()">☰</button>
+<aside id="drawer" class="drawer">
+  <div class="drawer-header">
+    <b>Inventory Menu</b>
+    <button class="light" onclick="toggleDrawer()">×</button>
+  </div>
+  <div class="drawer-metrics" id="metrics"></div>
+  <hr>
+  <button onclick="showPanel('cleanInventory');toggleDrawer(false)">Clean Inventory</button>
+  <button onclick="showPanel('inventory');toggleDrawer(false)">Audit / Edit Inventory</button>
+  <button onclick="showPanel('transaction');toggleDrawer(false)">In / Out Transactions</button>
+  <button onclick="showPanel('po');toggleDrawer(false)">Purchase Orders</button>
+  <button onclick="showPanel('history');toggleDrawer(false)">Audit History</button>
+  <button class="light" onclick="window.open('/api/qr-labels','_blank')">Generate QR Labels</button>
+</aside>
+<div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer(false)"></div>
+
+
+<section class="card panel active" id="cleanInventory">
+<h2>Clean Inventory View</h2>
+<p class="small">Simple stock view showing expected quantity only, without audit/reconciliation editing fields.</p>
+
+<div class="toolbar">
+<input id="cleanSearch" placeholder="Search PN, barcode, description..." />
+<input id="cleanLocation" placeholder="Location e.g. C4" />
+<button onclick="loadCleanInventory()">Search</button>
+<button class="warning" onclick="startCleanScanner()">Scan Barcode</button>
+<button class="light" onclick="window.open('/api/qr-labels','_blank')">QR Labels</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Photo</th>
+<th>PN</th>
+<th>Description</th>
+<th>Expected Qty</th>
+<th>Barcode</th>
+<th>Location</th>
+<th>QR</th>
+</tr>
+</thead>
+<tbody id="cleanItems"></tbody>
+</table>
+</div>
+</section>
+
+
+<section class="card panel" id="inventory">
+<div class="toolbar">
+<input id="search" placeholder="Search PN, barcode, description, family..." />
+<select id="status"><option value="">All statuses</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select>
+<input id="location" placeholder="Location e.g. C4" />
+<button onclick="loadItems()">Search</button><button class="warning" onclick="startSearchScanner()">Scan Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Database</button><button class="secondary" onclick="approveAudit()">Approve Audit → Expected Qty</button>
+</div>
+<div id="scannerBox"><div id="reader"></div><div class="actions"><button class="light" onclick="stopScanner()">Stop Scanner</button></div></div>
+
+<div class="toolbar compact-toolbar">
+<select id="report">
+<option value="">Master Inventory</option>
+<option value="missing">Missing from Shelf</option>
+<option value="found">Found not in ERP</option>
+<option value="stale">Dead / Stale Inventory</option>
+<option value="mismatch">Quantity Mismatches</option>
+<option value="multi-location">Present in Multiple Locations</option>
+</select>
+<button onclick="loadReport()">Open Report</button>
+<input type="file" id="excelFile" accept=".xlsx,.xls" />
+<button class="light" onclick="uploadExcel()">Import Excel</button>
+<span class="small" id="syncInfo"></span>
+</div>
+
+<div class="table-wrap"><table><thead><tr><th>Photo</th><th>PN</th><th>Barcode</th><th>Description</th><th>Location</th><th>Expected Qty</th><th>Physical Qty</th><th>Quick Qty</th><th>Diff</th><th>Status</th><th>Action</th></tr></thead><tbody id="items"></tbody></table></div>
+</section>
+
+
+<section class="card panel" id="transaction">
+<h2>Stock Transaction In / Out</h2>
+<p class="small">Use Purchase Order for IN transactions and Client Order for OUT transactions. Add multiple items using the plus button.</p>
+
+<div class="form-grid">
+<label>Direction
+<select id="txDirection" onchange="updateTransactionReferenceFields()">
+<option value="IN">IN - Receive / Purchase</option>
+<option value="OUT">OUT - Issue / Client Order</option>
+</select>
+</label>
+
+<label id="txPOLabel">Purchase Order No. for IN<input id="txPO" placeholder="PO-2026-001" /></label>
+<label id="txClientOrderLabel">Client Order No. for OUT<input id="txClientOrder" placeholder="CO-2026-001" /></label>
+<label id="txClientNameLabel">Client / Hospital Name<input id="txClientName" placeholder="Hospital / customer name" /></label>
+
+<label class="wide">Transaction Notes<textarea id="txNotes"></textarea></label>
+</div>
+
+<h3>Transaction Items</h3>
+<div id="txLines"></div>
+
+<div class="actions">
+<button class="light" onclick="addTxLine()">+ Add Item</button>
+<button class="warning" onclick="startTxScanner()">Scan Barcode</button>
+<button onclick="saveBulkTransaction()">Save Bulk Transaction</button>
+<button class="light" onclick="downloadCurrentTransactionReference()">Download PO/CO Excel</button>
+</div>
+
+<h3>Recent Transactions</h3>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>PN</th><th>Barcode</th><th>Direction</th><th>Qty</th><th>Old Qty</th><th>New Qty</th><th>PO</th><th>Client Order</th><th>Client</th><th>Notes</th></tr></thead><tbody id="transactions"></tbody></table></div>
+</section>
+
+<section class="card panel" id="po">
+<h2>Purchase Order Tracking</h2>
+<div class="form-grid">
+<label>PO No.<input id="poNo" /></label>
+<label>Supplier<input id="poSupplier" /></label>
+<label>Status<select id="poStatus"><option>OPEN</option><option>ORDERED</option><option>PARTIAL</option><option>RECEIVED</option><option>CLOSED</option><option>CANCELLED</option></select></label>
+<label>Expected Date<input id="poDate" type="date" /></label>
+<label class="wide">Notes<textarea id="poNotes"></textarea></label>
+</div>
+<div class="actions"><button onclick="savePO()">Save PO / Update Status</button><button class="secondary" onclick="receivePO()">Receive PO Now</button><button class="light" onclick="downloadPO()">Download PO Excel</button></div>
+
+<h3>Add Items to Purchase Order</h3>
+<p class="small">Select existing stock items from the dropdown, then use + to add more lines. If the item is new, add it first in Audit/Edit Inventory.</p>
+<div id="poLines"></div>
+<div class="actions"><button class="light" onclick="addPOLine()">+ Add Item</button><button onclick="savePOLines()">Save PO Items</button></div>
+<h3>Purchase Orders</h3>
+<div class="table-wrap"><table><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>Expected Date</th><th>Notes</th><th>Updated</th><th>Action</th></tr></thead><tbody id="pos"></tbody></table></div>
+
+<h3>PO Items</h3>
+<div class="table-wrap"><table><thead><tr><th>PO</th><th>PN</th><th>Description</th><th>Qty</th><th>Received Qty</th><th>Location</th><th>Barcode</th><th>Received?</th><th>Action</th></tr></thead><tbody id="poItems"></tbody></table></div>
+</section>
+
+<section class="card panel" id="history">
+<h2>Audit Trail / History</h2>
+<button onclick="loadAudit()">Refresh History</button>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Item ID</th><th>Action</th><th>Old</th><th>New</th><th>Notes</th></tr></thead><tbody id="audit"></tbody></table></div>
+</section>
+</main>
+
+<div class="modal" id="modal"><div class="modal-card">
+<h2 id="modalTitle">Add Inventory Item</h2><input type="hidden" id="itemId" />
+<div class="form-grid">
+<label>PN<input id="pn" /></label>
+<label>Barcode<div class="lookup-row"><input id="barcode" /><button type="button" class="warning" onclick="startFormScanner()">Scan</button></div></label>
+<label>Location<input id="itemLocation" /></label>
+<label class="wide">Description<input id="description" /></label>
+<label>Expected Qty<input id="systemQty" type="number" value="0" /></label><label>Physical Qty<input id="physicalQty" type="number" value="0" /></label><label>Device Family<input id="family" /></label>
+<label>Status<select id="itemStatus"><option value="">Auto</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select></label>
+<label>Photo Upload<input id="photoFile" type="file" accept="image/*" capture="environment" /></label><label>Photo URL<input id="photoUrl" /></label>
+<label class="wide">Lookup<div class="lookup-row"><button type="button" class="light" onclick="openLookup()">Search description online</button><a id="lookupLink" href="#" target="_blank" rel="noopener">Open lookup</a></div></label>
+<label class="wide">Notes<textarea id="notes"></textarea></label>
+</div><div class="actions"><button class="light" onclick="closeForm()">Cancel</button><button onclick="saveItem()">Save</button></div>
+</div></div>
+
+<script>
+let currentItems=[],html5QrCode=null,scanTarget="search";
+function toggleDrawer(force){
+ const drawer=document.getElementById("drawer");
+ const backdrop=document.getElementById("drawerBackdrop");
+ const open = force === undefined ? !drawer.classList.contains("open") : force;
+ drawer.classList.toggle("open", open);
+ backdrop.classList.toggle("open", open);
+}
+
+function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
+async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='cleanInventory')loadCleanInventory();if(id==='inventory')loadItems();if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='history')loadAudit()}
+async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
+async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}`);renderItems(currentItems);loadDashboard()}
+async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
+function googleLookupUrl(pn,description){const q=`${pn||""} ${description||""} biomedical spare part GE Healthcare`.trim();return`https://www.google.com/search?q=${encodeURIComponent(q)}`}
+
+async function loadCleanInventory(){
+ const q=encodeURIComponent(document.getElementById("cleanSearch").value);
+ const location=encodeURIComponent(document.getElementById("cleanLocation").value);
+ const rows=await api(`/api/clean-inventory?q=${q}&location=${location}`);
+ document.getElementById("cleanItems").innerHTML=rows.map(item=>{
+   const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";
+   return `<tr>
+    <td data-label="Photo">${photo}</td>
+    <td data-label="PN"><b>${esc(item.pn)}</b></td>
+    <td data-label="Description">${esc(item.description)}</td>
+    <td data-label="Expected Qty"><b>${esc(item.expected_qty)}</b></td>
+    <td data-label="Barcode">${esc(item.barcode)}</td>
+    <td data-label="Location">${esc(item.location)}</td>
+    
+   </tr>`;
+ }).join("");
+}
+
+async function startCleanScanner(){
+ scanTarget="clean";
+ await startScanner();
+}
+
+async function startAuditScanner(){
+ scanTarget="auditQuick";
+ await startScanner();
+}
+
+function renderItems(items){document.getElementById("items").innerHTML=items.map(item=>{const lookup=item.lookup_url||googleLookupUrl(item.pn,item.description);const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";return`<tr><td data-label="Photo">${photo}</td><td data-label="PN"><b>${esc(item.pn)}</b></td><td data-label="Barcode">${esc(item.barcode)}</td><td data-label="Description">${esc(item.description)}</td><td data-label="Location">${esc(item.location)}</td><td data-label="Expected">${esc(item.system_qty)}</td><td data-label="Physical">${esc(item.physical_qty)}</td><td data-label="Quick Qty"><div class="qtybox"><button class="light" onclick="quickQty(${item.id},${Number(item.physical_qty)-1})">-</button><input id="qty${item.id}" type="number" value="${esc(item.physical_qty)}"><button class="light" onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value)+1)">+</button><button onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value))">Save</button></div></td><td data-label="Diff">${esc(item.difference)}</td><td data-label="Status"><span class="status ${esc(item.status)}">${esc(item.status)}</span></td><td class="actions-cell"><button class="light" onclick='openForm(${JSON.stringify(item)})'>Edit</button><button class="danger" onclick='deleteItem(${item.id})'>Delete</button><a href="${esc(lookup)}" target="_blank">Lookup</a></td></tr>`}).join("")}
+async function quickQty(id, qty){if(qty<0){alert("Quantity cannot be negative");return}await api(`/api/items/${id}/quantity`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({physical_qty:qty,reason:"Quick edit from inventory table"})});await loadItems()}
+function updateLookupLink(){document.getElementById("lookupLink").href=googleLookupUrl(document.getElementById("pn").value,document.getElementById("description").value)}
+function openLookup(){updateLookupLink();window.open(document.getElementById("lookupLink").href,"_blank","noopener")}
+function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Inventory Item":"Add Inventory Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
+function closeForm(){document.getElementById("modal").classList.remove("open")}
+async function saveItem(){const id=document.getElementById("itemId").value;const payload={pn:document.getElementById("pn").value,barcode:document.getElementById("barcode").value,description:document.getElementById("description").value,location:document.getElementById("itemLocation").value,system_qty:Number(document.getElementById("systemQty").value||0),physical_qty:Number(document.getElementById("physicalQty").value||0),device_family:document.getElementById("family").value,status:document.getElementById("itemStatus").value,notes:document.getElementById("notes").value,photo_url:document.getElementById("photoUrl").value};const result=await api(id?`/api/items/${id}`:"/api/items",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const itemId=id||result.id;const photo=document.getElementById("photoFile").files[0];if(photo&&itemId){const form=new FormData();form.append("file",photo);await fetch(`/api/items/${itemId}/photo`,{method:"POST",body:form})}closeForm();await loadItems()}
+async function deleteItem(id){if(!confirm("Delete this item?"))return;await api(`/api/items/${id}`,{method:"DELETE"});await loadItems()}
+async function uploadExcel(){const file=document.getElementById("excelFile").files[0];if(!file)return alert("Choose an Excel file first.");const form=new FormData();form.append("file",file);await fetch("/api/import",{method:"POST",body:form});await loadItems();alert("Excel imported.")}
+async function syncExport(){await api("/api/sync/export",{method:"POST"});await loadDashboard();alert("Excel synced/exported.")}
+function downloadExcel(){window.location="/api/export"}
+function updateTransactionReferenceFields(){
+ const dir=document.getElementById("txDirection").value;
+ document.getElementById("txPOLabel").style.display = dir==="IN" ? "block" : "none";
+ document.getElementById("txClientOrderLabel").style.display = dir==="OUT" ? "block" : "none";
+ document.getElementById("txClientNameLabel").style.display = dir==="OUT" ? "block" : "none";
+}
+async function saveTransaction(){
+ const dir=document.getElementById("txDirection").value;
+ const payload={
+   barcode_or_pn:document.getElementById("txBarcode").value,
+   qty:Number(document.getElementById("txQty").value||1),
+   direction:dir,
+   purchase_order_no:dir==="IN" ? document.getElementById("txPO").value : "",
+   client_order_no:dir==="OUT" ? document.getElementById("txClientOrder").value : "",
+   client_name:dir==="OUT" ? document.getElementById("txClientName").value : "",
+   notes:document.getElementById("txNotes").value
+ };
+ if(dir==="IN" && !payload.purchase_order_no){alert("IN transaction requires a Purchase Order number");return}
+ if(dir==="OUT" && !payload.client_order_no){alert("OUT transaction requires a Client Order number");return}
+ await api("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ document.getElementById("txBarcode").value="";document.getElementById("txNotes").value="";
+ await loadItems();await loadTransactions();await loadDashboard();
+ alert("Transaction saved")
+}
+async function loadTransactions(){
+ const rows=await api("/api/transactions");
+ document.getElementById("transactions").innerHTML=rows.map(r=>`<tr><td>${esc(r.created_at)}</td><td>${esc(r.pn)}</td><td>${esc(r.barcode)}</td><td>${esc(r.direction)}</td><td>${esc(r.qty)}</td><td>${esc(r.old_qty)}</td><td>${esc(r.new_qty)}</td><td>${esc(r.purchase_order_no)}</td><td>${esc(r.client_order_no)}</td><td>${esc(r.client_name)}</td><td>${esc(r.notes)}</td></tr>`).join("")
+}
+async function savePO(){
+ const payload={po_no:document.getElementById("poNo").value,supplier:document.getElementById("poSupplier").value,status:document.getElementById("poStatus").value,expected_date:document.getElementById("poDate").value,notes:document.getElementById("poNotes").value};
+ const res=await api("/api/purchase-orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ await loadPOs(); await loadItems();
+ alert(`PO saved. Auto-received items: ${res.auto_received_items ?? 0}`);
+}
+async function addPOItem(){
+ const payload={
+   po_no:document.getElementById("poItemNo").value || document.getElementById("poNo").value,
+   pn:document.getElementById("poItemPN").value,
+   description:document.getElementById("poItemDesc").value,
+   qty:Number(document.getElementById("poItemQty").value || 1),
+   location:document.getElementById("poItemLocation").value,
+   barcode:document.getElementById("poItemBarcode").value,
+   device_family:document.getElementById("poItemFamily").value,
+   notes:document.getElementById("poItemNotes").value
+ };
+ if(!payload.po_no || !payload.pn){alert("PO No. and PN are required");return}
+ await api("/api/purchase-orders/items",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ document.getElementById("poItemPN").value="";document.getElementById("poItemDesc").value="";document.getElementById("poItemQty").value=1;document.getElementById("poItemBarcode").value="";document.getElementById("poItemNotes").value="";
+ await loadPOs();
+ alert("Item added to PO");
+}
+async function bulkAddPOItems(){
+ const po_no=document.getElementById("bulkPoNo").value || document.getElementById("poNo").value || document.getElementById("poItemNo").value;
+ const text=document.getElementById("bulkPoItems").value;
+ if(!po_no){alert("PO No. is required");return}
+ if(!text.trim()){alert("Paste items first");return}
+ const res=await api("/api/purchase-orders/items/bulk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({po_no,text})});
+ document.getElementById("bulkPoNo").value=po_no;
+ document.getElementById("poNo").value=po_no;
+ document.getElementById("poItemNo").value=po_no;
+ document.getElementById("bulkPoItems").value="";
+ await loadPOs();
+ const errorText=res.errors && res.errors.length ? "\nErrors:\n"+res.errors.join("\n") : "";
+ alert(`Bulk add complete. Added: ${res.added}${errorText}`);
+}
+async function receivePO(){
+ const po=document.getElementById("poNo").value;
+ if(!po){alert("Enter/select a PO number first");return}
+ const res=await api(`/api/purchase-orders/${encodeURIComponent(po)}/receive`,{method:"POST"});
+ await loadPOs(); await loadItems();
+ alert(`PO received. Items added to stock: ${res.auto_received_items}`);
+}
+async function deletePOItem(id){
+ if(!confirm("Delete this PO item?"))return;
+ await api(`/api/purchase-orders/items/${id}`,{method:"DELETE"});
+ await loadPOs();
+}
+async function loadPOs(){
+ const rows=await api("/api/purchase-orders");
+ document.getElementById("pos").innerHTML=rows.map(r=>`<tr><td>${esc(r.po_no)}</td><td>${esc(r.supplier)}</td><td>${esc(r.status)}</td><td>${esc(r.expected_date)}</td><td>${esc(r.notes)}</td><td>${esc(r.updated_at)}</td><td><button class="light" onclick="selectPO('${esc(r.po_no)}','${esc(r.supplier)}','${esc(r.status)}','${esc(r.expected_date)}','${esc(r.notes)}')">Select</button><a href="/api/purchase-orders/${encodeURIComponent(r.po_no)}/export" target="_blank">Download</a></td></tr>`).join("");
+ const items=await api("/api/purchase-orders/items/all");
+ document.getElementById("poItems").innerHTML=items.map(i=>`<tr><td>${esc(i.po_no)}</td><td>${esc(i.pn)}</td><td>${esc(i.description)}</td><td>${esc(i.qty)}</td><td>${esc(i.received_qty)}</td><td>${esc(i.location)}</td><td>${esc(i.barcode)}</td><td>${Number(i.received)===1?"YES":"NO"}</td><td>${Number(i.received)===1?"":`<button class="danger" onclick="deletePOItem(${i.id})">Delete</button>`}</td></tr>`).join("");
+}
+function selectPO(po,supplier,status,date,notes){
+ document.getElementById("poNo").value=po;document.getElementById("poItemNo").value=po;
+ document.getElementById("poSupplier").value=supplier;document.getElementById("poStatus").value=status;
+ document.getElementById("poDate").value=date;document.getElementById("poNotes").value=notes;
+}
+async function loadAudit(){const rows=await api("/api/audit");document.getElementById("audit").innerHTML=rows.map(r=>`<tr><td>${esc(r.created_at)}</td><td>${esc(r.item_id)}</td><td>${esc(r.action)}</td><td>${esc(r.old_value)}</td><td>${esc(r.new_value)}</td><td>${esc(r.notes)}</td></tr>`).join("")}
+async function startSearchScanner(){scanTarget="search";await startScanner()}async function startFormScanner(){scanTarget="form";await startScanner()}async function startTxScanner(){alert('For bulk transactions, please select items from the dropdown. Barcode-to-line selection can be added in the next upgrade.');}
+async function startScanner(){document.getElementById("scannerBox").style.display="block";if(!window.Html5Qrcode){alert("Scanner library did not load. Use manual entry.");return}if(html5QrCode)await stopScanner();html5QrCode=new Html5Qrcode("reader");const onSuccess=async decoded=>{if(scanTarget==="form"){
+ document.getElementById("barcode").value=decoded;
+}else if(scanTarget==="tx"){
+ alert('For bulk transactions, select items from the dropdown. Barcode-to-line selection can be added later.');
+}else if(scanTarget==="clean"){
+ document.getElementById("cleanSearch").value=decoded;
+ showPanel('cleanInventory');
+ await loadCleanInventory();
+}else if(scanTarget==="auditQuick"){
+ document.getElementById("search").value=decoded;
+ showPanel('inventory');
+ await loadItems();
+ const found=currentItems && currentItems.length ? currentItems[0] : null;
+ if(found){
+   alert(`Found:\nPN: ${found.pn}\nDescription: ${found.description}\nLocation: ${found.location}\nPhysical Qty: ${found.physical_qty}`);
+ }else{
+   alert('No matching item found for this scan.');
+ }
+}else{
+ document.getElementById("search").value=decoded;
+ await loadItems();
+}
+await stopScanner()};try{await html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:160}},onSuccess)}catch(err){alert("Camera scanner could not start. Use manual barcode entry.")}}
+async function stopScanner(){if(html5QrCode){try{await html5QrCode.stop();await html5QrCode.clear()}catch(e){}html5QrCode=null}document.getElementById("scannerBox").style.display="none"}
+
+let itemOptionsCache=[];
+
+async function loadItemOptions(){
+ itemOptionsCache=await api("/api/item-options?limit=1000");
+ return itemOptionsCache;
+}
+
+function itemOptionHTML(){
+ return itemOptionsCache.map(i=>`<option value="${i.id}">${esc(i.pn)} — ${esc(i.description)} — Loc: ${esc(i.location)} — Qty: ${esc(i.physical_qty)}</option>`).join("");
+}
+
+async function ensureOptions(){
+ if(!itemOptionsCache.length){await loadItemOptions();}
+}
+
+async function addTxLine(){
+ await ensureOptions();
+ const container=document.getElementById("txLines");
+ const id=`txline_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+ const div=document.createElement("div");
+ div.className="form-grid tx-line";
+ div.id=id;
+ div.innerHTML=`
+  <label class="wide">Item
+   <select class="txItem">${itemOptionHTML()}</select>
+  </label>
+  <label>Qty<input class="txQtyLine" type="number" min="1" value="1" /></label>
+  <label><span>&nbsp;</span><button type="button" class="danger" onclick="document.getElementById('${id}').remove()">Remove</button></label>
+ `;
+ container.appendChild(div);
+}
+
+async function saveBulkTransaction(){
+ const dir=document.getElementById("txDirection").value;
+ const purchase_order_no=dir==="IN" ? document.getElementById("txPO").value : "";
+ const client_order_no=dir==="OUT" ? document.getElementById("txClientOrder").value : "";
+ const client_name=dir==="OUT" ? document.getElementById("txClientName").value : "";
+ const notes=document.getElementById("txNotes").value;
+
+ if(dir==="IN" && !purchase_order_no){alert("IN transaction requires Purchase Order number");return}
+ if(dir==="OUT" && !client_order_no){alert("OUT transaction requires Client Order number");return}
+
+ const lines=[...document.querySelectorAll(".tx-line")].map(line=>({
+   item_id:Number(line.querySelector(".txItem").value),
+   qty:Number(line.querySelector(".txQtyLine").value || 1)
+ }));
+
+ if(!lines.length){alert("Add at least one item");return}
+
+ const res=await api("/api/transactions/bulk",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({direction:dir,purchase_order_no,client_order_no,client_name,notes,lines})
+ });
+
+ document.getElementById("txLines").innerHTML="";
+ await addTxLine();
+ await loadItems();
+ await loadCleanInventory();
+ await loadTransactions();
+ await loadDashboard();
+
+ const errors=res.errors&&res.errors.length ? "\nErrors:\n"+res.errors.join("\n") : "";
+ alert(`Bulk transaction saved. Processed: ${res.processed}${errors}`);
+}
+
+async function addPOLine(){
+ await ensureOptions();
+ const container=document.getElementById("poLines");
+ const id=`poline_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+ const div=document.createElement("div");
+ div.className="form-grid po-line";
+ div.id=id;
+ div.innerHTML=`
+  <label class="wide">Item
+   <select class="poItemSelect">${itemOptionHTML()}</select>
+  </label>
+  <label>Qty<input class="poQtyLine" type="number" min="1" value="1" /></label>
+  <label><span>&nbsp;</span><button type="button" class="danger" onclick="document.getElementById('${id}').remove()">Remove</button></label>
+ `;
+ container.appendChild(div);
+}
+
+async function savePOLines(){
+ const po_no=document.getElementById("poNo").value || document.getElementById("poItemNo")?.value;
+ if(!po_no){alert("Enter/select a PO number first");return}
+ await ensureOptions();
+
+ const rows=[...document.querySelectorAll(".po-line")];
+ if(!rows.length){alert("Add at least one PO item");return}
+
+ let added=0;
+ for(const row of rows){
+   const itemId=Number(row.querySelector(".poItemSelect").value);
+   const qty=Number(row.querySelector(".poQtyLine").value || 1);
+   const item=itemOptionsCache.find(x=>Number(x.id)===itemId);
+   if(!item) continue;
+   await api("/api/purchase-orders/items",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+       po_no,
+       pn:item.pn,
+       description:item.description,
+       qty,
+       location:item.location,
+       barcode:item.barcode,
+       device_family:"",
+       notes:"Added from dropdown selection"
+     })
+   });
+   added++;
+ }
+ document.getElementById("poLines").innerHTML="";
+ await addPOLine();
+ await loadPOs();
+ alert(`Added ${added} item(s) to PO`);
+}
+
+async function approveAudit(){
+ if(!confirm("This will set Expected Qty = approved Physical Qty for ALL inventory items and generate a mismatch report. Continue?")) return;
+ const res=await api("/api/audit/approve-physical-as-expected",{method:"POST"});
+ await loadItems();
+ await loadCleanInventory();
+ await loadDashboard();
+ alert(`Audit approved. Items updated: ${res.approved_items}. Mismatches before approval: ${res.mismatch_count}. The mismatch report is ready to download.`);
+ window.open("/api/audit/mismatch-report","_blank");
+}
+
+
+function downloadPO(){
+ const po=document.getElementById("poNo").value;
+ if(!po){alert("Enter/select a PO number first");return}
+ window.location=`/api/purchase-orders/${encodeURIComponent(po)}/export`;
+}
+
+function downloadCurrentTransactionReference(){
+ const dir=document.getElementById("txDirection").value;
+ if(dir==="IN"){
+   const po=document.getElementById("txPO").value;
+   if(!po){alert("Enter Purchase Order number first");return}
+   window.location=`/api/purchase-orders/${encodeURIComponent(po)}/export`;
+ }else{
+   const co=document.getElementById("txClientOrder").value;
+   if(!co){alert("Enter Client Order number first");return}
+   window.location=`/api/client-orders/${encodeURIComponent(co)}/export`;
+ }
+}
+
+document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();addPOLine();});
+</script>
+</body></html>
