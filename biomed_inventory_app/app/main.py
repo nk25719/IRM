@@ -232,7 +232,10 @@ def find_col(df, possible):
             return lower[c.lower()]
     return None
 
-def import_excel(path: Path):
+def import_excel(path: Path, mode: str = "append_merge"):
+    if mode not in {"append_merge", "replace_all"}:
+        raise ValueError("Import mode must be append_merge or replace_all.")
+
     xls = pd.ExcelFile(path)
     sheet = next((s for s in ["DEDUPLICATED_STOCK", "ONE_MASTER_SHEET", "MASTER_SUMMARY", "MASTER_STOCK", "ERP_RECONCILIATION"] if s in xls.sheet_names), xls.sheet_names[0])
     print(f"Importing Excel: {path.name} | Sheet: {sheet}")
@@ -291,10 +294,20 @@ def import_excel(path: Path):
         except Exception:
             return 0
 
+    def clean_value(value):
+        return "" if value is None else str(value).strip()
+
+    def row_dict(row):
+        return {k: row[k] for k in row.keys()}
+
+    def same_value(left, right):
+        return clean_value(left) == clean_value(right)
+
     conn = db()
-    conn.execute("DELETE FROM inventory")
-    conn.execute("DELETE FROM audit_log")
-    conn.execute("DELETE FROM transactions")
+    if mode == "replace_all":
+        conn.execute("DELETE FROM inventory")
+
+    counts = {"inserted": 0, "updated": 0, "skipped": 0}
 
     for _, r in df.iterrows():
         pn = txt(r, pn_col)
@@ -316,6 +329,73 @@ def import_excel(path: Path):
         difference = physical_qty - system_qty
         status = compute_status(system_qty, physical_qty)
         lookup_url = lookup_url_for(pn, desc)
+        imported = {
+            "pn": pn,
+            "description": desc,
+            "location": loc,
+            "system_qty": system_qty,
+            "physical_qty": physical_qty,
+            "difference": difference,
+            "device_family": family,
+            "status": status,
+            "notes": notes,
+            "source": "EXCEL_IMPORT",
+            "barcode": barcode,
+            "photo_url": photo_url,
+            "lookup_url": lookup_url,
+        }
+
+        existing = conn.execute("""
+            SELECT * FROM inventory
+            WHERE lower(trim(pn)) = lower(trim(?))
+              AND lower(trim(COALESCE(location, ''))) = lower(trim(?))
+            ORDER BY id
+            LIMIT 1
+        """, (pn, loc)).fetchone()
+
+        if existing:
+            old = row_dict(existing)
+            merged = dict(imported)
+
+            for field in ["description", "device_family"]:
+                if not merged[field]:
+                    merged[field] = clean_value(existing[field])
+            for field in ["barcode", "photo_url", "notes"]:
+                if not merged[field]:
+                    merged[field] = clean_value(existing[field])
+
+            merged["lookup_url"] = lookup_url_for(merged["pn"], merged["description"])
+            merged["difference"] = int(merged["physical_qty"] or 0) - int(merged["system_qty"] or 0)
+            merged["status"] = compute_status(int(merged["system_qty"] or 0), int(merged["physical_qty"] or 0))
+
+            tracked_fields = [
+                "pn", "description", "location", "system_qty", "physical_qty", "difference",
+                "device_family", "status", "notes", "barcode", "photo_url", "lookup_url"
+            ]
+            changes = {
+                field: {"old": old[field], "new": merged[field]}
+                for field in tracked_fields
+                if not same_value(old[field], merged[field])
+            }
+
+            if changes:
+                conn.execute("""
+                    UPDATE inventory
+                    SET pn=?, description=?, location=?, system_qty=?, physical_qty=?, difference=?,
+                        device_family=?, status=?, notes=?, source=?, updated_at=?, barcode=?, photo_url=?, lookup_url=?
+                    WHERE id=?
+                """, (
+                    merged["pn"], merged["description"], merged["location"], merged["system_qty"],
+                    merged["physical_qty"], merged["difference"], merged["device_family"],
+                    merged["status"], merged["notes"], merged["source"], now(), merged["barcode"],
+                    merged["photo_url"], merged["lookup_url"], existing["id"]
+                ))
+                audit(conn, existing["id"], "IMPORT_UPDATE", old, changes, f"Imported from {path.name}")
+                counts["updated"] += 1
+            else:
+                audit(conn, existing["id"], "IMPORT_SKIPPED", "", f"PN={pn}; location={loc}", f"No meaningful change from {path.name}")
+                counts["skipped"] += 1
+            continue
 
         cur = conn.execute("""
             INSERT INTO inventory
@@ -323,10 +403,12 @@ def import_excel(path: Path):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (pn, desc, loc, system_qty, physical_qty, difference, family, status, notes, "EXCEL_IMPORT",
               now(), barcode, photo_url, lookup_url))
-        audit(conn, cur.lastrowid, "IMPORT", "", f"PN={pn}; qty={physical_qty}", f"Imported from {path.name}")
+        audit(conn, cur.lastrowid, "IMPORT_INSERT", "", imported, f"Imported from {path.name}")
+        counts["inserted"] += 1
 
     conn.commit()
     conn.close()
+    return counts
 
 def export_excel(path: Path):
     conn = db()
@@ -1343,12 +1425,15 @@ def lookup_description(pn: str, description: str = ""):
     return {"pn": pn, "description": description, "search_url": lookup_url_for(pn, description)}
 
 @app.post("/api/import")
-async def upload_excel(file: UploadFile = File(...)):
+async def upload_excel(file: UploadFile = File(...), mode: str = "append_merge"):
     temp = DATA_DIR / "uploaded_inventory.xlsx"
     temp.write_bytes(await file.read())
-    import_excel(temp)
+    try:
+        result = import_excel(temp, mode=mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     export_excel(EXCEL_PATH)
-    return {"message": "imported", "filename": file.filename}
+    return {"message": "imported", "filename": file.filename, "mode": mode, **result}
 
 @app.post("/api/sync/export")
 def sync_export():

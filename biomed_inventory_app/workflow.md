@@ -1,0 +1,59 @@
+Use this workflow:
+
+## 1. Edit locally first
+
+Work in your local folder:
+
+```bash
+cd ~/Downloads/biomed_inventory_app-3
+```
+
+Edit files:
+
+* UI/design: `app/static/index.html`
+* backend/API/database logic: `app/main.py`
+* dependencies: `requirements.txt`
+
+## 2. Test locally
+
+```bash
+docker build -t cmm-inventory .
+docker run -p 8080:8080 cmm-inventory
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Test the change.
+
+## 3. Deploy online
+
+When it works locally:
+
+```bash
+gcloud run deploy cmm-inventory \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+## 4. Verify live app
+
+Open:
+
+```text
+https://cmm-inventory-979683804007.us-central1.run.app
+```
+
+## 5. Best practice
+
+Before editing, make a backup:
+
+```bash
+cp app/main.py app/main_backup.py
+cp app/static/index.html app/static/index_backup.html
+```
+
