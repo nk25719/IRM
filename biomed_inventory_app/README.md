@@ -155,3 +155,30 @@ Added:
 - Added Client Order Excel export from Transactions
 - QR label payload now includes PN and description
 - Printed QR labels show PN and description clearly
+
+## v4.8 Login + Portal Modules
+
+### Local run with credentials
+
+```bash
+export APP_USERNAME=admin
+export APP_PASSWORD='change-me'
+export SESSION_SECRET='some-long-random-secret'
+uvicorn app.main:app --reload
+```
+
+### Cloud Run environment variables
+
+Set these env vars in Cloud Run deployment:
+- `APP_USERNAME`
+- `APP_PASSWORD`
+- `SESSION_SECRET`
+
+### New routing and auth behavior
+- `/` now redirects to `/login` when logged out, and `/portal` when logged in.
+- `/login` serves login form and validates credentials server-side.
+- `/logout` clears session and redirects to login.
+- `/inventory` serves the existing inventory interface.
+- `/portal` serves module cards (Inventory, PM Tracking, Reports, Admin/Settings placeholder).
+- `/pm` serves PM Tracking placeholder page.
+- Existing inventory APIs and QR/export endpoints remain available but require authentication.

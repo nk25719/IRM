@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>CMM Home Portal</title>
+  <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>CMM Home Portal</h1>
+        <p>Biomedical operations modules</p>
+      </div>
+      <nav class="top-actions" aria-label="Portal navigation">
+        <a href="/inventory">Inventory</a>
+        <a href="/logout">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page-intro" aria-labelledby="portal-title">
+      <h2 id="portal-title">Select a module</h2>
+      <p>Open inventory workflows today, or preview the PM tracking area that will come next.</p>
+    </section>
+
+    <section class="grid" aria-label="Application modules">
+      <a class="card module-card" href="/inventory">
+        <div class="module-icon" aria-hidden="true">I</div>
+        <h3>Inventory</h3>
+        <p>Clean inventory, audit/edit inventory, transactions, purchase orders, QR labels, and exports.</p>
+        <span>Open Inventory</span>
+      </a>
+      <a class="card module-card" href="/pm">
+        <div class="module-icon" aria-hidden="true">P</div>
+        <h3>PM Tracking</h3>
+        <p>Preventive maintenance scheduling, due PMs, completed work, and equipment registry.</p>
+        <span>View Placeholder</span>
+      </a>
+      <a class="card module-card" href="/api/export">
+        <div class="module-icon" aria-hidden="true">R</div>
+        <h3>Reports</h3>
+        <p>Download the current Excel export for inventory, transactions, orders, and audit history.</p>
+        <span>Download Export</span>
+      </a>
+      <a class="card module-card" href="/portal" aria-disabled="true">
+        <div class="module-icon" aria-hidden="true">A</div>
+        <h3>Admin / Settings</h3>
+        <p>Configuration and administration tools placeholder for a future release.</p>
+        <span>Coming Next</span>
+      </a>
+    </section>
+  </main>
+</body>
+</html>

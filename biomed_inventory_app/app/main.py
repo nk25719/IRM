@@ -1,10 +1,12 @@
-
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from pathlib import Path
 import sqlite3, os, shutil, urllib.parse, io, base64
+import html as html_module
+import secrets
 import pandas as pd
 from datetime import datetime
 import qrcode
@@ -18,10 +20,36 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 DB_PATH = Path(os.getenv("DB_PATH", DATA_DIR / "inventory.db"))
 EXCEL_PATH = Path(os.getenv("EXCEL_PATH", DATA_DIR / "inventory_master.xlsx"))
 SEED_PATH = DATA_DIR / "inventory_seed.xlsx"
+APP_USERNAME = os.getenv("APP_USERNAME", "admin")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "admin123")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me")
 
 app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
+PUBLIC_PATHS = {"/login"}
+PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if path in PUBLIC_PATHS:
+        return await call_next(request)
+    if path.startswith("/static") and path.lower().endswith(PUBLIC_STATIC_SUFFIXES):
+        return await call_next(request)
+
+    if not request.session.get("authenticated"):
+        if path.startswith("/api"):
+            return JSONResponse({"detail": "Authentication required"}, status_code=401)
+        return RedirectResponse(url="/login", status_code=303)
+
+    return await call_next(request)
+
+
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
+
 
 class InventoryItem(BaseModel):
     pn: str
@@ -476,8 +504,46 @@ def startup():
     init_db()
 
 @app.get("/")
-def index():
+def index(request: Request):
+    if request.session.get("authenticated"):
+        return RedirectResponse(url="/portal", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
+
+@app.get("/login")
+def login_page(request: Request, error: str = ""):
+    if request.session.get("authenticated"):
+        return RedirectResponse(url="/portal", status_code=303)
+    html = (BASE_DIR / "static" / "login.html").read_text(encoding="utf-8")
+    safe_error = html_module.escape(error.strip())
+    error_markup = f'<div class="alert" role="alert">{safe_error}</div>' if safe_error else ""
+    return HTMLResponse(html.replace("{{ERROR}}", error_markup))
+
+@app.post("/login")
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    username_ok = secrets.compare_digest(username, APP_USERNAME)
+    password_ok = secrets.compare_digest(password, APP_PASSWORD)
+    if username_ok and password_ok:
+        request.session["authenticated"] = True
+        request.session["username"] = username
+        return RedirectResponse(url="/portal", status_code=303)
+    return RedirectResponse(url="/login?error=Invalid%20credentials", status_code=303)
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
+
+@app.get("/portal")
+def portal():
+    return FileResponse(BASE_DIR / "static" / "portal.html")
+
+@app.get("/inventory")
+def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
+
+@app.get("/pm")
+def pm_page():
+    return FileResponse(BASE_DIR / "static" / "pm.html")
 
 
 @app.get("/api/clean-inventory")
