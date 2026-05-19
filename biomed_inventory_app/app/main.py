@@ -542,6 +542,13 @@ def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 @app.get("/pm")
+@app.get("/pm/dashboard")
+@app.get("/pm/due")
+@app.get("/pm/schedule")
+@app.get("/pm/completed")
+@app.get("/pm/equipment")
+@app.get("/pm/engineers")
+@app.get("/pm/reports")
 def pm_page():
     return FileResponse(BASE_DIR / "static" / "pm.html")
 

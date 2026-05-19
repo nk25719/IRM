@@ -6,45 +6,263 @@
   <meta name="theme-color" content="#1f4e78">
   <title>PM Tracking</title>
   <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .module-shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: calc(100vh - 74px);
+    }
+
+    .pm-burger {
+      display: none;
+    }
+
+    .pm-sidebar {
+      background: #ffffff;
+      border-right: 1px solid var(--line);
+      padding: 18px;
+    }
+
+    .pm-sidebar h2 {
+      color: var(--primary-dark);
+      font-size: 15px;
+      margin: 0 0 14px;
+    }
+
+    .pm-menu {
+      display: grid;
+      gap: 8px;
+    }
+
+    .pm-menu a {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      font-weight: 700;
+      padding: 12px;
+      text-decoration: none;
+    }
+
+    .pm-menu a.active,
+    .pm-menu a:hover,
+    .pm-menu a:focus {
+      background: var(--soft);
+      border-color: rgba(15, 118, 110, 0.4);
+      color: var(--accent);
+    }
+
+    .pm-content {
+      padding: 26px 22px 44px;
+    }
+
+    .pm-panel {
+      display: none;
+    }
+
+    .pm-panel.active {
+      display: block;
+    }
+
+    .placeholder-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .placeholder-row {
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      padding: 14px;
+    }
+
+    .placeholder-row span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 820px) {
+      .module-shell {
+        display: block;
+      }
+
+      .pm-burger {
+        background: var(--primary);
+        border: 0;
+        border-radius: 12px;
+        color: #ffffff;
+        display: inline-flex;
+        font-size: 22px;
+        font-weight: 800;
+        height: 44px;
+        justify-content: center;
+        margin: 14px 0 0 14px;
+        width: 48px;
+      }
+
+      .pm-sidebar {
+        bottom: 0;
+        box-shadow: var(--shadow);
+        left: -88vw;
+        max-width: 320px;
+        position: fixed;
+        top: 0;
+        transition: left 180ms ease;
+        width: 86vw;
+        z-index: 30;
+      }
+
+      .pm-sidebar.open {
+        left: 0;
+      }
+
+      .pm-content {
+        padding: 18px 14px 34px;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
         <h1>PM Tracking</h1>
-        <p>Preventive maintenance module coming next</p>
+        <p>Preventive maintenance workspace</p>
       </div>
-      <nav class="top-actions" aria-label="PM navigation">
+      <nav class="top-actions" aria-label="PM top navigation">
         <a href="/portal">Home</a>
+        <a href="/inventory">Inventory</a>
         <a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
 
-  <main class="container">
-    <section class="page-intro" aria-labelledby="pm-title">
-      <h2 id="pm-title">PM Tracking module coming next</h2>
-      <p>This area is reserved for maintenance scheduling, due-work tracking, completion history, and equipment records.</p>
-    </section>
+  <button class="pm-burger" type="button" aria-label="Open PM menu" onclick="togglePMMenu()">☰</button>
 
-    <section class="grid" aria-label="PM tracking placeholders">
-      <article class="card placeholder-card">
-        <h3>Preventive Maintenance Schedule</h3>
-        <p>Planned PM calendar and recurring service schedules.</p>
-      </article>
-      <article class="card placeholder-card">
-        <h3>Due PMs</h3>
-        <p>Upcoming and overdue preventive maintenance tasks.</p>
-      </article>
-      <article class="card placeholder-card">
-        <h3>Completed PMs</h3>
-        <p>Closed work, completion dates, and service notes.</p>
-      </article>
-      <article class="card placeholder-card">
-        <h3>Equipment Registry</h3>
-        <p>Equipment records connected to PM plans and service history.</p>
-      </article>
-    </section>
-  </main>
+  <div class="module-shell">
+    <aside class="pm-sidebar" id="pmSidebar" aria-label="PM module navigation">
+      <h2>PM Menu</h2>
+      <nav class="pm-menu">
+        <a href="/pm/dashboard" data-section="dashboard">Dashboard</a>
+        <a href="/pm/due" data-section="due">Due PMs</a>
+        <a href="/pm/schedule" data-section="schedule">PM Schedule</a>
+        <a href="/pm/equipment" data-section="equipment">Equipment Registry</a>
+        <a href="/pm/completed" data-section="completed">Completed PMs</a>
+        <a href="/pm/engineers" data-section="engineers">Engineers</a>
+        <a href="/pm/reports" data-section="reports">Reports</a>
+      </nav>
+    </aside>
+
+    <main class="pm-content">
+      <section class="pm-panel" id="dashboard">
+        <div class="page-intro">
+          <h2>PM Dashboard</h2>
+          <p>Module dashboard placeholder for upcoming PM workload, overdue work, and monthly completion metrics.</p>
+        </div>
+        <div class="grid">
+          <article class="card placeholder-card"><h3>Due Today</h3><p>Daily PM workload summary will appear here.</p></article>
+          <article class="card placeholder-card"><h3>Due This Week</h3><p>Weekly planning and follow-up queue will appear here.</p></article>
+          <article class="card placeholder-card"><h3>Overdue</h3><p>Missed or overdue preventive maintenance will appear here.</p></article>
+        </div>
+      </section>
+
+      <section class="pm-panel" id="due">
+        <div class="page-intro">
+          <h2>Due PMs</h2>
+          <p>Placeholder for PMs due today, this week, and overdue.</p>
+        </div>
+        <div class="placeholder-list">
+          <div class="placeholder-row"><b>Due today list</b><span>Coming next</span></div>
+          <div class="placeholder-row"><b>Due this week list</b><span>Coming next</span></div>
+          <div class="placeholder-row"><b>Overdue escalation list</b><span>Coming next</span></div>
+        </div>
+      </section>
+
+      <section class="pm-panel" id="schedule">
+        <div class="page-intro">
+          <h2>PM Schedule</h2>
+          <p>Placeholder for preventive maintenance schedule planning and calendar assignment.</p>
+        </div>
+        <div class="grid">
+          <article class="card placeholder-card"><h3>Monthly Schedule</h3><p>Calendar view will be added here.</p></article>
+          <article class="card placeholder-card"><h3>Recurring Plans</h3><p>Frequency and recurrence controls will be added here.</p></article>
+        </div>
+      </section>
+
+      <section class="pm-panel" id="equipment">
+        <div class="page-intro">
+          <h2>Equipment Registry</h2>
+          <p>Placeholder for PM equipment, serial numbers, hospitals, locations, and service ownership.</p>
+        </div>
+        <div class="grid">
+          <article class="card placeholder-card"><h3>Assets</h3><p>Asset registry table will be added here.</p></article>
+          <article class="card placeholder-card"><h3>Hospital Equipment</h3><p>Hospital-specific equipment views will be added here.</p></article>
+        </div>
+      </section>
+
+      <section class="pm-panel" id="completed">
+        <div class="page-intro">
+          <h2>Completed PMs</h2>
+          <p>Placeholder for completed maintenance history, dates, engineers, and notes.</p>
+        </div>
+        <div class="card placeholder-card"><h3>Completion Log</h3><p>Closed PM work will be listed here.</p></div>
+      </section>
+
+      <section class="pm-panel" id="engineers">
+        <div class="page-intro">
+          <h2>Engineers</h2>
+          <p>Placeholder for engineer assignments, workload, and service accountability.</p>
+        </div>
+        <div class="card placeholder-card"><h3>Engineer Workload</h3><p>Assignment summaries will be added here.</p></div>
+      </section>
+
+      <section class="pm-panel" id="reports">
+        <div class="page-intro">
+          <h2>PM Reports</h2>
+          <p>Placeholder for PM completion, overdue, hospital schedule, and engineer assignment reports.</p>
+        </div>
+        <div class="grid">
+          <article class="card placeholder-card"><h3>Completion Report</h3><p>Download controls will be added here.</p></article>
+          <article class="card placeholder-card"><h3>Overdue Report</h3><p>Download controls will be added here.</p></article>
+          <article class="card placeholder-card"><h3>Hospital Schedule</h3><p>Download controls will be added here.</p></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const sectionByPath = {
+      "/pm": "dashboard",
+      "/pm/": "dashboard",
+      "/pm/dashboard": "dashboard",
+      "/pm/due": "due",
+      "/pm/schedule": "schedule",
+      "/pm/completed": "completed",
+      "/pm/equipment": "equipment",
+      "/pm/engineers": "engineers",
+      "/pm/reports": "reports"
+    };
+
+    function setPMSection(section) {
+      const selected = section || "dashboard";
+      document.querySelectorAll(".pm-panel").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === selected);
+      });
+      document.querySelectorAll(".pm-menu a").forEach((link) => {
+        link.classList.toggle("active", link.dataset.section === selected);
+      });
+      document.getElementById("pmSidebar").classList.remove("open");
+    }
+
+    function togglePMMenu() {
+      document.getElementById("pmSidebar").classList.toggle("open");
+    }
+
+    setPMSection(sectionByPath[window.location.pathname] || "dashboard");
+  </script>
 </body>
 </html>

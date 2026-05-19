@@ -1252,7 +1252,9 @@ left:-90vw;
   <button onclick="showPanel('inventory');toggleDrawer(false)">Audit / Edit Inventory</button>
   <button onclick="showPanel('transaction');toggleDrawer(false)">In / Out Transactions</button>
   <button onclick="showPanel('po');toggleDrawer(false)">Purchase Orders</button>
+  <button onclick="showPanel('clientOrders');toggleDrawer(false)">Client Orders</button>
   <button onclick="showPanel('history');toggleDrawer(false)">Audit History</button>
+  <button class="light" onclick="showPanel('inventoryReports');toggleDrawer(false)">Reports / Exports</button>
   <button class="light" onclick="window.open('/api/qr-labels','_blank')">Generate QR Labels</button>
 </aside>
 <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer(false)"></div>
@@ -1372,6 +1374,28 @@ left:-90vw;
 <div class="table-wrap"><table><thead><tr><th>PO</th><th>PN</th><th>Description</th><th>Qty</th><th>Received Qty</th><th>Location</th><th>Barcode</th><th>Received?</th><th>Action</th></tr></thead><tbody id="poItems"></tbody></table></div>
 </section>
 
+<section class="card panel" id="clientOrders">
+<h2>Client Orders</h2>
+<p class="small">Client orders are created from OUT transactions and can be downloaded as Excel references.</p>
+<button onclick="loadClientOrders()">Refresh Client Orders</button>
+<div class="table-wrap"><table><thead><tr><th>Client Order</th><th>Client / Hospital</th><th>Status</th><th>Expected Date</th><th>Notes</th><th>Updated</th><th>Action</th></tr></thead><tbody id="clientOrdersRows"></tbody></table></div>
+</section>
+
+<section class="card panel" id="inventoryReports">
+<h2>Reports / Exports</h2>
+<p class="small">Inventory reports and Excel exports for stock, transactions, purchase orders, client orders, and audit history.</p>
+<div class="grid">
+<button onclick="downloadExcel()">Download Master Excel Export</button>
+<button class="light" onclick="syncExport()">Sync Database Export</button>
+<button class="secondary" onclick="loadReportFromMenu('missing')">Missing from Shelf</button>
+<button class="secondary" onclick="loadReportFromMenu('found')">Found not in ERP</button>
+<button class="secondary" onclick="loadReportFromMenu('stale')">Dead / Stale Inventory</button>
+<button class="secondary" onclick="loadReportFromMenu('mismatch')">Quantity Mismatches</button>
+<button class="secondary" onclick="loadReportFromMenu('multi-location')">Multiple Locations</button>
+<button class="light" onclick="window.open('/api/qr-labels','_blank')">QR Labels</button>
+</div>
+</section>
+
 <section class="card panel" id="history">
 <h2>Audit Trail / History</h2>
 <button onclick="loadAudit()">Refresh History</button>
@@ -1406,7 +1430,7 @@ function toggleDrawer(force){
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
 async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
-function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='cleanInventory')loadCleanInventory();if(id==='inventory')loadItems();if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='history')loadAudit()}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='cleanInventory')loadCleanInventory();if(id==='inventory')loadItems();if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='clientOrders')loadClientOrders();if(id==='history')loadAudit()}
 async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
 async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}`);renderItems(currentItems);loadDashboard()}
 async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
@@ -1538,6 +1562,15 @@ function selectPO(po,supplier,status,date,notes){
  document.getElementById("poNo").value=po;document.getElementById("poItemNo").value=po;
  document.getElementById("poSupplier").value=supplier;document.getElementById("poStatus").value=status;
  document.getElementById("poDate").value=date;document.getElementById("poNotes").value=notes;
+}
+async function loadClientOrders(){
+ const rows=await api("/api/client-orders");
+ document.getElementById("clientOrdersRows").innerHTML=rows.map(r=>`<tr><td>${esc(r.client_order_no)}</td><td>${esc(r.client_name)}</td><td>${esc(r.status)}</td><td>${esc(r.expected_date)}</td><td>${esc(r.notes)}</td><td>${esc(r.updated_at)}</td><td><a href="/api/client-orders/${encodeURIComponent(r.client_order_no)}/export" target="_blank">Download</a></td></tr>`).join("");
+}
+async function loadReportFromMenu(name){
+ document.getElementById("report").value=name;
+ showPanel("inventory");
+ await loadReport();
 }
 async function loadAudit(){const rows=await api("/api/audit");document.getElementById("audit").innerHTML=rows.map(r=>`<tr><td>${esc(r.created_at)}</td><td>${esc(r.item_id)}</td><td>${esc(r.action)}</td><td>${esc(r.old_value)}</td><td>${esc(r.new_value)}</td><td>${esc(r.notes)}</td></tr>`).join("")}
 async function startSearchScanner(){scanTarget="search";await startScanner()}async function startFormScanner(){scanTarget="form";await startScanner()}async function startTxScanner(){alert('For bulk transactions, please select items from the dropdown. Barcode-to-line selection can be added in the next upgrade.');}

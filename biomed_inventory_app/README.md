@@ -180,5 +180,24 @@ Set these env vars in Cloud Run deployment:
 - `/logout` clears session and redirects to login.
 - `/inventory` serves the existing inventory interface.
 - `/portal` serves module cards (Inventory, PM Tracking, Reports, Admin/Settings placeholder).
-- `/pm` serves PM Tracking placeholder page.
+- `/pm` serves the PM Tracking module shell with PM-specific navigation.
 - Existing inventory APIs and QR/export endpoints remain available but require authentication.
+
+## v4.9 Module-Specific Navigation
+
+The app now behaves as authenticated mini-app modules under the shared portal:
+- `/portal` shows module cards for Inventory, PM Tracking, Reports, and Admin/Settings.
+- `/inventory` contains only inventory navigation: Clean Inventory, Audit/Edit Inventory, Transactions, Purchase Orders, Client Orders, Audit History, QR Labels, and Reports/Exports.
+- `/pm` and `/pm/*` contain a separate PM module shell with its own PM-only burger menu.
+
+PM placeholder routes:
+- `/pm`
+- `/pm/dashboard`
+- `/pm/due`
+- `/pm/schedule`
+- `/pm/completed`
+- `/pm/equipment`
+- `/pm/engineers`
+- `/pm/reports`
+
+PM backend logic is intentionally deferred. Existing inventory APIs remain in their current namespace (`/api/items`, `/api/transactions`, `/api/purchase-orders`, `/api/client-orders`, `/api/audit`, `/api/export`, QR endpoints).
