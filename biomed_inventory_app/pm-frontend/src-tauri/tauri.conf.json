@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PM Tracker Private",
+  "version": "0.1.0",
+  "identifier": "com.private.pmtracker",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "PM Tracker Private",
+        "width": 1440,
+        "height": 920,
+        "resizable": true
+      }
+    ]
+  }
+}

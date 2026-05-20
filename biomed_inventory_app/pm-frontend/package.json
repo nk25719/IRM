@@ -1,20 +1,23 @@
 {
-  "name": "cmm-erp-pm-module",
-  "version": "1.0.0",
+  "name": "pm-local-app",
   "private": true,
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5174",
+    "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 4174"
+    "preview": "vite preview",
+    "test": "node --test test/storage.test.mjs",
+    "desktop:dev": "cargo tauri dev --manifest-path src-tauri/Cargo.toml",
+    "desktop:build": "cargo tauri build --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "4.3.1",
-    "vite": "5.4.10",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "lucide-react": "1.16.0",
-    "xlsx": "0.18.5"
+    "lucide-react": "^1.8.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.10"
+  }
 }

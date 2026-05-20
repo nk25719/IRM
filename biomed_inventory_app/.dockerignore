@@ -4,3 +4,7 @@ __pycache__
 .firebase
 .git
 node_modules
+**/node_modules
+pm-frontend/.git
+pm-frontend/dist
+*.DS_Store
