@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>CMM CRM Clients</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .filters{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:18px 0}
+    input,select{border:1px solid var(--line);border-radius:10px;font:inherit;min-height:42px;padding:10px;width:100%}
+    .client-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+    .client-card{display:flex;flex-direction:column;gap:14px;min-height:260px}
+    .client-card h3{color:var(--primary-dark);font-size:20px;margin:0}.client-card p{color:var(--muted);margin:0}
+    .metric-row{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mini-metric{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px}
+    .mini-metric span{color:var(--muted);display:block;font-size:12px}.mini-metric b{color:var(--primary);display:block;font-size:18px}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.actions a{border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-weight:800;padding:9px 11px;text-decoration:none}.actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .empty{background:#fff;border:1px dashed var(--line);border-radius:14px;color:var(--muted);padding:24px}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><h1>CRM / Clients</h1><p>Client-centric biomedical ERP workspaces</p></div>
+      <nav class="top-actions" aria-label="CRM top navigation">
+        <a href="/portal">Portal</a><a href="/inventory">Inventory</a><a href="/pm">PM Tracking</a><a href="/logout">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page-intro">
+      <h2>Hospital CRM Hub</h2>
+      <p>Open a hospital profile to see client-specific contracts, equipment, warranties, PMs, service calls, orders, quotations, contacts, communications, reports, notes, and attachments.</p>
+    </section>
+    <section class="card">
+      <div class="filters">
+        <input id="search" placeholder="Search hospital, city, contact, engineer">
+        <input id="city" placeholder="City">
+        <select id="contractStatus"><option value="">All contract status</option><option value="active">Active contracts</option><option value="needs_review">Needs review</option></select>
+        <input id="engineer" placeholder="Engineer">
+        <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        <button class="btn" onclick="loadClients()">Search</button>
+      </div>
+    </section>
+    <section id="clientGrid" class="client-grid" aria-label="CRM clients"></section>
+  </main>
+
+  <script>
+    const searchEl=document.getElementById("search"),cityEl=document.getElementById("city"),contractStatusEl=document.getElementById("contractStatus"),engineerEl=document.getElementById("engineer"),statusEl=document.getElementById("status"),clientGridEl=document.getElementById("clientGrid");
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function metric(label,value){return `<div class="mini-metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`}
+    async function loadClients(){
+      const params=new URLSearchParams({q:searchEl.value,city:cityEl.value,contract_status:contractStatusEl.value,engineer:engineerEl.value,status:statusEl.value});
+      const rows=await api(`/api/crm/clients?${params.toString()}`);
+      clientGridEl.innerHTML=rows.length?rows.map(c=>`
+        <article class="card client-card">
+          <div>
+            <h3>${esc(c.name)}</h3>
+            <p>${esc(c.city||c.address||"Client CRM workspace")}</p>
+          </div>
+          <div class="metric-row">
+            ${metric("Equipment",c.equipment_count)}
+            ${metric("Active contracts",c.active_contracts)}
+            ${metric("Under warranty",c.under_warranty)}
+            ${metric("Open calls",c.open_service_calls)}
+            ${metric("Upcoming PMs",c.upcoming_pms)}
+            ${metric("Last activity",c.last_activity||"None")}
+          </div>
+          <p><b>Main contact:</b> ${esc(c.main_contact||c.contact_email||"Not set")}</p>
+          <div class="actions">
+            <a class="primary" href="/crm/client/${c.id}">Open CRM</a>
+            <a href="/crm/client/${c.id}/contracts">Contracts</a>
+            <a href="/crm/client/${c.id}/pm">PM</a>
+            <a href="/inventory">Inventory</a>
+          </div>
+        </article>`).join(""):`<div class="empty">No clients found yet. Clients are created automatically from PM assets, client orders, and transaction client names.</div>`;
+    }
+    [searchEl,cityEl,contractStatusEl,engineerEl,statusEl].forEach(el=>el.addEventListener("change",loadClients));
+    loadClients();
+  </script>
+</body>
+</html>

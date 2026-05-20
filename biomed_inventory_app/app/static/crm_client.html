@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>CMM Client CRM</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .crm-shell{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 74px)}
+    .crm-burger{display:none}.crm-sidebar{background:#fff;border-right:1px solid var(--line);padding:18px;overflow:auto}.crm-sidebar h2{color:var(--primary-dark);font-size:15px;margin:0 0 14px}.crm-menu{display:grid;gap:8px}.crm-menu a{border:1px solid var(--line);border-radius:10px;color:var(--ink);font-weight:800;padding:11px;text-decoration:none}.crm-menu a.active,.crm-menu a:hover{background:var(--soft);border-color:rgba(15,118,110,.42);color:var(--accent)}
+    .crm-content{padding:24px 22px 44px}.summary{display:grid;gap:14px;grid-template-columns:2fr repeat(4,1fr);margin-bottom:18px}.summary-main{grid-row:span 2}.summary h2{color:var(--primary-dark);font-size:24px;margin:0 0 8px}.summary p{color:var(--muted);margin:0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:22px}
+    .panel{display:none}.panel.active{display:block}.panel h3{color:var(--primary-dark);margin-top:0}.toolbar{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:14px 0}input,select,textarea{border:1px solid var(--line);border-radius:10px;font:inherit;min-height:42px;padding:10px;width:100%}textarea{min-height:96px}.table-wrap{overflow:auto}.crm-table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.crm-table th,.crm-table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left}.crm-table th{background:var(--soft);color:var(--primary-dark)}.placeholder{border:1px dashed var(--line);border-radius:14px;color:var(--muted);padding:18px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}
+    @media(max-width:900px){.crm-shell{display:block}.crm-burger{background:var(--primary);border:0;border-radius:12px;color:#fff;display:inline-flex;font-size:22px;font-weight:800;height:44px;justify-content:center;margin:14px 0 0 14px;width:48px}.crm-sidebar{bottom:0;box-shadow:var(--shadow);left:-88vw;max-width:330px;position:fixed;top:0;transition:left 180ms ease;width:86vw;z-index:30}.crm-sidebar.open{left:0}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.summary-main{grid-column:1/-1}.crm-content{padding:18px 14px 34px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><h1>Client CRM</h1><p>This hospital's ERP profile</p></div>
+      <nav class="top-actions" aria-label="Client CRM top navigation">
+        <a href="/crm">Clients</a><a href="/portal">Portal</a><a href="/inventory">Inventory</a><a href="/pm">PM Tracking</a><a href="/logout">Logout</a>
+      </nav>
+    </div>
+  </header>
+  <button class="crm-burger" type="button" onclick="toggleMenu()" aria-label="Open CRM menu">☰</button>
+  <div class="crm-shell">
+    <aside class="crm-sidebar" id="sidebar" aria-label="Client CRM navigation">
+      <h2>Client Workspace</h2>
+      <nav class="crm-menu" id="crmMenu"></nav>
+    </aside>
+    <main class="crm-content">
+      <section class="summary card" id="summary"></section>
+
+      <section class="panel" id="overview"><h3>Overview</h3><div class="placeholder">Client-specific operational snapshot, alerts, and follow-up queue.</div></section>
+      <section class="panel" id="equipment"><h3>Equipment Registry</h3><div class="toolbar"><input id="equipmentSearch" placeholder="Search equipment, serial, model, engineer"><select id="warrantyFilter"><option value="">All warranties</option><option value="active">Active</option><option value="expiring_soon">Expiring soon</option><option value="expired">Expired</option><option value="unknown">Unknown</option></select><select id="pmFilter"><option value="">All PM status</option><option value="overdue">Overdue</option><option value="due_today">Due today</option><option value="due_this_week">Due this week</option><option value="upcoming">Upcoming</option><option value="completed">Completed</option></select><button class="btn" onclick="loadEquipment()">Search</button></div><div class="table-wrap"><table class="crm-table"><thead><tr><th>Equipment</th><th>Model</th><th>Serial</th><th>Department</th><th>Contract</th><th>Warranty</th><th>PM</th><th>Last PM</th><th>Next PM</th><th>Engineer</th><th>Service</th></tr></thead><tbody id="equipmentRows"></tbody></table></div></section>
+      <section class="panel" id="contracts"><h3>Contracts</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Contract</th><th>Start</th><th>End</th><th>Status</th><th>Equipment</th></tr></thead><tbody id="contractRows"></tbody></table></div></section>
+      <section class="panel" id="warranty"><h3>Under Warranty</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Equipment</th><th>Vendor</th><th>Start</th><th>End</th><th>Status</th><th>Notes</th></tr></thead><tbody id="warrantyRows"></tbody></table></div></section>
+      <section class="panel" id="pm"><h3>PM Tracking</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Due</th><th>Task</th><th>Equipment</th><th>Assigned</th><th>Status</th><th>Completed</th></tr></thead><tbody id="pmRows"></tbody></table></div></section>
+      <section class="panel" id="service-calls"><h3>Service Calls</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Call</th><th>Status</th><th>Engineer</th><th>Issue</th><th>Resolution</th><th>Opened</th></tr></thead><tbody id="callRows"></tbody></table></div><div class="placeholder">Service call creation workflow placeholder.</div></section>
+      <section class="panel" id="purchase-orders"><h3>Purchase Orders</h3><div class="placeholder">Client-linked procurement visibility placeholder. Existing global purchase orders remain in Inventory ERP.</div></section>
+      <section class="panel" id="client-orders"><h3>Client Orders</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Client Order</th><th>Status</th><th>Expected</th><th>Notes</th></tr></thead><tbody id="clientOrderRows"></tbody></table></div></section>
+      <section class="panel" id="offers"><h3>Offers / Quotations</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Quotation</th><th>Date</th><th>Status</th><th>Amount</th><th>Notes</th></tr></thead><tbody id="offerRows"></tbody></table></div><div class="placeholder">Quotation creation and approval workflow placeholder.</div></section>
+      <section class="panel" id="contacts"><h3>Contacts</h3><div class="table-wrap"><table class="crm-table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Notes</th></tr></thead><tbody id="contactRows"></tbody></table></div></section>
+      <section class="panel" id="communications"><h3>Communication History</h3><div class="toolbar"><input id="commType" placeholder="email, call, WhatsApp, meeting"><input id="commUser" placeholder="User"><textarea id="commNote" placeholder="Add communication note"></textarea><button class="btn" onclick="addCommunication()">Add Note</button></div><div class="table-wrap"><table class="crm-table"><thead><tr><th>Date</th><th>Type</th><th>User</th><th>Note</th></tr></thead><tbody id="communicationRows"></tbody></table></div></section>
+      <section class="panel" id="reports"><h3>Reports</h3><div class="placeholder" id="reportBox">Client reports placeholder.</div></section>
+      <section class="panel" id="attachments"><h3>Attachments</h3><div class="placeholder">Attachments placeholder for contracts, invoices, service reports, delivery notes, photos, and documents.</div></section>
+      <section class="panel" id="notes"><h3>Notes</h3><div class="placeholder">Client CRM notes placeholder.</div></section>
+    </main>
+  </div>
+  <script>
+    const clientId=Number(location.pathname.split("/")[3]);let client=null;
+    const sections=[["overview","Overview"],["equipment","Equipment Registry"],["contracts","Contracts"],["warranty","Under Warranty"],["pm","PM Tracking"],["service-calls","Service Calls"],["purchase-orders","Purchase Orders"],["client-orders","Client Orders"],["offers","Offers / Quotations"],["contacts","Contacts"],["communications","Communication History"],["reports","Reports"],["attachments","Attachments"],["notes","Notes"]];
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function toggleMenu(){sidebar.classList.toggle("open")}
+    function activeSection(){const part=location.pathname.split("/")[4]||"overview";return sections.some(s=>s[0]===part)?part:"overview"}
+    function row(cells){return `<tr>${cells.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`}
+    function metric(label,value){return `<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`}
+    function renderSummary(){summary.innerHTML=`<div class="summary-main"><h2>${esc(client.name)}</h2><p>${esc(client.address||client.city||"Client profile")}</p><p><b>Main contact:</b> ${esc(client.main_contact||client.contact_email||"Not set")} · <b>Biomedical:</b> ${esc(client.biomedical_department||"Not set")}</p><p><b>Contract:</b> <span class="badge">${esc(client.contract_status)}</span> · <b>Role:</b> ${esc(client.role)}</p></div>${metric("Devices",client.equipment_count)}${metric("PM compliance",`${client.pm_compliance}%`)}${metric("Warranty alerts",client.warranty_alerts)}${metric("Open quotes",client.open_quotations)}${metric("Open calls",client.open_service_calls)}`}
+    function setSection(section){document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===section));document.querySelectorAll(".crm-menu a").forEach(a=>a.classList.toggle("active",a.dataset.section===section));sidebar.classList.remove("open");if(section==="equipment"||section==="warranty")loadEquipment();if(section==="contracts")loadContracts();if(section==="pm")loadPM();if(section==="service-calls")loadCalls();if(section==="offers")loadOffers();if(section==="contacts")loadContacts();if(section==="communications")loadCommunications();if(section==="client-orders")loadClientOrders();if(section==="reports")loadReports()}
+    function renderMenu(){crmMenu.innerHTML=sections.map(([id,label])=>`<a href="/crm/client/${clientId}/${id}" data-section="${id}">${esc(label)}</a>`).join("");document.querySelectorAll(".crm-menu a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();history.pushState(null,"",a.href);setSection(a.dataset.section)}))}
+    async function loadEquipment(){const params=new URLSearchParams({q:equipmentSearch?.value||"",warranty:warrantyFilter?.value||"",pm_status:pmFilter?.value||""});const rows=await api(`/api/crm/client/${clientId}/equipment?${params}`);equipmentRows.innerHTML=rows.map(e=>row([e.asset_tag,e.model,e.serial_number,e.department,e.contract_no,e.warranty_status,e.timing_status,e.last_pm_date,e.next_pm_date,e.engineer,e.status])).join("");warrantyRows.innerHTML=rows.filter(e=>["active","expiring_soon","expired"].includes(e.warranty_status)).map(e=>row([e.asset_tag,e.vendor,e.warranty_start,e.warranty_end,e.warranty_status,e.warranty_notes])).join("")||row(["No warranty records yet","","","","",""])}
+    async function loadContracts(){const rows=await api(`/api/crm/client/${clientId}/contracts`);contractRows.innerHTML=rows.map(c=>row([c.contract_no,c.contract_start_date,c.contract_end_date,c.status,c.equipment_count])).join("")||row(["No contracts yet","","","",""])}
+    async function loadPM(){const rows=await api(`/api/crm/client/${clientId}/pm`);pmRows.innerHTML=rows.map(p=>row([p.due_date,p.task_name,p.asset_tag,p.assigned_to,p.status,p.completed_date])).join("")||row(["No PM tasks yet","","","","",""])}
+    async function loadCalls(){const rows=await api(`/api/crm/client/${clientId}/service-calls`);callRows.innerHTML=rows.map(c=>row([c.call_no,c.status,c.engineer,c.issue,c.resolution,c.opened_at])).join("")||row(["No service calls yet","","","","",""])}
+    async function loadOffers(){const rows=await api(`/api/crm/client/${clientId}/offers`);offerRows.innerHTML=rows.map(o=>row([o.quotation_no,o.quote_date,o.status,o.amount,o.notes])).join("")||row(["No quotations yet","","","",""])}
+    async function loadContacts(){const rows=await api(`/api/crm/client/${clientId}/contacts`);contactRows.innerHTML=rows.map(c=>row([c.name,c.role,c.email,c.phone,c.notes])).join("")||row(["No contacts yet","","","",""])}
+    async function loadClientOrders(){const rows=await api(`/api/crm/client/${clientId}/client-orders`);clientOrderRows.innerHTML=rows.map(o=>row([o.client_order_no,o.status,o.expected_date,o.notes])).join("")||row(["No client orders yet","","",""])}
+    async function loadCommunications(){const rows=await api(`/api/crm/client/${clientId}/communications`);communicationRows.innerHTML=rows.map(c=>row([c.created_at,c.type,c.user,c.note])).join("")||row(["No communication history yet","","",""])}
+    async function addCommunication(){if(!commNote.value.trim())return alert("Add a note first.");await api(`/api/crm/client/${clientId}/communications`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:commType.value||"note",user:commUser.value,note:commNote.value})});commNote.value="";await loadCommunications()}
+    async function loadReports(){const data=await api(`/api/crm/client/${clientId}/reports`);reportBox.innerHTML=(data.reports||[]).map(r=>`<span class="badge">${esc(r)}</span>`).join(" ")}
+    window.addEventListener("popstate",()=>setSection(activeSection()));
+    async function init(){renderMenu();client=await api(`/api/crm/client/${clientId}`);document.title=`${client.name} CRM`;renderSummary();setSection(activeSection())}
+    init();
+  </script>
+</body>
+</html>

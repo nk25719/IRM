@@ -23,6 +23,7 @@ SEED_PATH = DATA_DIR / "inventory_seed.xlsx"
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "admin123")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me")
+APP_ROLE = os.getenv("APP_ROLE", "admin")
 
 app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -139,6 +140,30 @@ class PMHistoryEntry(BaseModel):
     action: str
     notes: str = ""
     engineer: str = ""
+
+class CRMClient(BaseModel):
+    name: str
+    city: str = ""
+    address: str = ""
+    main_contact: str = ""
+    contact_email: str = ""
+    biomedical_department: str = ""
+    primary_engineer: str = ""
+    status: str = "active"
+    notes: str = ""
+
+class CRMCommunication(BaseModel):
+    type: str = "note"
+    user: str = ""
+    note: str
+
+def current_role(request: Request | None = None) -> str:
+    if request and request.session.get("role"):
+        return request.session.get("role")
+    return APP_ROLE
+
+def can_edit_crm(role: str) -> bool:
+    return role in {"admin", "crm_user", "pm_coordinator", "service_engineer", "procurement"}
 
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -350,10 +375,90 @@ def init_db():
             created_at TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            city TEXT,
+            address TEXT,
+            main_contact TEXT,
+            contact_email TEXT,
+            biomedical_department TEXT,
+            primary_engineer TEXT,
+            status TEXT DEFAULT 'active',
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS crm_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            name TEXT,
+            role TEXT,
+            email TEXT,
+            phone TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS crm_communications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            type TEXT,
+            user TEXT,
+            note TEXT,
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS service_calls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            equipment_id INTEGER,
+            call_no TEXT,
+            status TEXT,
+            engineer TEXT,
+            issue TEXT,
+            resolution TEXT,
+            opened_at TEXT,
+            closed_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quotations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            equipment_id INTEGER,
+            service_call_id INTEGER,
+            quotation_no TEXT,
+            quote_date TEXT,
+            status TEXT,
+            amount REAL DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS crm_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            label TEXT,
+            file_url TEXT,
+            notes TEXT,
+            created_at TEXT
+        )
+    """)
     conn.commit()
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(inventory)").fetchall()]
-    for col in ["barcode", "photo_url", "lookup_url"]:
+    for col in ["barcode", "photo_url", "lookup_url", "client_id", "client_name"]:
         if col not in cols:
             conn.execute(f"ALTER TABLE inventory ADD COLUMN {col} TEXT")
 
@@ -363,10 +468,12 @@ def init_db():
             conn.execute(f"ALTER TABLE transactions ADD COLUMN {col} TEXT")
 
     pm_asset_cols = [r["name"] for r in conn.execute("PRAGMA table_info(pm_assets)").fetchall()]
-    for col in ["engineer", "contact_email", "contract_no", "contract_start_date", "contract_end_date"]:
+    for col in ["engineer", "contact_email", "contract_no", "contract_start_date", "contract_end_date",
+                "client_id", "warranty_start", "warranty_end", "warranty_status", "vendor", "warranty_notes"]:
         if col not in pm_asset_cols:
             conn.execute(f"ALTER TABLE pm_assets ADD COLUMN {col} TEXT")
 
+    ensure_clients_from_existing_data(conn)
     conn.commit()
 
     count = conn.execute("SELECT COUNT(*) AS c FROM inventory").fetchone()["c"]
@@ -567,6 +674,129 @@ def import_excel(path: Path, mode: str = "append_merge"):
     conn.close()
     return counts
 
+def client_key(name: str) -> str:
+    return " ".join(str(name or "").strip().lower().split())
+
+def warranty_status(warranty_end: str = "") -> str:
+    end = parse_iso_date(warranty_end)
+    if not end:
+        return "unknown"
+    today = date.today()
+    if end < today:
+        return "expired"
+    if end <= today + timedelta(days=45):
+        return "expiring_soon"
+    return "active"
+
+def ensure_client(conn, name: str, **defaults) -> int | None:
+    clean_name = str(name or "").strip()
+    if not clean_name:
+        return None
+    existing = conn.execute("SELECT id FROM clients WHERE lower(trim(name))=lower(trim(?))", (clean_name,)).fetchone()
+    if existing:
+        return existing["id"]
+    cur = conn.execute("""
+        INSERT INTO clients
+        (name, city, address, main_contact, contact_email, biomedical_department, primary_engineer, status, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        clean_name,
+        defaults.get("city", ""),
+        defaults.get("address", ""),
+        defaults.get("main_contact", ""),
+        defaults.get("contact_email", ""),
+        defaults.get("biomedical_department", ""),
+        defaults.get("primary_engineer", ""),
+        defaults.get("status", "active"),
+        defaults.get("notes", "Created from existing ERP activity"),
+        now(),
+        now(),
+    ))
+    return cur.lastrowid
+
+def ensure_clients_from_existing_data(conn):
+    client_ids = {}
+    rows = conn.execute("""
+        SELECT hospital AS name, MAX(contact_email) AS contact_email, MAX(engineer) AS primary_engineer
+        FROM pm_assets
+        WHERE COALESCE(hospital, '') != ''
+        GROUP BY hospital
+    """).fetchall()
+    for row in rows:
+        client_ids[client_key(row["name"])] = ensure_client(
+            conn,
+            row["name"],
+            contact_email=row["contact_email"] or "",
+            primary_engineer=row["primary_engineer"] or "",
+            biomedical_department="Biomedical Engineering",
+        )
+    for row in conn.execute("SELECT DISTINCT client_name AS name FROM client_orders WHERE COALESCE(client_name, '') != ''").fetchall():
+        client_ids[client_key(row["name"])] = ensure_client(conn, row["name"])
+    for row in conn.execute("SELECT DISTINCT client_name AS name FROM transactions WHERE COALESCE(client_name, '') != ''").fetchall():
+        client_ids[client_key(row["name"])] = ensure_client(conn, row["name"])
+
+    for key, client_id in client_ids.items():
+        if client_id:
+            conn.execute("UPDATE pm_assets SET client_id=? WHERE lower(trim(COALESCE(hospital, '')))=?", (client_id, key))
+            conn.execute("UPDATE inventory SET client_id=?, client_name=(SELECT name FROM clients WHERE id=?) WHERE lower(trim(COALESCE(client_name, '')))=?", (client_id, client_id, key))
+
+def crm_client_row(conn, client_id: int):
+    ensure_clients_from_existing_data(conn)
+    client = conn.execute("SELECT * FROM clients WHERE id=?", (client_id,)).fetchone()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return dict(client)
+
+def crm_client_metrics(conn, client):
+    client_id = client["id"]
+    name = client["name"]
+    equipment = conn.execute("SELECT COUNT(*) AS c FROM pm_assets WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))", (client_id, name)).fetchone()["c"]
+    active_contracts = conn.execute("""
+        SELECT COUNT(*) AS c FROM (
+            SELECT DISTINCT contract_no FROM pm_assets
+            WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?)))
+              AND COALESCE(contract_no, '') != ''
+              AND (COALESCE(contract_end_date, '') = '' OR contract_end_date >= ?)
+        )
+    """, (client_id, name, date.today().isoformat())).fetchone()["c"]
+    warranty_assets = conn.execute("""
+        SELECT warranty_end FROM pm_assets
+        WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+    """, (client_id, name)).fetchall()
+    under_warranty = sum(1 for row in warranty_assets if warranty_status(row["warranty_end"]) in {"active", "expiring_soon"})
+    warranty_alerts = sum(1 for row in warranty_assets if warranty_status(row["warranty_end"]) in {"expired", "expiring_soon"})
+    open_calls = conn.execute("SELECT COUNT(*) AS c FROM service_calls WHERE client_id=? AND lower(COALESCE(status, 'open')) NOT IN ('closed', 'resolved', 'cancelled')", (client_id,)).fetchone()["c"]
+    upcoming_pms = conn.execute("""
+        SELECT COUNT(*) AS c FROM pm_assets
+        WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?)))
+          AND COALESCE(next_pm_date, '') >= ?
+          AND COALESCE(next_pm_date, '') <= ?
+    """, (client_id, name, date.today().isoformat(), (date.today() + timedelta(days=30)).isoformat())).fetchone()["c"]
+    total_pm = conn.execute("SELECT COUNT(*) AS c FROM pm_tasks t JOIN pm_assets a ON a.id=t.asset_id WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))", (client_id, name)).fetchone()["c"]
+    completed_pm = conn.execute("SELECT COUNT(*) AS c FROM pm_tasks t JOIN pm_assets a ON a.id=t.asset_id WHERE (a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))) AND lower(t.status)='completed'", (client_id, name)).fetchone()["c"]
+    open_quotations = conn.execute("SELECT COUNT(*) AS c FROM quotations WHERE client_id=? AND lower(COALESCE(status, 'draft')) IN ('draft', 'sent')", (client_id,)).fetchone()["c"]
+    last_activity = conn.execute("""
+        SELECT MAX(activity_at) AS last_activity FROM (
+            SELECT updated_at AS activity_at FROM clients WHERE id=?
+            UNION ALL SELECT updated_at FROM pm_assets WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+            UNION ALL SELECT created_at FROM crm_communications WHERE client_id=?
+            UNION ALL SELECT updated_at FROM service_calls WHERE client_id=?
+            UNION ALL SELECT updated_at FROM quotations WHERE client_id=?
+        )
+    """, (client_id, client_id, name, client_id, client_id, client_id)).fetchone()["last_activity"]
+    return {
+        "equipment_count": int(equipment or 0),
+        "active_contracts": int(active_contracts or 0),
+        "under_warranty": int(under_warranty or 0),
+        "warranty_alerts": int(warranty_alerts or 0),
+        "open_service_calls": int(open_calls or 0),
+        "upcoming_pms": int(upcoming_pms or 0),
+        "open_quotations": int(open_quotations or 0),
+        "pm_compliance": round((completed_pm / total_pm) * 100) if total_pm else 0,
+        "last_activity": last_activity or "",
+        "contract_status": "active" if active_contracts else "needs_review",
+    }
+
 def export_excel(path: Path):
     conn = db()
     df = pd.read_sql_query("SELECT * FROM inventory ORDER BY location, pn", conn)
@@ -578,6 +808,10 @@ def export_excel(path: Path):
     pm_assets_df = pd.read_sql_query("SELECT * FROM pm_assets ORDER BY hospital, next_pm_date", conn)
     pm_tasks_df = pd.read_sql_query("SELECT * FROM pm_tasks ORDER BY due_date", conn)
     pm_history_df = pd.read_sql_query("SELECT * FROM pm_history ORDER BY created_at DESC", conn)
+    clients_df = pd.read_sql_query("SELECT * FROM clients ORDER BY name", conn)
+    communications_df = pd.read_sql_query("SELECT * FROM crm_communications ORDER BY created_at DESC", conn)
+    service_calls_df = pd.read_sql_query("SELECT * FROM service_calls ORDER BY created_at DESC", conn)
+    quotations_df = pd.read_sql_query("SELECT * FROM quotations ORDER BY quote_date DESC", conn)
     conn.close()
 
     if df.empty:
@@ -625,6 +859,10 @@ def export_excel(path: Path):
         pm_assets_df.to_excel(writer, sheet_name="PM_ASSETS", index=False)
         pm_tasks_df.to_excel(writer, sheet_name="PM_TASKS", index=False)
         pm_history_df.to_excel(writer, sheet_name="PM_HISTORY", index=False)
+        clients_df.to_excel(writer, sheet_name="CRM_CLIENTS", index=False)
+        communications_df.to_excel(writer, sheet_name="CRM_COMMUNICATIONS", index=False)
+        service_calls_df.to_excel(writer, sheet_name="SERVICE_CALLS", index=False)
+        quotations_df.to_excel(writer, sheet_name="QUOTATIONS", index=False)
         audit_df.to_excel(writer, sheet_name="AUDIT_TRAIL", index=False)
         for ws in writer.book.worksheets:
             ws.freeze_panes = "A2"
@@ -660,6 +898,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     if username_ok and password_ok:
         request.session["authenticated"] = True
         request.session["username"] = username
+        request.session["role"] = APP_ROLE
         return RedirectResponse(url="/portal", status_code=303)
     return RedirectResponse(url="/login?error=Invalid%20credentials", status_code=303)
 
@@ -676,11 +915,223 @@ def portal():
 def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
+@app.get("/crm")
+def crm_page():
+    return FileResponse(BASE_DIR / "static" / "crm.html")
+
+@app.get("/crm/client/{client_id}")
+@app.get("/crm/client/{client_id}/{section:path}")
+def crm_client_page(client_id: int, section: str = ""):
+    return FileResponse(BASE_DIR / "static" / "crm_client.html")
+
 @app.get("/pm")
 @app.get("/pm/")
 @app.get("/pm/{path:path}")
 def pm_page(path: str = ""):
     return FileResponse(BASE_DIR / "static" / "pm" / "index.html")
+
+
+@app.get("/api/crm/clients")
+def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer: str = "", status: str = ""):
+    conn = db()
+    ensure_clients_from_existing_data(conn)
+    conn.commit()
+    rows = [dict(r) for r in conn.execute("SELECT * FROM clients ORDER BY name").fetchall()]
+    result = []
+    for client in rows:
+        metrics = crm_client_metrics(conn, client)
+        row = {**client, **metrics}
+        matches = True
+        if q:
+            text = " ".join(str(row.get(k, "")) for k in ["name", "city", "address", "main_contact", "primary_engineer"]).lower()
+            matches = q.lower() in text
+        if city and city.lower() not in str(row.get("city", "")).lower():
+            matches = False
+        if contract_status and row.get("contract_status") != contract_status:
+            matches = False
+        if engineer and engineer.lower() not in str(row.get("primary_engineer", "")).lower():
+            matches = False
+        if status and row.get("status") != status:
+            matches = False
+        if matches:
+            result.append(row)
+    conn.close()
+    return result
+
+@app.post("/api/crm/clients")
+def create_crm_client(client: CRMClient, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    client_id = ensure_client(
+        conn,
+        client.name,
+        city=client.city,
+        address=client.address,
+        main_contact=client.main_contact,
+        contact_email=client.contact_email,
+        biomedical_department=client.biomedical_department,
+        primary_engineer=client.primary_engineer,
+        status=client.status,
+        notes=client.notes,
+    )
+    conn.commit()
+    conn.close()
+    return {"id": client_id, "message": "client saved"}
+
+@app.get("/api/crm/client/{client_id}")
+def crm_client_detail(client_id: int, request: Request):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    metrics = crm_client_metrics(conn, client)
+    conn.commit()
+    conn.close()
+    return {**client, **metrics, "role": current_role(request), "can_edit": can_edit_crm(current_role(request))}
+
+@app.get("/api/crm/client/{client_id}/equipment")
+def crm_client_equipment(client_id: int, q: str = "", warranty: str = "", pm_status: str = ""):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    rows = [enrich_pm_asset(r) for r in conn.execute("""
+        SELECT * FROM pm_assets
+        WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+        ORDER BY department, asset_tag
+    """, (client_id, client["name"])).fetchall()]
+    result = []
+    for row in rows:
+        row["equipment"] = row.get("asset_tag") or row.get("model") or "Equipment"
+        row["warranty_status"] = row.get("warranty_status") or warranty_status(row.get("warranty_end"))
+        if q:
+            text = " ".join(str(row.get(k, "")) for k in ["asset_tag", "serial_number", "manufacturer", "model", "department", "engineer"]).lower()
+            if q.lower() not in text:
+                continue
+        if warranty and row["warranty_status"] != warranty:
+            continue
+        if pm_status and row["timing_status"] != pm_status:
+            continue
+        result.append(row)
+    conn.close()
+    return result
+
+@app.get("/api/crm/client/{client_id}/contracts")
+def crm_client_contracts(client_id: int):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("""
+        SELECT contract_no, MIN(contract_start_date) AS contract_start_date,
+               MAX(contract_end_date) AS contract_end_date, COUNT(*) AS equipment_count,
+               GROUP_CONCAT(asset_tag, ', ') AS equipment
+        FROM pm_assets
+        WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?)))
+          AND COALESCE(contract_no, '') != ''
+        GROUP BY contract_no
+        ORDER BY contract_end_date, contract_no
+    """, (client_id, client["name"])).fetchall()]
+    today = date.today().isoformat()
+    for row in rows:
+        end = row.get("contract_end_date") or ""
+        row["status"] = "active" if not end or end >= today else "expired"
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/pm")
+def crm_client_pm(client_id: int):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("""
+        SELECT t.*, a.asset_tag, a.hospital, a.department, a.model, a.serial_number
+        FROM pm_tasks t
+        JOIN pm_assets a ON a.id=t.asset_id
+        WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))
+        ORDER BY COALESCE(t.due_date, ''), t.status
+    """, (client_id, client["name"])).fetchall()]
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/offers")
+def crm_client_offers(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("SELECT * FROM quotations WHERE client_id=? ORDER BY quote_date DESC, id DESC", (client_id,)).fetchall()]
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/service-calls")
+def crm_client_service_calls(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("SELECT * FROM service_calls WHERE client_id=? ORDER BY COALESCE(opened_at, created_at) DESC", (client_id,)).fetchall()]
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/contacts")
+def crm_client_contacts(client_id: int):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("SELECT * FROM crm_contacts WHERE client_id=? ORDER BY name", (client_id,)).fetchall()]
+    if not rows and (client.get("main_contact") or client.get("contact_email")):
+        rows = [{
+            "id": "",
+            "client_id": client_id,
+            "name": client.get("main_contact") or "Main contact",
+            "role": client.get("biomedical_department") or "Biomedical department",
+            "email": client.get("contact_email") or "",
+            "phone": "",
+            "notes": "Primary CRM contact placeholder",
+        }]
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/communications")
+def crm_client_communications(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("SELECT * FROM crm_communications WHERE client_id=? ORDER BY created_at DESC", (client_id,)).fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/crm/client/{client_id}/communications")
+def create_crm_communication(client_id: int, entry: CRMCommunication, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    crm_client_row(conn, client_id)
+    cur = conn.execute("""
+        INSERT INTO crm_communications (client_id, type, user, note, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (client_id, entry.type, entry.user or request.session.get("username", role), entry.note, now()))
+    conn.commit()
+    conn.close()
+    return {"id": cur.lastrowid, "message": "communication added"}
+
+@app.get("/api/crm/client/{client_id}/client-orders")
+def crm_client_orders(client_id: int):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("""
+        SELECT * FROM client_orders
+        WHERE lower(trim(client_name))=lower(trim(?))
+        ORDER BY updated_at DESC
+    """, (client["name"],)).fetchall()]
+    conn.close()
+    return rows
+
+@app.get("/api/crm/client/{client_id}/purchase-orders")
+def crm_purchase_orders(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    conn.close()
+    return []
+
+@app.get("/api/crm/client/{client_id}/reports")
+def crm_client_reports(client_id: int):
+    conn = db()
+    client = crm_client_row(conn, client_id)
+    metrics = crm_client_metrics(conn, client)
+    conn.close()
+    return {"client": client, "metrics": metrics, "reports": ["Equipment registry", "PM compliance", "Warranty alerts", "Open service calls", "Quotation pipeline"]}
 
 
 def enrich_pm_asset(asset):

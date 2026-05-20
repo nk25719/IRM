@@ -219,3 +219,34 @@ PM database additions:
 - optional transaction linkage fields: `pm_asset_id`, `pm_asset_tag`
 
 PM assets can link to inventory spare-part PN, barcode, serial number, hospital/client, department, location, engineer, contact email, contract number/dates, service history, and OUT transactions for parts used during PM service. The PM module also supports PM CSV/Excel import and downloadable PM asset, contract, history, completion, overdue, hospital schedule, and engineer assignment reports. Existing inventory APIs remain in their current namespace (`/api/items`, `/api/transactions`, `/api/purchase-orders`, `/api/client-orders`, `/api/audit`, `/api/export`, QR endpoints).
+
+## v5.0 Client-Centric CRM Workspace
+
+The ERP now includes a client CRM navigation layer:
+- `/crm` lists hospital/client workspaces.
+- `/crm/client/{id}` opens a dedicated client ERP profile.
+- Client section routes include `/equipment`, `/contracts`, `/warranty`, `/pm`, `/service-calls`, `/purchase-orders`, `/client-orders`, `/offers`, `/contacts`, `/communications`, `/reports`, `/attachments`, and `/notes`.
+
+CRM API namespace:
+- `/api/crm/clients`
+- `/api/crm/client/{id}`
+- `/api/crm/client/{id}/equipment`
+- `/api/crm/client/{id}/contracts`
+- `/api/crm/client/{id}/pm`
+- `/api/crm/client/{id}/offers`
+- `/api/crm/client/{id}/service-calls`
+- `/api/crm/client/{id}/contacts`
+- `/api/crm/client/{id}/communications`
+- `/api/crm/client/{id}/client-orders`
+- `/api/crm/client/{id}/purchase-orders`
+- `/api/crm/client/{id}/reports`
+
+New CRM tables are additive and non-destructive:
+- `clients`
+- `crm_contacts`
+- `crm_communications`
+- `service_calls`
+- `quotations`
+- `crm_attachments`
+
+Existing PM assets can now carry client and warranty fields (`client_id`, `warranty_start`, `warranty_end`, `warranty_status`, `vendor`, `warranty_notes`). Clients are automatically discovered from PM asset hospitals, client orders, and transaction client names. Editing permissions are role-aware through the session role, with `APP_ROLE` defaulting to `admin` for local development.
