@@ -7,262 +7,142 @@
   <title>PM Tracking</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .module-shell {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      min-height: calc(100vh - 74px);
-    }
-
-    .pm-burger {
-      display: none;
-    }
-
-    .pm-sidebar {
-      background: #ffffff;
-      border-right: 1px solid var(--line);
-      padding: 18px;
-    }
-
-    .pm-sidebar h2 {
-      color: var(--primary-dark);
-      font-size: 15px;
-      margin: 0 0 14px;
-    }
-
-    .pm-menu {
-      display: grid;
-      gap: 8px;
-    }
-
-    .pm-menu a {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      color: var(--ink);
-      font-weight: 700;
-      padding: 12px;
-      text-decoration: none;
-    }
-
-    .pm-menu a.active,
-    .pm-menu a:hover,
-    .pm-menu a:focus {
-      background: var(--soft);
-      border-color: rgba(15, 118, 110, 0.4);
-      color: var(--accent);
-    }
-
-    .pm-content {
-      padding: 26px 22px 44px;
-    }
-
-    .pm-panel {
-      display: none;
-    }
-
-    .pm-panel.active {
-      display: block;
-    }
-
-    .placeholder-list {
-      display: grid;
-      gap: 12px;
-      margin-top: 18px;
-    }
-
-    .placeholder-row {
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      display: flex;
-      justify-content: space-between;
-      padding: 14px;
-    }
-
-    .placeholder-row span {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    @media (max-width: 820px) {
-      .module-shell {
-        display: block;
-      }
-
-      .pm-burger {
-        background: var(--primary);
-        border: 0;
-        border-radius: 12px;
-        color: #ffffff;
-        display: inline-flex;
-        font-size: 22px;
-        font-weight: 800;
-        height: 44px;
-        justify-content: center;
-        margin: 14px 0 0 14px;
-        width: 48px;
-      }
-
-      .pm-sidebar {
-        bottom: 0;
-        box-shadow: var(--shadow);
-        left: -88vw;
-        max-width: 320px;
-        position: fixed;
-        top: 0;
-        transition: left 180ms ease;
-        width: 86vw;
-        z-index: 30;
-      }
-
-      .pm-sidebar.open {
-        left: 0;
-      }
-
-      .pm-content {
-        padding: 18px 14px 34px;
-      }
-    }
+    .module-shell{display:grid;grid-template-columns:290px 1fr;min-height:calc(100vh - 74px)}
+    .pm-burger{display:none}.pm-sidebar{background:#fff;border-right:1px solid var(--line);padding:18px;overflow:auto}.pm-sidebar h2{color:var(--primary-dark);font-size:15px;margin:0 0 14px}.pm-menu{display:grid;gap:8px}.pm-menu a{border:1px solid var(--line);border-radius:10px;color:var(--ink);font-weight:700;padding:12px;text-decoration:none}.pm-menu a.active,.pm-menu a:hover,.pm-menu a:focus{background:var(--soft);border-color:rgba(15,118,110,.4);color:var(--accent)}
+    .pm-metrics{display:grid;gap:8px;margin:16px 0}.pm-metric{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px}.pm-metric span{color:var(--muted);display:block;font-size:12px}.pm-metric b{color:var(--primary);display:block;font-size:20px}
+    .pm-content{padding:26px 22px 44px}.pm-panel{display:none}.pm-panel.active{display:block}.toolbar,.form-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:14px 0}.wide{grid-column:1/-1}label{color:var(--primary-dark);font-weight:700}input,select,textarea{border:1px solid var(--line);border-radius:10px;font:inherit;margin-top:6px;min-height:42px;padding:10px;width:100%}textarea{min-height:86px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.table-wrap{overflow:auto}.pm-table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}.pm-table th,.pm-table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left}.pm-table th{background:var(--soft);color:var(--primary-dark)}.status{border-radius:999px;background:var(--soft);display:inline-block;font-weight:800;padding:4px 8px}
+    @media(max-width:820px){.module-shell{display:block}.pm-burger{background:var(--primary);border:0;border-radius:12px;color:#fff;display:inline-flex;font-size:22px;font-weight:800;height:44px;justify-content:center;margin:14px 0 0 14px;width:48px}.pm-sidebar{bottom:0;box-shadow:var(--shadow);left:-88vw;max-width:320px;position:fixed;top:0;transition:left 180ms ease;width:86vw;z-index:30}.pm-sidebar.open{left:0}.pm-content{padding:18px 14px 34px}}
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand">
-        <h1>PM Tracking</h1>
-        <p>Preventive maintenance workspace</p>
-      </div>
+      <div class="brand"><h1>PM Tracking</h1><p>Preventive maintenance workspace</p></div>
       <nav class="top-actions" aria-label="PM top navigation">
-        <a href="/portal">Home</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/logout">Logout</a>
+        <a href="/portal">Home</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
 
   <button class="pm-burger" type="button" aria-label="Open PM menu" onclick="togglePMMenu()">☰</button>
-
   <div class="module-shell">
     <aside class="pm-sidebar" id="pmSidebar" aria-label="PM module navigation">
       <h2>PM Menu</h2>
       <nav class="pm-menu">
-        <a href="/pm/dashboard" data-section="dashboard">Dashboard</a>
-        <a href="/pm/due" data-section="due">Due PMs</a>
+        <a href="/pm/dashboard" data-section="dashboard">PM Dashboard</a>
         <a href="/pm/schedule" data-section="schedule">PM Schedule</a>
-        <a href="/pm/equipment" data-section="equipment">Equipment Registry</a>
-        <a href="/pm/completed" data-section="completed">Completed PMs</a>
-        <a href="/pm/engineers" data-section="engineers">Engineers</a>
-        <a href="/pm/reports" data-section="reports">Reports</a>
+        <a href="/pm/calendar" data-section="calendar">PM Calendar</a>
+        <a href="/pm/assets" data-section="assets">PM Assets</a>
+        <a href="/pm/reports" data-section="reports">PM Reports</a>
+        <a href="/pm/history" data-section="history">PM History</a>
       </nav>
+      <div class="pm-metrics" id="pmDrawerMetrics"></div>
     </aside>
 
     <main class="pm-content">
       <section class="pm-panel" id="dashboard">
-        <div class="page-intro">
-          <h2>PM Dashboard</h2>
-          <p>Module dashboard placeholder for upcoming PM workload, overdue work, and monthly completion metrics.</p>
-        </div>
-        <div class="grid">
-          <article class="card placeholder-card"><h3>Due Today</h3><p>Daily PM workload summary will appear here.</p></article>
-          <article class="card placeholder-card"><h3>Due This Week</h3><p>Weekly planning and follow-up queue will appear here.</p></article>
-          <article class="card placeholder-card"><h3>Overdue</h3><p>Missed or overdue preventive maintenance will appear here.</p></article>
-        </div>
-      </section>
-
-      <section class="pm-panel" id="due">
-        <div class="page-intro">
-          <h2>Due PMs</h2>
-          <p>Placeholder for PMs due today, this week, and overdue.</p>
-        </div>
-        <div class="placeholder-list">
-          <div class="placeholder-row"><b>Due today list</b><span>Coming next</span></div>
-          <div class="placeholder-row"><b>Due this week list</b><span>Coming next</span></div>
-          <div class="placeholder-row"><b>Overdue escalation list</b><span>Coming next</span></div>
-        </div>
+        <div class="page-intro"><h2>PM Dashboard</h2><p>Preventive maintenance metrics, upcoming work, and hospital coverage.</p></div>
+        <div class="grid" id="pmDashboardCards"></div>
+        <h3>Upcoming PM Work</h3>
+        <div class="table-wrap"><table class="pm-table"><thead><tr><th>Due</th><th>Asset</th><th>Hospital</th><th>Department</th><th>Model</th><th>Status</th></tr></thead><tbody id="pmUpcomingRows"></tbody></table></div>
+        <h3>Contract Visibility</h3>
+        <div class="table-wrap"><table class="pm-table"><thead><tr><th>Hospital</th><th>Contract</th><th>Ends</th><th>Assets</th><th>Status</th></tr></thead><tbody id="pmContractRows"></tbody></table></div>
       </section>
 
       <section class="pm-panel" id="schedule">
-        <div class="page-intro">
-          <h2>PM Schedule</h2>
-          <p>Placeholder for preventive maintenance schedule planning and calendar assignment.</p>
+        <div class="page-intro"><h2>PM Schedule</h2><p>Create, assign, and complete PM tasks.</p></div>
+        <div class="form-grid">
+          <input type="hidden" id="pmTaskId">
+          <label>Asset<select id="pmTaskAsset"></select></label>
+          <label>Task Name<input id="pmTaskName" placeholder="Quarterly PM"></label>
+          <label>Assigned To<input id="pmTaskAssigned" placeholder="Engineer name"></label>
+          <label>Due Date<input id="pmTaskDue" type="date"></label>
+          <label>Status<select id="pmTaskStatus"><option>Open</option><option>In Progress</option><option>Completed</option><option>Missed</option><option>Cancelled</option></select></label>
+          <label>Completed Date<input id="pmTaskCompleted" type="date"></label>
+          <label class="wide">Checklist<textarea id="pmTaskChecklist" placeholder="Electrical safety, battery, calibration, cleaning..."></textarea></label>
+          <label class="wide">Notes<textarea id="pmTaskNotes"></textarea></label>
         </div>
-        <div class="grid">
-          <article class="card placeholder-card"><h3>Monthly Schedule</h3><p>Calendar view will be added here.</p></article>
-          <article class="card placeholder-card"><h3>Recurring Plans</h3><p>Frequency and recurrence controls will be added here.</p></article>
-        </div>
+        <div class="actions"><button class="btn" onclick="savePMTask()">Save PM Task</button><button class="btn light" onclick="clearPMTaskForm()">New Task</button></div>
+        <div class="table-wrap"><table class="pm-table"><thead><tr><th>Due</th><th>Task</th><th>Asset</th><th>Hospital</th><th>Assigned</th><th>Status</th><th>Completed</th><th>Action</th></tr></thead><tbody id="pmTaskRows"></tbody></table></div>
       </section>
 
-      <section class="pm-panel" id="equipment">
-        <div class="page-intro">
-          <h2>Equipment Registry</h2>
-          <p>Placeholder for PM equipment, serial numbers, hospitals, locations, and service ownership.</p>
-        </div>
-        <div class="grid">
-          <article class="card placeholder-card"><h3>Assets</h3><p>Asset registry table will be added here.</p></article>
-          <article class="card placeholder-card"><h3>Hospital Equipment</h3><p>Hospital-specific equipment views will be added here.</p></article>
-        </div>
+      <section class="pm-panel" id="calendar">
+        <div class="page-intro"><h2>PM Calendar</h2><p>Monthly PM view with overdue, due today, due this week, completed, and missed status detection.</p></div>
+        <div class="toolbar"><input id="pmCalendarMonth" type="month"><button class="btn" onclick="loadPMCalendar()">Open Month</button></div>
+        <h3>Overdue PM</h3><div class="table-wrap"><table class="pm-table"><thead><tr><th>Due</th><th>Asset</th><th>Hospital</th><th>Department</th><th>Status</th></tr></thead><tbody id="pmOverdueRows"></tbody></table></div>
+        <h3>Selected Month</h3><div class="table-wrap"><table class="pm-table"><thead><tr><th>Due</th><th>Asset</th><th>Hospital</th><th>Department</th><th>Status</th><th>Timing</th></tr></thead><tbody id="pmCalendarRows"></tbody></table></div>
       </section>
 
-      <section class="pm-panel" id="completed">
-        <div class="page-intro">
-          <h2>Completed PMs</h2>
-          <p>Placeholder for completed maintenance history, dates, engineers, and notes.</p>
+      <section class="pm-panel" id="assets">
+        <div class="page-intro"><h2>PM Assets</h2><p>Register equipment, link inventory spare parts, and issue parts directly to PM service work.</p></div>
+        <div class="toolbar"><input id="pmAssetSearch" placeholder="Search asset, serial, hospital, PN..."><input id="pmAssetHospitalFilter" placeholder="Hospital / client"><select id="pmAssetTiming"><option value="">All timing</option><option value="due_today">Due today</option><option value="due_this_week">Due this week</option><option value="overdue">Overdue</option><option value="completed">Completed</option><option value="missed">Missed</option><option value="upcoming">Upcoming</option></select><button class="btn" onclick="loadPMAssets()">Search</button></div>
+        <div class="form-grid">
+          <input type="hidden" id="pmAssetId">
+          <label>Asset Tag<input id="pmAssetTag" placeholder="ASSET-001"></label><label>Serial Number<input id="pmSerial"></label>
+          <label>Manufacturer<input id="pmManufacturer"></label><label>Model<input id="pmModel"></label>
+          <label>Department<input id="pmDepartment"></label><label>Hospital / Client<input id="pmHospital"></label>
+          <label>Location<input id="pmLocation"></label><label>Frequency Days<input id="pmFrequency" type="number" value="180"></label>
+          <label>Engineer<input id="pmEngineer" placeholder="Engineer name"></label><label>Contact Email<input id="pmContactEmail" type="email"></label>
+          <label>Contract No.<input id="pmContractNo"></label><label>Contract Start<input id="pmContractStart" type="date"></label>
+          <label>Contract End<input id="pmContractEnd" type="date"></label>
+          <label>Next PM Date<input id="pmNextDate" type="date"></label><label>Last PM Date<input id="pmLastDate" type="date"></label>
+          <label>Status<select id="pmStatus"><option>Upcoming</option><option>Hospital notified</option><option>Confirmed</option><option>In Progress</option><option>Completed</option><option>Missed</option><option>On Hold</option></select></label><label>Barcode<input id="pmBarcode"></label>
+          <label class="wide">Linked Inventory Spare Part<select id="pmLinkedPn"></select></label>
+          <label class="wide">Notes<textarea id="pmNotes"></textarea></label>
         </div>
-        <div class="card placeholder-card"><h3>Completion Log</h3><p>Closed PM work will be listed here.</p></div>
-      </section>
-
-      <section class="pm-panel" id="engineers">
-        <div class="page-intro">
-          <h2>Engineers</h2>
-          <p>Placeholder for engineer assignments, workload, and service accountability.</p>
-        </div>
-        <div class="card placeholder-card"><h3>Engineer Workload</h3><p>Assignment summaries will be added here.</p></div>
+        <div class="actions"><button class="btn" onclick="savePMAsset()">Save PM Asset</button><button class="btn light" onclick="clearPMAssetForm()">New Asset</button></div>
+        <h3>Issue Spare Part to PM Asset</h3>
+        <div class="form-grid"><label>PM Asset<select id="pmPartAsset"></select></label><label>Spare Part<select id="pmPartItem"></select></label><label>Qty<input id="pmPartQty" type="number" min="1" value="1"></label><label>Engineer / Notes<input id="pmPartNotes" placeholder="Used during PM service"></label></div>
+        <div class="actions"><button class="btn" onclick="issuePMPart()">Create OUT Transaction</button></div>
+        <div class="table-wrap"><table class="pm-table"><thead><tr><th>Next PM</th><th>Asset</th><th>Serial</th><th>Hospital</th><th>Engineer</th><th>Contract</th><th>Model</th><th>Linked PN</th><th>Status</th><th>Action</th></tr></thead><tbody id="pmAssetRows"></tbody></table></div>
       </section>
 
       <section class="pm-panel" id="reports">
-        <div class="page-intro">
-          <h2>PM Reports</h2>
-          <p>Placeholder for PM completion, overdue, hospital schedule, and engineer assignment reports.</p>
-        </div>
-        <div class="grid">
-          <article class="card placeholder-card"><h3>Completion Report</h3><p>Download controls will be added here.</p></article>
-          <article class="card placeholder-card"><h3>Overdue Report</h3><p>Download controls will be added here.</p></article>
-          <article class="card placeholder-card"><h3>Hospital Schedule</h3><p>Download controls will be added here.</p></article>
-        </div>
+        <div class="page-intro"><h2>PM Reports</h2><p>Download PM completion, overdue, hospital schedule, and engineer assignment reports.</p></div>
+        <div class="form-grid"><label class="wide">Import PM CSV / Excel<input id="pmImportFile" type="file" accept=".csv,.xlsx,.xls"></label></div>
+        <div class="actions"><button class="btn" onclick="importPMFile()">Import PM Assets</button></div>
+        <div class="grid"><button class="btn" onclick="downloadPMReport('completion')">PM Completion Report</button><button class="btn" onclick="downloadPMReport('overdue')">Overdue Report</button><button class="btn" onclick="downloadPMReport('hospital-schedule')">Hospital PM Schedule</button><button class="btn" onclick="downloadPMReport('engineer-assignments')">Engineer Assignment Report</button><button class="btn" onclick="downloadPMReport('assets-export')">PM Asset Export</button><button class="btn" onclick="downloadPMReport('contracts')">Contract Report</button><button class="btn" onclick="downloadPMReport('history')">PM History Report</button></div>
+      </section>
+
+      <section class="pm-panel" id="history">
+        <div class="page-intro"><h2>PM History</h2><p>Service notes, task events, spare-part usage, and completion history.</p></div>
+        <div class="form-grid"><label>Asset<select id="pmHistoryAsset"></select></label><label>Action<input id="pmHistoryAction" placeholder="SERVICE_NOTE"></label><label>Engineer<input id="pmHistoryEngineer"></label><label class="wide">Notes<textarea id="pmHistoryNotes"></textarea></label></div>
+        <div class="actions"><button class="btn" onclick="savePMHistory()">Add History Note</button><button class="btn light" onclick="loadPMHistory()">Refresh History</button></div>
+        <div class="table-wrap"><table class="pm-table"><thead><tr><th>Date</th><th>Asset</th><th>Hospital</th><th>Action</th><th>Engineer</th><th>Notes</th></tr></thead><tbody id="pmHistoryRows"></tbody></table></div>
       </section>
     </main>
   </div>
 
   <script>
-    const sectionByPath = {
-      "/pm": "dashboard",
-      "/pm/": "dashboard",
-      "/pm/dashboard": "dashboard",
-      "/pm/due": "due",
-      "/pm/schedule": "schedule",
-      "/pm/completed": "completed",
-      "/pm/equipment": "equipment",
-      "/pm/engineers": "engineers",
-      "/pm/reports": "reports"
-    };
-
-    function setPMSection(section) {
-      const selected = section || "dashboard";
-      document.querySelectorAll(".pm-panel").forEach((panel) => {
-        panel.classList.toggle("active", panel.id === selected);
-      });
-      document.querySelectorAll(".pm-menu a").forEach((link) => {
-        link.classList.toggle("active", link.dataset.section === selected);
-      });
-      document.getElementById("pmSidebar").classList.remove("open");
-    }
-
-    function togglePMMenu() {
-      document.getElementById("pmSidebar").classList.toggle("open");
-    }
-
-    setPMSection(sectionByPath[window.location.pathname] || "dashboard");
+    let currentPMAssets=[],itemOptionsCache=[];
+    const sectionByPath={"/pm":"dashboard","/pm/":"dashboard","/pm/dashboard":"dashboard","/pm/due":"calendar","/pm/schedule":"schedule","/pm/calendar":"calendar","/pm/assets":"assets","/pm/equipment":"assets","/pm/completed":"calendar","/pm/reports":"reports","/pm/history":"history"};
+    function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
+    async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function togglePMMenu(){document.getElementById("pmSidebar").classList.toggle("open")}
+    function setPMSection(section){const selected=section||"dashboard";document.querySelectorAll(".pm-panel").forEach(p=>p.classList.toggle("active",p.id===selected));document.querySelectorAll(".pm-menu a").forEach(a=>a.classList.toggle("active",a.dataset.section===selected));document.getElementById("pmSidebar").classList.remove("open");if(selected==="dashboard")loadPMDashboard();if(selected==="schedule")loadPMTasks();if(selected==="calendar")loadPMCalendar();if(selected==="assets")loadPMAssets();if(selected==="history")loadPMHistory()}
+    function metricHTML(metrics){return metrics.map(m=>`<div class="pm-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("")}
+    async function loadItemOptions(){itemOptionsCache=await api("/api/item-options?limit=1000");return itemOptionsCache}
+    function assetOptions(){return currentPMAssets.map(a=>`<option value="${a.id}">${esc(a.asset_tag)} — ${esc(a.hospital)} — ${esc(a.model)}</option>`).join("")}
+    function pnOptions(){return itemOptionsCache.map(i=>`<option value="${esc(i.pn)}">${esc(i.pn)} — ${esc(i.description)} — Qty: ${esc(i.physical_qty)}</option>`).join("")}
+    function itemOptions(){return itemOptionsCache.map(i=>`<option value="${i.id}">${esc(i.pn)} — ${esc(i.description)} — Qty: ${esc(i.physical_qty)}</option>`).join("")}
+    async function refreshPMSelectors(){currentPMAssets=await api("/api/pm-assets");const opts=assetOptions();["pmTaskAsset","pmPartAsset","pmHistoryAsset"].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts});document.getElementById("pmLinkedPn").innerHTML=`<option value="">No linked spare part</option>${pnOptions()}`;document.getElementById("pmPartItem").innerHTML=itemOptions()}
+    async function loadPMDashboard(){const d=await api("/api/pm-dashboard");const metrics=[["Total PM Assets",d.total_pm_assets],["PM Due Today",d.pm_due_today],["PM Due This Week",d.pm_due_this_week],["Overdue PM",d.overdue_pm],["Completed This Month",d.completed_this_month]];document.getElementById("pmDrawerMetrics").innerHTML=metricHTML(metrics);document.getElementById("pmDashboardCards").innerHTML=metrics.map(m=>`<article class="card placeholder-card"><h3>${esc(m[0])}</h3><p>${esc(m[1]??0)}</p></article>`).join("");document.getElementById("pmUpcomingRows").innerHTML=(d.upcoming||[]).map(a=>`<tr><td>${esc(a.next_pm_date)}</td><td>${esc(a.asset_tag)}</td><td>${esc(a.hospital)}</td><td>${esc(a.department)}</td><td>${esc(a.model)}</td><td><span class="status">${esc(a.timing_status)}</span></td></tr>`).join("");document.getElementById("pmContractRows").innerHTML=(d.contracts||[]).map(c=>`<tr><td>${esc(c.hospital)}</td><td>${esc(c.contract_no)}</td><td>${esc(c.contract_end_date)}</td><td>${esc(c.asset_count)}</td><td><span class="status">${esc(c.contract_status)}</span></td></tr>`).join("")}
+    async function loadPMAssets(){await loadItemOptions();const q=encodeURIComponent(document.getElementById("pmAssetSearch")?.value||"");const hospital=encodeURIComponent(document.getElementById("pmAssetHospitalFilter")?.value||"");const timing=encodeURIComponent(document.getElementById("pmAssetTiming")?.value||"");const rows=await api(`/api/pm-assets?q=${q}&hospital=${hospital}&timing=${timing}`);currentPMAssets=rows;document.getElementById("pmAssetRows").innerHTML=rows.map(a=>`<tr><td>${esc(a.next_pm_date)}</td><td><b>${esc(a.asset_tag)}</b></td><td>${esc(a.serial_number)}</td><td>${esc(a.hospital)}</td><td>${esc(a.engineer)}</td><td>${esc(a.contract_no)}</td><td>${esc(a.manufacturer)} ${esc(a.model)}</td><td>${esc(a.linked_inventory_pn)}</td><td><span class="status">${esc(a.timing_status)}</span></td><td><button onclick='editPMAsset(${JSON.stringify(a)})'>Edit</button><button onclick="deletePMAsset(${a.id})">Delete</button></td></tr>`).join("");await refreshPMSelectors();await loadPMDashboard()}
+    function clearPMAssetForm(){["pmAssetId","pmAssetTag","pmSerial","pmManufacturer","pmModel","pmDepartment","pmHospital","pmLocation","pmEngineer","pmContactEmail","pmContractNo","pmContractStart","pmContractEnd","pmNextDate","pmLastDate","pmBarcode","pmNotes"].forEach(id=>document.getElementById(id).value="");document.getElementById("pmFrequency").value=180;document.getElementById("pmStatus").value="Upcoming";document.getElementById("pmLinkedPn").value=""}
+    function editPMAsset(a){document.getElementById("pmAssetId").value=a.id||"";document.getElementById("pmAssetTag").value=a.asset_tag||"";document.getElementById("pmSerial").value=a.serial_number||"";document.getElementById("pmManufacturer").value=a.manufacturer||"";document.getElementById("pmModel").value=a.model||"";document.getElementById("pmDepartment").value=a.department||"";document.getElementById("pmHospital").value=a.hospital||"";document.getElementById("pmLocation").value=a.location||"";document.getElementById("pmEngineer").value=a.engineer||"";document.getElementById("pmContactEmail").value=a.contact_email||"";document.getElementById("pmContractNo").value=a.contract_no||"";document.getElementById("pmContractStart").value=a.contract_start_date||"";document.getElementById("pmContractEnd").value=a.contract_end_date||"";document.getElementById("pmFrequency").value=a.frequency_days||180;document.getElementById("pmNextDate").value=a.next_pm_date||"";document.getElementById("pmLastDate").value=a.last_pm_date||"";document.getElementById("pmStatus").value=a.status||"Upcoming";document.getElementById("pmBarcode").value=a.barcode||"";document.getElementById("pmLinkedPn").value=a.linked_inventory_pn||"";document.getElementById("pmNotes").value=a.notes||""}
+    async function savePMAsset(){const id=document.getElementById("pmAssetId").value;const payload={asset_tag:document.getElementById("pmAssetTag").value,serial_number:document.getElementById("pmSerial").value,manufacturer:document.getElementById("pmManufacturer").value,model:document.getElementById("pmModel").value,department:document.getElementById("pmDepartment").value,hospital:document.getElementById("pmHospital").value,location:document.getElementById("pmLocation").value,engineer:document.getElementById("pmEngineer").value,contact_email:document.getElementById("pmContactEmail").value,contract_no:document.getElementById("pmContractNo").value,contract_start_date:document.getElementById("pmContractStart").value,contract_end_date:document.getElementById("pmContractEnd").value,frequency_days:Number(document.getElementById("pmFrequency").value||180),next_pm_date:document.getElementById("pmNextDate").value,last_pm_date:document.getElementById("pmLastDate").value,status:document.getElementById("pmStatus").value,notes:document.getElementById("pmNotes").value,linked_inventory_pn:document.getElementById("pmLinkedPn").value,barcode:document.getElementById("pmBarcode").value};if(!payload.asset_tag){alert("Asset tag is required");return}await api(id?`/api/pm-assets/${id}`:"/api/pm-assets",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});clearPMAssetForm();await loadPMAssets()}
+    async function deletePMAsset(id){if(!confirm("Delete this PM asset and its PM tasks/history?"))return;await api(`/api/pm-assets/${id}`,{method:"DELETE"});await loadPMAssets()}
+    async function loadPMTasks(){await refreshPMSelectors();const rows=await api("/api/pm-tasks");document.getElementById("pmTaskRows").innerHTML=rows.map(t=>`<tr><td>${esc(t.due_date)}</td><td>${esc(t.task_name)}</td><td>${esc(t.asset_tag)}</td><td>${esc(t.hospital)}</td><td>${esc(t.assigned_to)}</td><td><span class="status">${esc(t.status)}</span></td><td>${esc(t.completed_date)}</td><td><button onclick='editPMTask(${JSON.stringify(t)})'>Edit</button></td></tr>`).join("")}
+    function clearPMTaskForm(){["pmTaskId","pmTaskName","pmTaskAssigned","pmTaskDue","pmTaskCompleted","pmTaskChecklist","pmTaskNotes"].forEach(id=>document.getElementById(id).value="");document.getElementById("pmTaskStatus").value="Open"}
+    function editPMTask(t){document.getElementById("pmTaskId").value=t.id||"";document.getElementById("pmTaskAsset").value=t.asset_id||"";document.getElementById("pmTaskName").value=t.task_name||"";document.getElementById("pmTaskAssigned").value=t.assigned_to||"";document.getElementById("pmTaskDue").value=t.due_date||"";document.getElementById("pmTaskStatus").value=t.status||"Open";document.getElementById("pmTaskCompleted").value=t.completed_date||"";document.getElementById("pmTaskChecklist").value=t.checklist||"";document.getElementById("pmTaskNotes").value=t.notes||""}
+    async function savePMTask(){const id=document.getElementById("pmTaskId").value;const payload={asset_id:Number(document.getElementById("pmTaskAsset").value),task_name:document.getElementById("pmTaskName").value,description:"",checklist:document.getElementById("pmTaskChecklist").value,status:document.getElementById("pmTaskStatus").value,assigned_to:document.getElementById("pmTaskAssigned").value,due_date:document.getElementById("pmTaskDue").value,completed_date:document.getElementById("pmTaskCompleted").value,notes:document.getElementById("pmTaskNotes").value};if(!payload.asset_id||!payload.task_name){alert("Asset and task name are required");return}await api(id?`/api/pm-tasks/${id}`:"/api/pm-tasks",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});clearPMTaskForm();await loadPMTasks();await loadPMDashboard()}
+    async function loadPMCalendar(){const month=document.getElementById("pmCalendarMonth").value;const data=await api(`/api/pm-calendar${month?`?month=${encodeURIComponent(month)}`:""}`);document.getElementById("pmOverdueRows").innerHTML=(data.overdue||[]).map(a=>`<tr><td>${esc(a.next_pm_date)}</td><td>${esc(a.asset_tag)}</td><td>${esc(a.hospital)}</td><td>${esc(a.department)}</td><td><span class="status">${esc(a.timing_status)}</span></td></tr>`).join("");document.getElementById("pmCalendarRows").innerHTML=(data.items||[]).map(a=>`<tr><td>${esc(a.next_pm_date)}</td><td>${esc(a.asset_tag)}</td><td>${esc(a.hospital)}</td><td>${esc(a.department)}</td><td>${esc(a.status)}</td><td><span class="status">${esc(a.timing_status)}</span></td></tr>`).join("")}
+    async function issuePMPart(){const asset=currentPMAssets.find(a=>Number(a.id)===Number(document.getElementById("pmPartAsset").value));const item=itemOptionsCache.find(i=>Number(i.id)===Number(document.getElementById("pmPartItem").value));const qty=Number(document.getElementById("pmPartQty").value||1);if(!asset||!item){alert("Choose a PM asset and spare part");return}await api("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({barcode_or_pn:item.pn,qty,direction:"OUT",client_order_no:`PM-${asset.asset_tag}`,client_name:asset.hospital,pm_asset_id:asset.id,notes:`PM asset ${asset.asset_tag}: ${document.getElementById("pmPartNotes").value}`})});alert("Spare part OUT transaction linked to PM asset.");await loadItemOptions();await loadPMHistory();await loadPMDashboard()}
+    function downloadPMReport(report){window.location=`/api/pm-reports?report=${encodeURIComponent(report)}`}
+    async function importPMFile(){const file=document.getElementById("pmImportFile").files[0];if(!file){alert("Choose a CSV or Excel file first");return}const body=new FormData();body.append("file",file);const res=await api("/api/pm-import",{method:"POST",body});alert(`PM import complete. Inserted: ${res.inserted}, Updated: ${res.updated}, Skipped: ${res.skipped}`);await loadPMAssets();await loadPMDashboard()}
+    async function loadPMHistory(){await refreshPMSelectors();const rows=await api("/api/pm-history");document.getElementById("pmHistoryRows").innerHTML=rows.map(h=>`<tr><td>${esc(h.created_at)}</td><td>${esc(h.asset_tag)}</td><td>${esc(h.hospital)}</td><td>${esc(h.action)}</td><td>${esc(h.engineer)}</td><td>${esc(h.notes)}</td></tr>`).join("")}
+    async function savePMHistory(){const payload={asset_id:Number(document.getElementById("pmHistoryAsset").value),action:document.getElementById("pmHistoryAction").value,engineer:document.getElementById("pmHistoryEngineer").value,notes:document.getElementById("pmHistoryNotes").value};if(!payload.asset_id||!payload.action){alert("Asset and action are required");return}await api("/api/pm-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});document.getElementById("pmHistoryAction").value="";document.getElementById("pmHistoryEngineer").value="";document.getElementById("pmHistoryNotes").value="";await loadPMHistory()}
+    loadItemOptions().then(refreshPMSelectors).then(()=>setPMSection(sectionByPath[window.location.pathname]||"dashboard"));
   </script>
 </body>
 </html>

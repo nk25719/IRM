@@ -180,7 +180,7 @@ Set these env vars in Cloud Run deployment:
 - `/logout` clears session and redirects to login.
 - `/inventory` serves the existing inventory interface.
 - `/portal` serves module cards (Inventory, PM Tracking, Reports, Admin/Settings placeholder).
-- `/pm` serves the PM Tracking module shell with PM-specific navigation.
+- `/pm` serves the PM Tracking module shell with PM-specific navigation and PM workflows.
 - Existing inventory APIs and QR/export endpoints remain available but require authentication.
 
 ## v4.9 Module-Specific Navigation
@@ -190,14 +190,32 @@ The app now behaves as authenticated mini-app modules under the shared portal:
 - `/inventory` contains only inventory navigation: Clean Inventory, Audit/Edit Inventory, Transactions, Purchase Orders, Client Orders, Audit History, QR Labels, and Reports/Exports.
 - `/pm` and `/pm/*` contain a separate PM module shell with its own PM-only burger menu.
 
-PM placeholder routes:
+PM module routes:
 - `/pm`
 - `/pm/dashboard`
 - `/pm/due`
 - `/pm/schedule`
+- `/pm/calendar`
 - `/pm/completed`
 - `/pm/equipment`
+- `/pm/assets`
 - `/pm/engineers`
 - `/pm/reports`
+- `/pm/history`
 
-PM backend logic is intentionally deferred. Existing inventory APIs remain in their current namespace (`/api/items`, `/api/transactions`, `/api/purchase-orders`, `/api/client-orders`, `/api/audit`, `/api/export`, QR endpoints).
+PM API endpoints:
+- `/api/pm-assets`
+- `/api/pm-tasks`
+- `/api/pm-history`
+- `/api/pm-dashboard`
+- `/api/pm-calendar`
+- `/api/pm-reports`
+- `/api/pm-import`
+
+PM database additions:
+- `pm_assets`
+- `pm_tasks`
+- `pm_history`
+- optional transaction linkage fields: `pm_asset_id`, `pm_asset_tag`
+
+PM assets can link to inventory spare-part PN, barcode, serial number, hospital/client, department, location, engineer, contact email, contract number/dates, service history, and OUT transactions for parts used during PM service. The PM module also supports PM CSV/Excel import and downloadable PM asset, contract, history, completion, overdue, hospital schedule, and engineer assignment reports. Existing inventory APIs remain in their current namespace (`/api/items`, `/api/transactions`, `/api/purchase-orders`, `/api/client-orders`, `/api/audit`, `/api/export`, QR endpoints).
