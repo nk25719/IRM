@@ -26,6 +26,7 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me
 
 app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 PUBLIC_PATHS = {"/login"}
@@ -676,18 +677,10 @@ def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 @app.get("/pm")
-@app.get("/pm/dashboard")
-@app.get("/pm/due")
-@app.get("/pm/schedule")
-@app.get("/pm/calendar")
-@app.get("/pm/completed")
-@app.get("/pm/equipment")
-@app.get("/pm/assets")
-@app.get("/pm/engineers")
-@app.get("/pm/reports")
-@app.get("/pm/history")
-def pm_page():
-    return FileResponse(BASE_DIR / "static" / "pm.html")
+@app.get("/pm/")
+@app.get("/pm/{path:path}")
+def pm_page(path: str = ""):
+    return FileResponse(BASE_DIR / "static" / "pm" / "index.html")
 
 
 def enrich_pm_asset(asset):
