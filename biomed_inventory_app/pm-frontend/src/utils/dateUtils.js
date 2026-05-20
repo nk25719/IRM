@@ -2,48 +2,43 @@ export function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function getDaysUntil(dateStr) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+export function getDaysUntil(dateString) {
+  if (!dateString) return Number.POSITIVE_INFINITY;
+  const today = new Date(getTodayIsoDate());
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return Number.POSITIVE_INFINITY;
+  return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
 }
 
-export function isDueThisMonth(dateStr) {
-  const target = new Date(dateStr);
-  const today = new Date();
-  return target.getFullYear() === today.getFullYear() && target.getMonth() === today.getMonth();
+export function addMonths(dateString, months) {
+  const base = dateString ? new Date(dateString) : new Date();
+  if (Number.isNaN(base.getTime())) return getTodayIsoDate();
+  base.setMonth(base.getMonth() + Number(months || 0));
+  return base.toISOString().slice(0, 10);
 }
 
 export function getIntervalMonths(pmsPerYear) {
-  const count = Number(pmsPerYear) || 1;
-  return Number((12 / count).toFixed(2));
+  return Math.max(1, Math.round(12 / (Number(pmsPerYear) || 1)));
 }
 
-export function addMonths(dateStr, months) {
-  if (!dateStr) return "";
-  const base = new Date(dateStr);
-  if (Number.isNaN(base.getTime())) return "";
-  const out = new Date(base);
-  out.setMonth(out.getMonth() + months);
-  return out.toISOString().slice(0, 10);
+export function isDueThisMonth(dateString) {
+  if (!dateString) return false;
+  const now = new Date();
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return false;
+  return now.getFullYear() === target.getFullYear() && now.getMonth() === target.getMonth();
 }
 
 export function getTrackingMeta(row) {
-  const status = row.status || "Upcoming";
   const daysUntil = getDaysUntil(row.nextPmDate);
-  const isDoneState = status === "Completed" || status === "Deferred";
-  const isOverdue = !isDoneState && daysUntil < 0;
-  const dueSoon7 = !isDoneState && daysUntil >= 0 && daysUntil <= 7;
-  const dueSoon14 = !isDoneState && daysUntil >= 0 && daysUntil <= 14;
-
-  return {
-    daysUntil,
-    isOverdue,
-    dueSoon7,
-    dueSoon14,
-    intervalMonths: getIntervalMonths(row.pmsPerYear),
-    effectiveStatus: isOverdue ? "Overdue" : status,
-  };
+  const isCompleted = row.status === 'Completed';
+  const isOverdue = !isCompleted && daysUntil < 0;
+  const dueSoon7 = !isCompleted && daysUntil >= 0 && daysUntil <= 7;
+  const dueSoon14 = !isCompleted && daysUntil >= 0 && daysUntil <= 14;
+  const intervalMonths = getIntervalMonths(row.pmsPerYear);
+  let effectiveStatus = row.status || 'Upcoming';
+  if (isCompleted) effectiveStatus = 'Completed';
+  else if (isOverdue) effectiveStatus = 'Overdue';
+  else if (dueSoon7) effectiveStatus = 'Due soon';
+  return { daysUntil, isOverdue, dueSoon7, dueSoon14, intervalMonths, effectiveStatus };
 }

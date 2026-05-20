@@ -1190,7 +1190,7 @@ export default function App() {
             <p className="subtitle">User-friendly PM dashboard with CSV/Excel import, COM history, and reminder tracking.</p>
           </div>
 
-          <div className="actions">
+          <div className="erp-top-actions">
             <a className="button button-soft" href="/portal">ERP Portal</a>
             <a className="button button-soft" href="/inventory">Inventory</a>
             {currentPage === "dashboard" ? (
