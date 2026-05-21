@@ -1,0 +1,37 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:5174",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "CMM ERP PM Tracker",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "shell": {
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Business",
+      "identifier": "com.cmm-erp.pm-tracker",
+      "targets": "all"
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "CMM ERP PM Tracker",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 720
+      }
+    ]
+  }
+}

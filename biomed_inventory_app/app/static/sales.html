@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>CMM Sales</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .grid-2{display:grid;gap:16px;grid-template-columns:360px 1fr}.form-grid{display:grid;gap:10px}input,select,textarea{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px;width:100%}textarea{min-height:90px}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions button,.actions a{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Sales</h1><p>Customer requests, offers, stock reservation, procurement, delivery, and invoicing</p></div><nav class="top-actions"><a href="/portal">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/procurement">Procurement</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a></nav></div></header>
+  <main class="container">
+    <section class="page-intro"><h2>Sales Workflow</h2><p>Customer Request -> Quotation / Pro Forma -> Client Order -> Reserve Stock -> Supplier PO -> Receive -> Delivery Note -> Invoice.</p></section>
+    <section class="grid-2">
+      <form class="card form-grid" onsubmit="createRequest(event)">
+        <h2>Create Customer Request</h2>
+        <input id="clientHospital" required placeholder="Client / hospital">
+        <input id="contactPerson" placeholder="Contact person">
+        <select id="requestSource"><option>call</option><option>email</option><option>WhatsApp</option><option>bid</option><option>customer PO</option></select>
+        <textarea id="requestNotes" placeholder="Notes"></textarea>
+        <textarea id="lineItems" placeholder="One item per line: item | qty | type | unit price | serial"></textarea>
+        <button class="primary">Create Request</button>
+      </form>
+      <section class="card">
+        <div class="actions"><button onclick="loadRequests()">Refresh</button><a href="/api/export">Full Excel Export</a><a href="/reports">Reports</a></div>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Case</th><th>Client</th><th>Status</th><th>Lines</th><th>Workflow Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function parseLines(){return lineItems.value.split("\n").map(x=>x.trim()).filter(Boolean).map(line=>{const [requested_item,qty,item_type,unit_price,serial]=line.split("|").map(v=>(v||"").trim());return{requested_item,quantity:Number(qty||1),item_type:item_type||"spare_part",unit_price:Number(unit_price||0),related_equipment_serial:serial||"",notes:""}})}
+    async function createRequest(e){e.preventDefault();const lines=parseLines();if(!lines.length){alert("Add at least one line item.");return}await api("/api/customer-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_hospital:clientHospital.value,contact_person:contactPerson.value,request_source:requestSource.value,notes:requestNotes.value,lines})});lineItems.value="";requestNotes.value="";await loadRequests()}
+    async function action(id,path){await api(`/api/customer-requests/${id}/${path}`,{method:"POST"});await loadRequests()}
+    async function setStatus(id,status){await api(`/api/customer-requests/${id}/status/${encodeURIComponent(status)}`,{method:"POST"});await loadRequests()}
+    function actionButtons(r){return `<div class="actions"><button onclick="action(${r.id},'generate/quotation')">Quotation</button><button onclick="action(${r.id},'generate/pro_forma')">Pro Forma</button><button onclick="setStatus(${r.id},'approved')">Approve</button><button onclick="setStatus(${r.id},'rejected')">Reject</button><button onclick="action(${r.id},'convert-client-order')">Client Order</button><button onclick="action(${r.id},'reserve-stock')">Reserve</button><button onclick="action(${r.id},'create-po-missing')">PO Missing</button><button onclick="action(${r.id},'receive-po-items')">Receive</button><button onclick="action(${r.id},'delivery-note')">Delivery Note</button><button onclick="action(${r.id},'remove-from-stock')">Remove Stock</button><button onclick="action(${r.id},'invoice')">Invoice</button></div>`}
+    async function loadRequests(){const data=await api("/api/customer-requests");rows.innerHTML=data.map(r=>`<tr><td><b>${esc(r.case_no)}</b><br>${esc(r.request_source)}</td><td>${esc(r.client_hospital)}</td><td><span class="badge">${esc(r.status)}</span></td><td>${(r.lines||[]).map(l=>`${esc(l.requested_item)} (${esc(l.stock_status)} / ${esc(l.procurement_status)})`).join("<br>")}</td><td>${actionButtons(r)}</td></tr>`).join("")||`<tr><td colspan="5">No sales requests yet.</td></tr>`}
+    loadRequests();
+  </script>
+</body>
+</html>
