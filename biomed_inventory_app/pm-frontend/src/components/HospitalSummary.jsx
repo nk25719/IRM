@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2 } from "lucide-react";
+import { AlertTriangle, Building2, Lightbulb } from "lucide-react";
 
 export default function HospitalSummary({
   byHospital,
@@ -31,8 +31,8 @@ export default function HospitalSummary({
           ))}
         </select>
       </div>
+      {quickActions ? <div className="hospital-summary-quick-actions">{quickActions}</div> : null}
       <div className="hospital-list">
-        {quickActions ? <div className="hospital-summary-quick-actions">{quickActions}</div> : null}
         {visibleHospitals.map((item) => (
           <button
             key={item.hospital}
@@ -75,6 +75,14 @@ export default function HospitalSummary({
                 <div className="stat-value">{item.overdue}</div>
               </div>
             </div>
+            {item.overdue || item.dueSoon ? (
+              <div className="recommendation-row">
+                {item.overdue ? <AlertTriangle size={14} /> : <Lightbulb size={14} />}
+                {item.overdue
+                  ? `${item.overdue} overdue item(s). Open detail and send staged follow-up.`
+                  : `${item.dueSoon} due soon. Confirm hospital availability.`}
+              </div>
+            ) : null}
           </button>
         ))}
       </div>

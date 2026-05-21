@@ -24,7 +24,7 @@
     <div class="topbar-inner">
       <div class="brand"><h1>CRM / Clients</h1><p>Client-centric biomedical ERP workspaces</p></div>
       <nav class="top-actions" aria-label="CRM top navigation">
-        <a href="/portal">Portal</a><a href="/inventory">Inventory</a><a href="/pm">PM Tracking</a><a href="/logout">Logout</a>
+        <a href="/portal">Portal</a><a href="/after-sales">After Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
@@ -32,7 +32,7 @@
   <main class="container">
     <section class="page-intro">
       <h2>Hospital CRM Hub</h2>
-      <p>Open a hospital profile to see client-specific contracts, equipment, warranties, PMs, service calls, orders, quotations, contacts, communications, reports, notes, and attachments.</p>
+      <p>Open one hospital profile to review the full client dashboard: profile, offers, requests, orders, pending items, service calls, equipment, financials, and documents.</p>
     </section>
     <section class="card">
       <div class="filters">
@@ -40,7 +40,7 @@
         <input id="city" placeholder="City">
         <select id="contractStatus"><option value="">All contract status</option><option value="active">Active contracts</option><option value="needs_review">Needs review</option></select>
         <input id="engineer" placeholder="Engineer">
-        <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="under review">Under review</option></select>
         <button class="btn" onclick="loadClients()">Search</button>
       </div>
     </section>
@@ -72,9 +72,8 @@
           <p><b>Main contact:</b> ${esc(c.main_contact||c.contact_email||"Not set")}</p>
           <div class="actions">
             <a class="primary" href="/crm/client/${c.id}">Open CRM</a>
-            <a href="/crm/client/${c.id}/contracts">Contracts</a>
-            <a href="/crm/client/${c.id}/pm">PM</a>
-            <a href="/inventory">Inventory</a>
+            <a href="/crm/client/${c.id}/requests">Requests</a>
+            <a href="/crm/client/${c.id}/financials">Financials</a>
           </div>
         </article>`).join(""):`<div class="empty">No clients found yet. Clients are created automatically from PM assets, client orders, and transaction client names.</div>`;
     }

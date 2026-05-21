@@ -147,15 +147,66 @@ class CRMClient(BaseModel):
     address: str = ""
     main_contact: str = ""
     contact_email: str = ""
+    phone: str = ""
     biomedical_department: str = ""
     primary_engineer: str = ""
     status: str = "active"
+    financial_status: str = "good standing"
     notes: str = ""
 
 class CRMCommunication(BaseModel):
     type: str = "note"
     user: str = ""
     note: str
+
+class CustomerRequestLineIn(BaseModel):
+    requested_item: str
+    quantity: int = 1
+    item_type: str = "spare_part"
+    unit_price: float = 0
+    notes: str = ""
+    related_equipment_serial: str = ""
+
+class CustomerRequestIn(BaseModel):
+    client_hospital: str
+    contact_person: str = ""
+    request_source: str = "call"
+    notes: str = ""
+    lines: list[CustomerRequestLineIn]
+
+class DeliverySelection(BaseModel):
+    quantities: dict[int, int] = {}
+
+class EquipmentBidItemIn(BaseModel):
+    description: str
+    expected_qty: int = 1
+    model: str = ""
+    manufacturer: str = ""
+    notes: str = ""
+
+class EquipmentBidIn(BaseModel):
+    client_hospital: str
+    contact_person: str = ""
+    bid_no: str = ""
+    tender_source: str = "bid"
+    status: str = "draft"
+    notes: str = ""
+    items: list[EquipmentBidItemIn] = []
+
+class EquipmentReceivingIn(BaseModel):
+    item_id: int
+    received_qty: int = 0
+    serial_numbers: list[str] = []
+    notes: str = ""
+
+class BiomedicalRecordIn(BaseModel):
+    equipment_id: int
+    data: dict = {}
+
+class DocumentExportRequest(BaseModel):
+    title: str = ""
+    rows: list[dict] = []
+    notes: str = ""
 
 def current_role(request: Request | None = None) -> str:
     if request and request.session.get("role"):
@@ -383,9 +434,13 @@ def init_db():
             address TEXT,
             main_contact TEXT,
             contact_email TEXT,
+            phone TEXT,
             biomedical_department TEXT,
             primary_engineer TEXT,
             status TEXT DEFAULT 'active',
+            financial_status TEXT DEFAULT 'good standing',
+            credit_balance REAL DEFAULT 0,
+            last_payment_date TEXT,
             notes TEXT,
             created_at TEXT,
             updated_at TEXT
@@ -419,6 +474,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER,
             equipment_id INTEGER,
+            request_id INTEGER,
             call_no TEXT,
             status TEXT,
             engineer TEXT,
@@ -455,12 +511,312 @@ def init_db():
             created_at TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS customer_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_no TEXT UNIQUE,
+            client_id INTEGER,
+            client_hospital TEXT,
+            contact_person TEXT,
+            request_source TEXT,
+            status TEXT DEFAULT 'open',
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS customer_request_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id INTEGER,
+            requested_item TEXT,
+            item_type TEXT,
+            quantity INTEGER DEFAULT 1,
+            unit_price REAL DEFAULT 0,
+            notes TEXT,
+            related_equipment_serial TEXT,
+            inventory_item_id INTEGER,
+            pn TEXT,
+            physical_qty INTEGER DEFAULT 0,
+            reserved_qty INTEGER DEFAULT 0,
+            available_qty INTEGER DEFAULT 0,
+            requested_qty INTEGER DEFAULT 0,
+            shortage_qty INTEGER DEFAULT 0,
+            stock_status TEXT DEFAULT 'unavailable',
+            procurement_status TEXT DEFAULT 'not_ordered',
+            linked_purchase_order TEXT,
+            linked_delivery_note TEXT,
+            linked_invoice TEXT,
+            delivered_qty INTEGER DEFAULT 0,
+            invoiced_qty INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sales_case_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id INTEGER,
+            client_id INTEGER,
+            doc_type TEXT,
+            doc_no TEXT,
+            status TEXT,
+            source_document_id INTEGER,
+            quotation_id INTEGER,
+            client_order_id INTEGER,
+            delivery_note_id INTEGER,
+            amount REAL DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sales_case_document_lines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            request_item_id INTEGER,
+            requested_item TEXT,
+            item_type TEXT,
+            quantity INTEGER DEFAULT 1,
+            unit_price REAL DEFAULT 0,
+            line_total REAL DEFAULT 0,
+            notes TEXT,
+            related_equipment_serial TEXT,
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS client_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_order_id INTEGER,
+            client_order_no TEXT,
+            request_id INTEGER,
+            quotation_id INTEGER,
+            request_item_id INTEGER,
+            requested_item TEXT,
+            item_type TEXT,
+            quantity INTEGER DEFAULT 1,
+            unit_price REAL DEFAULT 0,
+            line_total REAL DEFAULT 0,
+            reserved_qty INTEGER DEFAULT 0,
+            delivered_qty INTEGER DEFAULT 0,
+            invoiced_qty INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS stock_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            movement_type TEXT,
+            item_id INTEGER,
+            pn TEXT,
+            qty INTEGER,
+            old_qty INTEGER,
+            new_qty INTEGER,
+            request_id INTEGER,
+            request_item_id INTEGER,
+            delivery_note_id INTEGER,
+            document_no TEXT,
+            client_name TEXT,
+            notes TEXT,
+            created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_bids (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bid_no TEXT UNIQUE,
+            client_id INTEGER,
+            client_hospital TEXT,
+            contact_person TEXT,
+            tender_source TEXT,
+            status TEXT DEFAULT 'draft',
+            technical_offer_no TEXT,
+            supplier_po_no TEXT,
+            packing_list_url TEXT,
+            receiving_status TEXT DEFAULT 'pending',
+            installation_status TEXT DEFAULT 'pending',
+            acceptance_status TEXT DEFAULT 'pending',
+            warranty_status TEXT DEFAULT 'pending',
+            invoice_id INTEGER,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_bid_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bid_id INTEGER,
+            equipment_id INTEGER,
+            description TEXT,
+            manufacturer TEXT,
+            model TEXT,
+            expected_qty INTEGER DEFAULT 1,
+            received_qty INTEGER DEFAULT 0,
+            delivered_qty INTEGER DEFAULT 0,
+            installed_qty INTEGER DEFAULT 0,
+            accepted_qty INTEGER DEFAULT 0,
+            serial_numbers TEXT,
+            missing_qty INTEGER DEFAULT 0,
+            validation_status TEXT DEFAULT 'pending',
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_receiving_validations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bid_id INTEGER,
+            bid_item_id INTEGER,
+            equipment_id INTEGER,
+            expected_qty INTEGER DEFAULT 0,
+            received_qty INTEGER DEFAULT 0,
+            missing_qty INTEGER DEFAULT 0,
+            serial_numbers TEXT,
+            validation_result TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_calibrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            calibration_date TEXT,
+            next_due_date TEXT,
+            calibrated_by TEXT,
+            certificate_attachment TEXT,
+            calibration_result TEXT,
+            standards_used TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_risk_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER UNIQUE,
+            client_id INTEGER,
+            risk_level TEXT DEFAULT 'medium',
+            life_support INTEGER DEFAULT 0,
+            criticality_level TEXT,
+            department_risk_level TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_uptime_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            event_type TEXT,
+            started_at TEXT,
+            ended_at TEXT,
+            downtime_hours REAL DEFAULT 0,
+            failure_category TEXT,
+            recurring_issue INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_recall_notices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            notice_type TEXT,
+            notice_no TEXT,
+            manufacturer TEXT,
+            affected_serial_numbers TEXT,
+            completion_status TEXT DEFAULT 'open',
+            corrective_actions TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_compatibility (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            inventory_item_id INTEGER,
+            part_no TEXT,
+            compatibility_type TEXT,
+            description TEXT,
+            supplier TEXT,
+            substitute_part_no TEXT,
+            equivalent_part_no TEXT,
+            approved INTEGER DEFAULT 1,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pm_checklist_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_type TEXT,
+            manufacturer TEXT,
+            model TEXT,
+            checklist_items TEXT,
+            measurements TEXT,
+            engineer_signature_required INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS installation_qualification_forms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            bid_id INTEGER,
+            site_readiness TEXT,
+            installation_checklist TEXT,
+            environmental_conditions TEXT,
+            networking_power_validation TEXT,
+            engineer_signature TEXT,
+            customer_signature TEXT,
+            status TEXT DEFAULT 'draft',
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS acceptance_testing_forms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            bid_id INTEGER,
+            functionality TEXT,
+            alarms TEXT,
+            calibration_verification TEXT,
+            electrical_safety TEXT,
+            pass_fail_criteria TEXT,
+            customer_approval TEXT,
+            status TEXT DEFAULT 'draft',
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
     conn.commit()
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(inventory)").fetchall()]
-    for col in ["barcode", "photo_url", "lookup_url", "client_id", "client_name"]:
+    for col in ["barcode", "photo_url", "lookup_url", "client_id", "client_name", "reserved_qty"]:
         if col not in cols:
-            conn.execute(f"ALTER TABLE inventory ADD COLUMN {col} TEXT")
+            col_type = "INTEGER DEFAULT 0" if col == "reserved_qty" else "TEXT"
+            conn.execute(f"ALTER TABLE inventory ADD COLUMN {col} {col_type}")
 
     tx_cols = [r["name"] for r in conn.execute("PRAGMA table_info(transactions)").fetchall()]
     for col in ["client_order_no", "client_name", "pm_asset_id", "pm_asset_tag"]:
@@ -469,9 +825,64 @@ def init_db():
 
     pm_asset_cols = [r["name"] for r in conn.execute("PRAGMA table_info(pm_assets)").fetchall()]
     for col in ["engineer", "contact_email", "contract_no", "contract_start_date", "contract_end_date",
-                "client_id", "warranty_start", "warranty_end", "warranty_status", "vendor", "warranty_notes"]:
+                "client_id", "warranty_start", "warranty_end", "warranty_status", "vendor", "warranty_notes",
+                "risk_level", "life_support", "criticality_level", "department_risk_level", "total_uptime_hours",
+                "total_downtime_hours", "outage_frequency", "operational_percentage", "mtbf_hours",
+                "failure_categories", "recurring_issue_flag"]:
         if col not in pm_asset_cols:
-            conn.execute(f"ALTER TABLE pm_assets ADD COLUMN {col} TEXT")
+            col_type = "REAL DEFAULT 0" if col in {"total_uptime_hours", "total_downtime_hours", "operational_percentage", "mtbf_hours"} else "INTEGER DEFAULT 0" if col in {"life_support", "outage_frequency", "recurring_issue_flag"} else "TEXT"
+            conn.execute(f"ALTER TABLE pm_assets ADD COLUMN {col} {col_type}")
+
+    doc_cols = [r["name"] for r in conn.execute("PRAGMA table_info(sales_case_documents)").fetchall()]
+    for col in ["source_document_id", "quotation_id", "client_order_id", "delivery_note_id"]:
+        if col not in doc_cols:
+            conn.execute(f"ALTER TABLE sales_case_documents ADD COLUMN {col} INTEGER")
+
+    co_cols = [r["name"] for r in conn.execute("PRAGMA table_info(client_orders)").fetchall()]
+    for col in ["request_id", "quotation_id", "client_id"]:
+        if col not in co_cols:
+            conn.execute(f"ALTER TABLE client_orders ADD COLUMN {col} INTEGER")
+
+    service_call_cols = [r["name"] for r in conn.execute("PRAGMA table_info(service_calls)").fetchall()]
+    for col, col_type in {
+        "request_id": "INTEGER",
+        "engineer_id": "TEXT",
+        "contract_id": "TEXT",
+        "invoice_id": "INTEGER",
+        "scheduled_at": "TEXT",
+        "visit_started_at": "TEXT",
+        "visit_completed_at": "TEXT",
+        "spare_parts_request": "TEXT",
+        "service_report_url": "TEXT",
+    }.items():
+        if col not in service_call_cols:
+            conn.execute(f"ALTER TABLE service_calls ADD COLUMN {col} {col_type}")
+
+    client_cols = [r["name"] for r in conn.execute("PRAGMA table_info(clients)").fetchall()]
+    for col, col_type in {
+        "phone": "TEXT",
+        "financial_status": "TEXT DEFAULT 'good standing'",
+        "credit_balance": "REAL DEFAULT 0",
+        "last_payment_date": "TEXT",
+    }.items():
+        if col not in client_cols:
+            conn.execute(f"ALTER TABLE clients ADD COLUMN {col} {col_type}")
+
+    po_item_cols = [r["name"] for r in conn.execute("PRAGMA table_info(purchase_order_items)").fetchall()]
+    for col in ["request_id", "request_item_id"]:
+        if col not in po_item_cols:
+            conn.execute(f"ALTER TABLE purchase_order_items ADD COLUMN {col} INTEGER")
+
+    quotation_cols = [r["name"] for r in conn.execute("PRAGMA table_info(quotations)").fetchall()]
+    for col in ["request_id", "contact_person"]:
+        if col not in quotation_cols:
+            col_type = "INTEGER" if col == "request_id" else "TEXT"
+            conn.execute(f"ALTER TABLE quotations ADD COLUMN {col} {col_type}")
+
+    po_cols = [r["name"] for r in conn.execute("PRAGMA table_info(purchase_orders)").fetchall()]
+    for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id"]:
+        if col not in po_cols:
+            conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} INTEGER")
 
     ensure_clients_from_existing_data(conn)
     conn.commit()
@@ -697,17 +1108,19 @@ def ensure_client(conn, name: str, **defaults) -> int | None:
         return existing["id"]
     cur = conn.execute("""
         INSERT INTO clients
-        (name, city, address, main_contact, contact_email, biomedical_department, primary_engineer, status, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (name, city, address, main_contact, contact_email, phone, biomedical_department, primary_engineer, status, financial_status, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         clean_name,
         defaults.get("city", ""),
         defaults.get("address", ""),
         defaults.get("main_contact", ""),
         defaults.get("contact_email", ""),
+        defaults.get("phone", ""),
         defaults.get("biomedical_department", ""),
         defaults.get("primary_engineer", ""),
         defaults.get("status", "active"),
+        defaults.get("financial_status", "good standing"),
         defaults.get("notes", "Created from existing ERP activity"),
         now(),
         now(),
@@ -797,6 +1210,460 @@ def crm_client_metrics(conn, client):
         "contract_status": "active" if active_contracts else "needs_review",
     }
 
+def classify_offer_status(status: str) -> str:
+    text = str(status or "draft").strip().lower()
+    if text in {"approved", "accepted", "won"}:
+        return "approved"
+    if text in {"rejected", "lost", "cancelled"}:
+        return "rejected"
+    if text in {"expired"}:
+        return "expired"
+    return "open"
+
+def classify_order_status(status: str) -> str:
+    text = str(status or "open").strip().lower()
+    if text in {"completed", "closed", "fulfilled"}:
+        return "completed"
+    if "partial" in text:
+        return "partially_fulfilled"
+    return "open"
+
+def crm_client_dashboard_data(conn, client_id: int):
+    client = crm_client_row(conn, client_id)
+    metrics = crm_client_metrics(conn, client)
+    contacts = [dict(r) for r in conn.execute("SELECT * FROM crm_contacts WHERE client_id=? ORDER BY name", (client_id,)).fetchall()]
+    equipment = [dict(r) for r in conn.execute("""
+        SELECT * FROM pm_assets
+        WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+        ORDER BY hospital, department, asset_tag
+    """, (client_id, client["name"])).fetchall()]
+    for item in equipment:
+        item["warranty_status"] = item.get("warranty_status") or warranty_status(item.get("warranty_end", ""))
+    offers = [dict(r) for r in conn.execute("SELECT * FROM quotations WHERE client_id=? ORDER BY quote_date DESC, id DESC", (client_id,)).fetchall()]
+    docs = [dict(r) for r in conn.execute("SELECT * FROM sales_case_documents WHERE client_id=? ORDER BY created_at DESC, id DESC", (client_id,)).fetchall()]
+    requests = [dict(r) for r in conn.execute("""
+        SELECT cr.*,
+               COUNT(cri.id) AS line_count,
+               COALESCE(SUM(cri.quantity * cri.unit_price), 0) AS amount
+        FROM customer_requests cr
+        LEFT JOIN customer_request_items cri ON cri.request_id=cr.id
+        WHERE cr.client_id=?
+        GROUP BY cr.id
+        ORDER BY cr.updated_at DESC
+    """, (client_id,)).fetchall()]
+    orders = [dict(r) for r in conn.execute("""
+        SELECT * FROM client_orders
+        WHERE client_id=? OR lower(trim(client_name))=lower(trim(?))
+        ORDER BY updated_at DESC
+    """, (client_id, client["name"])).fetchall()]
+    service_calls = [dict(r) for r in conn.execute("SELECT * FROM service_calls WHERE client_id=? ORDER BY COALESCE(opened_at, created_at) DESC", (client_id,)).fetchall()]
+    equipment_history = [dict(r) for r in conn.execute("""
+        SELECT h.*, a.asset_tag, a.serial_number, a.model
+        FROM pm_history h
+        JOIN pm_assets a ON a.id=h.asset_id
+        WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))
+        ORDER BY h.created_at DESC
+        LIMIT 50
+    """, (client_id, client["name"])).fetchall()]
+    engineer_activities = [dict(r) for r in conn.execute("""
+        SELECT 'service_call' AS activity_type, call_no AS reference, engineer, status, issue AS notes, updated_at AS activity_at, equipment_id, request_id
+        FROM service_calls
+        WHERE client_id=?
+        UNION ALL
+        SELECT 'pm_history' AS activity_type, a.asset_tag AS reference, h.engineer, h.action AS status, h.notes, h.created_at AS activity_at, h.asset_id AS equipment_id, NULL AS request_id
+        FROM pm_history h
+        JOIN pm_assets a ON a.id=h.asset_id
+        WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))
+        ORDER BY activity_at DESC
+        LIMIT 50
+    """, (client_id, client_id, client["name"])).fetchall()]
+    pending_items = [dict(r) for r in conn.execute("""
+        SELECT cri.*, cr.case_no, cr.client_hospital
+        FROM customer_request_items cri
+        JOIN customer_requests cr ON cr.id=cri.request_id
+        WHERE cr.client_id=?
+          AND (
+            COALESCE(cri.reserved_qty,0) > 0
+            OR COALESCE(cri.shortage_qty,0) > 0
+            OR COALESCE(cri.procurement_status,'') IN ('po_draft','po_sent','supplier_confirmed','partially_received','received')
+            OR (COALESCE(cri.procurement_status,'')='received' AND COALESCE(cri.delivered_qty,0) < COALESCE(cri.quantity,0))
+          )
+        ORDER BY cri.updated_at DESC
+    """, (client_id,)).fetchall()]
+    invoices = [d for d in docs if d.get("doc_type") == "invoice"]
+    paid_invoices = [d for d in invoices if str(d.get("status", "")).lower() == "paid"]
+    overdue_invoices = [d for d in invoices if str(d.get("status", "")).lower() == "overdue"]
+    unpaid_invoices = [d for d in invoices if str(d.get("status", "")).lower() not in {"paid", "cancelled"}]
+    offer_counts = {"all": len(offers), "pro_forma": 0, "approved": 0, "rejected": 0, "expired": 0}
+    for doc in docs:
+        if doc.get("doc_type") == "pro_forma":
+            offer_counts["pro_forma"] += 1
+    for offer in offers:
+        kind = classify_offer_status(offer.get("status", ""))
+        if kind in offer_counts:
+            offer_counts[kind] += 1
+    request_counts = {
+        "all": len(requests),
+        "pending": sum(1 for r in requests if str(r.get("status", "")).lower() in {"open", "pending"}),
+        "in_progress": sum(1 for r in requests if str(r.get("status", "")).lower() in {"client_order_approved", "in_progress", "partially_invoiced"}),
+        "completed": sum(1 for r in requests if str(r.get("status", "")).lower() in {"completed", "invoiced"}),
+        "cancelled": sum(1 for r in requests if str(r.get("status", "")).lower() == "cancelled"),
+    }
+    order_counts = {
+        "all": len(orders),
+        "open": sum(1 for o in orders if classify_order_status(o.get("status", "")) == "open"),
+        "partially_fulfilled": sum(1 for o in orders if classify_order_status(o.get("status", "")) == "partially_fulfilled"),
+        "completed": sum(1 for o in orders if classify_order_status(o.get("status", "")) == "completed"),
+    }
+    financials = {
+        "total_unpaid_invoices": round(sum(float(i.get("amount") or 0) for i in unpaid_invoices), 2),
+        "overdue_invoices": len(overdue_invoices),
+        "paid_invoices": len(paid_invoices),
+        "credit_balance": float(client.get("credit_balance") or 0),
+        "last_payment_date": client.get("last_payment_date") or "",
+        "financial_status": client.get("financial_status") or "good standing",
+        "invoices": invoices,
+    }
+    return {
+        "client": {**client, **metrics},
+        "contacts": contacts,
+        "equipment": equipment,
+        "offers": offers,
+        "documents": docs,
+        "requests": requests,
+        "orders": orders,
+        "service_calls": service_calls,
+        "engineer_activities": engineer_activities,
+        "equipment_history": equipment_history,
+        "pending_items": pending_items,
+        "financials": financials,
+        "counts": {
+            "offers": offer_counts,
+            "requests": request_counts,
+            "orders": order_counts,
+            "service_open": sum(1 for c in service_calls if str(c.get("status", "")).lower() not in {"closed", "resolved", "cancelled"}),
+            "pm_due": sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) in {"due_today", "due_this_week", "overdue"}),
+            "warranty_equipment": sum(1 for e in equipment if warranty_status(e.get("warranty_end", "")) in {"active", "expiring_soon"}),
+            "contract_covered_equipment": sum(1 for e in equipment if e.get("contract_no")),
+        },
+    }
+
+def contract_link_id(hospital: str = "", contract_no: str = "") -> str:
+    return f"{(hospital or '').strip()}::{(contract_no or '').strip()}".strip(":")
+
+def after_sales_dashboard_data(conn):
+    today = date.today()
+    expiring_until = today + timedelta(days=60)
+    service_calls = []
+    for row in conn.execute("""
+        SELECT s.*, c.name AS client_name, a.asset_tag, a.serial_number
+        FROM service_calls s
+        LEFT JOIN clients c ON c.id=s.client_id
+        LEFT JOIN pm_assets a ON a.id=s.equipment_id
+        WHERE lower(COALESCE(s.status, 'open')) NOT IN ('closed', 'resolved', 'cancelled')
+        ORDER BY COALESCE(s.opened_at, s.created_at) DESC
+        LIMIT 20
+    """).fetchall():
+        item = dict(row)
+        item["engineer_id"] = item.get("engineer") or ""
+        item["contract_id"] = ""
+        service_calls.append(item)
+
+    pm_assets = []
+    for row in conn.execute("""
+        SELECT a.*, c.name AS client_name
+        FROM pm_assets a
+        LEFT JOIN clients c ON c.id=a.client_id
+        ORDER BY COALESCE(a.next_pm_date, ''), a.hospital, a.asset_tag
+    """).fetchall():
+        asset = enrich_pm_asset(row)
+        asset["equipment_id"] = asset.get("id")
+        asset["engineer_id"] = asset.get("engineer") or ""
+        asset["contract_id"] = contract_link_id(asset.get("hospital", ""), asset.get("contract_no", ""))
+        asset["request_id"] = None
+        pm_assets.append(asset)
+    pm_due = [a for a in pm_assets if a.get("timing_status") in {"due_today", "due_this_week", "overdue"}]
+    warranty_pm = [
+        a for a in pm_due
+        if warranty_status(a.get("warranty_end", "")) in {"active", "expiring_soon"}
+    ]
+
+    contracts = []
+    for row in conn.execute("""
+        SELECT MIN(a.id) AS equipment_id, a.client_id, a.hospital, a.contract_no,
+               MIN(a.contract_start_date) AS contract_start_date,
+               MAX(a.contract_end_date) AS contract_end_date,
+               COUNT(*) AS equipment_count
+        FROM pm_assets a
+        WHERE COALESCE(a.contract_no, '') != ''
+        GROUP BY a.client_id, a.hospital, a.contract_no
+        ORDER BY COALESCE(a.contract_end_date, ''), a.hospital, a.contract_no
+        LIMIT 30
+    """).fetchall():
+        contract = dict(row)
+        end = parse_iso_date(contract.get("contract_end_date"))
+        if end and end < today:
+            status = "expired"
+        elif end and end <= expiring_until:
+            status = "expiring_soon"
+        else:
+            status = "active" if end or contract.get("contract_no") else ""
+        contract["status"] = status
+        contract["contract_id"] = contract_link_id(contract.get("hospital", ""), contract.get("contract_no", ""))
+        contract["engineer_id"] = ""
+        contract["request_id"] = None
+        contracts.append(contract)
+
+    report_rows = []
+    for row in conn.execute("""
+        SELECT 'service_report' AS report_type, s.id AS source_id, s.client_id, s.equipment_id, s.request_id,
+               s.call_no AS title, s.engineer, s.status, s.updated_at
+        FROM service_calls s
+        WHERE lower(COALESCE(s.status, '')) IN ('closed', 'resolved')
+          AND COALESCE(s.resolution, '') = ''
+        ORDER BY s.updated_at DESC
+        LIMIT 20
+    """).fetchall():
+        item = dict(row)
+        item["engineer_id"] = item.get("engineer") or ""
+        item["contract_id"] = ""
+        report_rows.append(item)
+    for row in conn.execute("""
+        SELECT 'pm_report' AS report_type, t.id AS source_id, a.client_id, a.id AS equipment_id, NULL AS request_id,
+               t.task_name AS title, COALESCE(t.assigned_to, a.engineer) AS engineer, t.status, t.completed_date AS updated_at,
+               a.hospital, a.contract_no
+        FROM pm_tasks t
+        JOIN pm_assets a ON a.id=t.asset_id
+        WHERE lower(COALESCE(t.status, ''))='completed'
+          AND COALESCE(t.notes, '') = ''
+        ORDER BY t.completed_date DESC
+        LIMIT 20
+    """).fetchall():
+        item = dict(row)
+        item["engineer_id"] = item.get("engineer") or ""
+        item["contract_id"] = contract_link_id(item.get("hospital", ""), item.get("contract_no", ""))
+        report_rows.append(item)
+
+    workload = {}
+    for call in service_calls:
+        engineer = (call.get("engineer") or "Unassigned").strip() or "Unassigned"
+        workload.setdefault(engineer, {"engineer_id": engineer, "engineer": engineer, "open_service_calls": 0, "pm_due": 0, "total": 0})
+        workload[engineer]["open_service_calls"] += 1
+        workload[engineer]["total"] += 1
+    for asset in pm_due:
+        engineer = (asset.get("engineer") or "Unassigned").strip() or "Unassigned"
+        workload.setdefault(engineer, {"engineer_id": engineer, "engineer": engineer, "open_service_calls": 0, "pm_due": 0, "total": 0})
+        workload[engineer]["pm_due"] += 1
+        workload[engineer]["total"] += 1
+
+    active_contracts = [c for c in contracts if c.get("status") in {"active", "expiring_soon"}]
+    expiring_contracts = [c for c in contracts if c.get("status") == "expiring_soon"]
+    return {
+        "metrics": {
+            "open_service_calls": len(service_calls),
+            "pm_visits_due": len(pm_due),
+            "active_contracts": len(active_contracts),
+            "expiring_contracts": len(expiring_contracts),
+            "reports_pending": len(report_rows),
+            "engineer_workload": sum(w["total"] for w in workload.values()),
+            "warranty_equipment_needing_pm": len(warranty_pm),
+        },
+        "service_calls": service_calls,
+        "pm_due": pm_due[:20],
+        "pm_completed": [enrich_pm_asset(r) for r in conn.execute("""
+            SELECT a.*, c.name AS client_name
+            FROM pm_assets a
+            LEFT JOIN clients c ON c.id=a.client_id
+            WHERE lower(COALESCE(a.status, ''))='completed'
+            ORDER BY a.updated_at DESC
+            LIMIT 20
+        """).fetchall()],
+        "contracts": contracts,
+        "reports_pending": report_rows,
+        "engineer_workload": sorted(workload.values(), key=lambda item: item["total"], reverse=True),
+        "warranty_pm": warranty_pm[:20],
+        "submodules": [
+            {"name": "Service Calls", "path": "/after-sales/service-calls", "existing_route": "/crm", "description": "Corrective maintenance, labor, spare parts + installation, assignments, statuses, and service history."},
+            {"name": "PM Tracking", "path": "/after-sales/pm-tracking", "existing_route": "/pm", "description": "Schedules, due lists, completed PMs, engineer assignment, PM reports, and warranty PM tracking."},
+            {"name": "Contracts", "path": "/after-sales/contracts", "existing_route": "/pm/contracts", "description": "Maintenance contracts, warranty contracts, covered equipment, dates, and status."},
+            {"name": "Reports", "path": "/after-sales/reports", "existing_route": "/pm/reports", "description": "Service, PM, engineer, client, and equipment history reports."},
+        ],
+    }
+
+STOCK_ITEM_TYPES = {"spare_part", "accessory", "new_equipment"}
+SERVICE_ITEM_TYPES = {"labor", "service", "maintenance_contract"}
+
+def stock_status_for(requested_qty: int, available_qty: int, reserved_qty: int = 0, delivered_qty: int = 0, invoiced_qty: int = 0) -> str:
+    if invoiced_qty >= requested_qty and requested_qty > 0:
+        return "invoiced"
+    if delivered_qty >= requested_qty and requested_qty > 0:
+        return "delivered"
+    if delivered_qty > 0:
+        return "partially_delivered"
+    if reserved_qty >= requested_qty and requested_qty > 0:
+        return "reserved"
+    if reserved_qty > 0:
+        return "partially_reserved"
+    if available_qty >= requested_qty:
+        return "available"
+    if available_qty > 0:
+        return "partially_available"
+    return "unavailable"
+
+def find_inventory_for_request_item(conn, requested_item: str):
+    text = (requested_item or "").strip()
+    if not text:
+        return None
+    return conn.execute("""
+        SELECT * FROM inventory
+        WHERE lower(trim(pn))=lower(trim(?))
+           OR lower(trim(barcode))=lower(trim(?))
+           OR lower(trim(description))=lower(trim(?))
+        ORDER BY physical_qty DESC, id
+        LIMIT 1
+    """, (text, text, text)).fetchone()
+
+def enrich_case_line(conn, line):
+    row = dict(line)
+    requested_qty = int(row.get("quantity") or row.get("requested_qty") or 0)
+    item_type = (row.get("item_type") or "").strip()
+    inv = None
+    if item_type in STOCK_ITEM_TYPES:
+        inv = conn.execute("SELECT * FROM inventory WHERE id=?", (row.get("inventory_item_id"),)).fetchone() if row.get("inventory_item_id") else find_inventory_for_request_item(conn, row.get("requested_item", ""))
+    physical_qty = int(inv["physical_qty"] or 0) if inv else 0
+    reserved_qty_total = int(inv["reserved_qty"] or 0) if inv and "reserved_qty" in inv.keys() else 0
+    available_qty = max(0, physical_qty - reserved_qty_total)
+    line_reserved_qty = int(row.get("reserved_qty") or 0)
+    delivered_qty = int(row.get("delivered_qty") or 0)
+    invoiced_qty = int(row.get("invoiced_qty") or 0)
+    shortage_qty = max(0, requested_qty - available_qty - line_reserved_qty)
+    stock_status = "not_stock_item" if item_type not in STOCK_ITEM_TYPES else stock_status_for(requested_qty, available_qty, line_reserved_qty, delivered_qty, invoiced_qty)
+    procurement_status = row.get("procurement_status") or "not_ordered"
+    if shortage_qty <= 0 and procurement_status == "not_ordered":
+        procurement_status = ""
+    row.update({
+        "inventory_item_id": inv["id"] if inv else row.get("inventory_item_id"),
+        "pn": inv["pn"] if inv else row.get("pn", ""),
+        "physical_qty": physical_qty,
+        "available_qty": available_qty,
+        "requested_qty": requested_qty,
+        "shortage_qty": shortage_qty if item_type in STOCK_ITEM_TYPES else 0,
+        "stock_status": stock_status,
+        "procurement_status": procurement_status,
+    })
+    return row
+
+def sync_case_line_stock(conn, line_id: int):
+    line = conn.execute("SELECT * FROM customer_request_items WHERE id=?", (line_id,)).fetchone()
+    if not line:
+        return None
+    data = enrich_case_line(conn, line)
+    conn.execute("""
+        UPDATE customer_request_items
+        SET inventory_item_id=?, pn=?, physical_qty=?, available_qty=?, requested_qty=?,
+            shortage_qty=?, stock_status=?, procurement_status=?, updated_at=?
+        WHERE id=?
+    """, (
+        data.get("inventory_item_id"), data.get("pn", ""), data["physical_qty"], data["available_qty"],
+        data["requested_qty"], data["shortage_qty"], data["stock_status"], data.get("procurement_status", ""),
+        now(), line_id
+    ))
+    return data
+
+def request_with_lines(conn, request_id: int):
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if not req:
+        raise HTTPException(status_code=404, detail="Customer request not found")
+    raw_lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? ORDER BY id", (request_id,)).fetchall()
+    lines = []
+    for line in raw_lines:
+        data = sync_case_line_stock(conn, line["id"]) or dict(line)
+        lines.append(data)
+    docs = []
+    for doc in conn.execute("SELECT * FROM sales_case_documents WHERE request_id=? ORDER BY created_at DESC", (request_id,)).fetchall():
+        doc_data = dict(doc)
+        doc_data["lines"] = [dict(r) for r in conn.execute("SELECT * FROM sales_case_document_lines WHERE document_id=? ORDER BY id", (doc["id"],)).fetchall()]
+        docs.append(doc_data)
+    return {**dict(req), "lines": lines, "documents": docs}
+
+def make_doc_no(prefix: str, request_id: int) -> str:
+    return f"{prefix}-{date.today().strftime('%y%m%d')}-{request_id:04d}"
+
+def create_sales_document(conn, request_id: int, doc_type: str, status: str = "draft", notes: str = "", source_document_id: int | None = None, line_quantities: dict[int, int] | None = None):
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if not req:
+        raise HTTPException(status_code=404, detail="Customer request not found")
+    prefix = {
+        "quotation": "QT",
+        "pro_forma": "PF",
+        "client_order": "CO",
+        "delivery_note": "DN",
+        "invoice": "INV",
+    }.get(doc_type, "DOC")
+    existing = conn.execute("SELECT * FROM sales_case_documents WHERE request_id=? AND doc_type=? ORDER BY id DESC LIMIT 1", (request_id, doc_type)).fetchone()
+    if existing and doc_type not in {"delivery_note", "invoice"}:
+        return dict(existing)
+    lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? ORDER BY id", (request_id,)).fetchall()
+    amount = 0
+    selected_lines = []
+    for line in lines:
+        quantity = int(line["quantity"] or 0)
+        if line_quantities is not None:
+            quantity = int(line_quantities.get(line["id"], 0) or 0)
+        if quantity <= 0:
+            continue
+        line_total = float(line["unit_price"] or 0) * quantity
+        amount += line_total
+        selected_lines.append((line, quantity, line_total))
+    doc_no = make_doc_no(prefix, request_id)
+    cur = conn.execute("""
+        INSERT INTO sales_case_documents
+        (request_id, client_id, doc_type, doc_no, status, source_document_id, amount, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (request_id, req["client_id"], doc_type, doc_no, status, source_document_id, amount, notes, now(), now()))
+    document_id = cur.lastrowid
+    for line, quantity, line_total in selected_lines:
+        conn.execute("""
+            INSERT INTO sales_case_document_lines
+            (document_id, request_item_id, requested_item, item_type, quantity, unit_price, line_total, notes, related_equipment_serial, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            document_id, line["id"], line["requested_item"], line["item_type"], quantity,
+            float(line["unit_price"] or 0), line_total, line["notes"], line["related_equipment_serial"], now()
+        ))
+    return dict(conn.execute("SELECT * FROM sales_case_documents WHERE id=?", (document_id,)).fetchone())
+
+def latest_sales_document(conn, request_id: int, doc_type: str):
+    row = conn.execute("SELECT * FROM sales_case_documents WHERE request_id=? AND doc_type=? ORDER BY id DESC LIMIT 1", (request_id, doc_type)).fetchone()
+    return dict(row) if row else None
+
+def reserve_customer_request_stock_in_conn(conn, request_id: int, client_order_id: int | None = None):
+    request_with_lines(conn, request_id)
+    reserved_total = 0
+    lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? ORDER BY id", (request_id,)).fetchall()
+    for line in lines:
+        if line["item_type"] not in STOCK_ITEM_TYPES:
+            continue
+        data = enrich_case_line(conn, line)
+        reserve_qty = min(max(0, data["requested_qty"] - int(line["reserved_qty"] or 0)), data["available_qty"])
+        if reserve_qty <= 0:
+            sync_case_line_stock(conn, line["id"])
+            continue
+        inv = conn.execute("SELECT * FROM inventory WHERE id=?", (data["inventory_item_id"],)).fetchone()
+        old_reserved = int(inv["reserved_qty"] or 0)
+        conn.execute("UPDATE inventory SET reserved_qty=?, updated_at=? WHERE id=?", (old_reserved + reserve_qty, now(), inv["id"]))
+        conn.execute("UPDATE customer_request_items SET reserved_qty=reserved_qty+?, updated_at=? WHERE id=?", (reserve_qty, now(), line["id"]))
+        if client_order_id:
+            conn.execute("""
+                UPDATE client_order_items
+                SET reserved_qty=reserved_qty+?, updated_at=?
+                WHERE client_order_id=? AND request_item_id=?
+            """, (reserve_qty, now(), client_order_id, line["id"]))
+        audit(conn, inv["id"], "RESERVE_STOCK", old_reserved, old_reserved + reserve_qty, f"Request line {line['id']}")
+        sync_case_line_stock(conn, line["id"])
+        reserved_total += reserve_qty
+    return reserved_total
+
 def export_excel(path: Path):
     conn = db()
     df = pd.read_sql_query("SELECT * FROM inventory ORDER BY location, pn", conn)
@@ -812,6 +1679,23 @@ def export_excel(path: Path):
     communications_df = pd.read_sql_query("SELECT * FROM crm_communications ORDER BY created_at DESC", conn)
     service_calls_df = pd.read_sql_query("SELECT * FROM service_calls ORDER BY created_at DESC", conn)
     quotations_df = pd.read_sql_query("SELECT * FROM quotations ORDER BY quote_date DESC", conn)
+    customer_requests_df = pd.read_sql_query("SELECT * FROM customer_requests ORDER BY updated_at DESC", conn)
+    customer_request_items_df = pd.read_sql_query("SELECT * FROM customer_request_items ORDER BY id", conn)
+    sales_case_documents_df = pd.read_sql_query("SELECT * FROM sales_case_documents ORDER BY updated_at DESC", conn)
+    sales_case_document_lines_df = pd.read_sql_query("SELECT * FROM sales_case_document_lines ORDER BY document_id, id", conn)
+    client_order_items_df = pd.read_sql_query("SELECT * FROM client_order_items ORDER BY client_order_id, id", conn)
+    stock_movements_df = pd.read_sql_query("SELECT * FROM stock_movements ORDER BY created_at DESC", conn)
+    equipment_bids_df = pd.read_sql_query("SELECT * FROM equipment_bids ORDER BY updated_at DESC", conn)
+    equipment_bid_items_df = pd.read_sql_query("SELECT * FROM equipment_bid_items ORDER BY bid_id, id", conn)
+    equipment_receiving_df = pd.read_sql_query("SELECT * FROM equipment_receiving_validations ORDER BY updated_at DESC", conn)
+    calibrations_df = pd.read_sql_query("SELECT * FROM equipment_calibrations ORDER BY updated_at DESC", conn)
+    risk_profiles_df = pd.read_sql_query("SELECT * FROM equipment_risk_profiles ORDER BY updated_at DESC", conn)
+    uptime_df = pd.read_sql_query("SELECT * FROM equipment_uptime_events ORDER BY updated_at DESC", conn)
+    recalls_df = pd.read_sql_query("SELECT * FROM equipment_recall_notices ORDER BY updated_at DESC", conn)
+    compatibility_df = pd.read_sql_query("SELECT * FROM equipment_compatibility ORDER BY updated_at DESC", conn)
+    checklist_templates_df = pd.read_sql_query("SELECT * FROM pm_checklist_templates ORDER BY updated_at DESC", conn)
+    iq_forms_df = pd.read_sql_query("SELECT * FROM installation_qualification_forms ORDER BY updated_at DESC", conn)
+    acceptance_forms_df = pd.read_sql_query("SELECT * FROM acceptance_testing_forms ORDER BY updated_at DESC", conn)
     conn.close()
 
     if df.empty:
@@ -863,6 +1747,23 @@ def export_excel(path: Path):
         communications_df.to_excel(writer, sheet_name="CRM_COMMUNICATIONS", index=False)
         service_calls_df.to_excel(writer, sheet_name="SERVICE_CALLS", index=False)
         quotations_df.to_excel(writer, sheet_name="QUOTATIONS", index=False)
+        customer_requests_df.to_excel(writer, sheet_name="CUSTOMER_REQUESTS", index=False)
+        customer_request_items_df.to_excel(writer, sheet_name="CUSTOMER_REQUEST_ITEMS", index=False)
+        sales_case_documents_df.to_excel(writer, sheet_name="SALES_CASE_DOCUMENTS", index=False)
+        sales_case_document_lines_df.to_excel(writer, sheet_name="SALES_CASE_DOC_LINES", index=False)
+        client_order_items_df.to_excel(writer, sheet_name="CLIENT_ORDER_ITEMS", index=False)
+        stock_movements_df.to_excel(writer, sheet_name="STOCK_MOVEMENTS", index=False)
+        equipment_bids_df.to_excel(writer, sheet_name="EQUIPMENT_BIDS", index=False)
+        equipment_bid_items_df.to_excel(writer, sheet_name="EQUIPMENT_BID_ITEMS", index=False)
+        equipment_receiving_df.to_excel(writer, sheet_name="RECEIVING_VALIDATION", index=False)
+        calibrations_df.to_excel(writer, sheet_name="CALIBRATION_HISTORY", index=False)
+        risk_profiles_df.to_excel(writer, sheet_name="RISK_PROFILES", index=False)
+        uptime_df.to_excel(writer, sheet_name="UPTIME_MTBF", index=False)
+        recalls_df.to_excel(writer, sheet_name="FDA_FMI_RECALLS", index=False)
+        compatibility_df.to_excel(writer, sheet_name="COMPATIBILITY", index=False)
+        checklist_templates_df.to_excel(writer, sheet_name="PM_CHECKLIST_TEMPLATES", index=False)
+        iq_forms_df.to_excel(writer, sheet_name="INSTALLATION_QUAL", index=False)
+        acceptance_forms_df.to_excel(writer, sheet_name="ACCEPTANCE_TESTS", index=False)
         audit_df.to_excel(writer, sheet_name="AUDIT_TRAIL", index=False)
         for ws in writer.book.worksheets:
             ws.freeze_panes = "A2"
@@ -871,6 +1772,57 @@ def export_excel(path: Path):
             for column_cells in ws.columns:
                 length = max(len(str(cell.value or "")) for cell in column_cells)
                 ws.column_dimensions[column_cells[0].column_letter].width = min(length + 4, 55)
+
+def safe_filename(value: str) -> str:
+    clean = "".join(ch for ch in str(value or "document") if ch.isalnum() or ch in "-_")
+    return clean or "document"
+
+def document_html(title: str, rows: list[dict], notes: str = "") -> str:
+    columns = sorted({key for row in rows for key in row.keys()}) if rows else ["message"]
+    body = rows or [{"message": "No rows available"}]
+    head = "".join(f"<th>{html_module.escape(str(col))}</th>" for col in columns)
+    table_rows = ""
+    for row in body:
+        table_rows += "<tr>" + "".join(f"<td>{html_module.escape(str(row.get(col, '')))}</td>" for col in columns) + "</tr>"
+    return f"""<!doctype html><html><head><meta charset='utf-8'><title>{html_module.escape(title)}</title>
+    <style>body{{font-family:Arial,sans-serif;margin:32px;color:#1f2937}}h1{{color:#1f4e78}}table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #d0d7de;padding:8px;text-align:left;font-size:12px}}th{{background:#eef6ff}}.notes{{margin:16px 0;color:#475569}}@media print{{button{{display:none}}}}</style></head>
+    <body><button onclick='window.print()'>Print</button><h1>{html_module.escape(title)}</h1><div class='notes'>{html_module.escape(notes or '')}</div><table><thead><tr>{head}</tr></thead><tbody>{table_rows}</tbody></table></body></html>"""
+
+def minimal_pdf_bytes(title: str, rows: list[dict], notes: str = "") -> bytes:
+    lines = [title, notes, ""]
+    for row in rows[:40]:
+        lines.append(" | ".join(f"{k}: {v}" for k, v in row.items()))
+    text = "\\n".join(lines).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    stream = f"BT /F1 11 Tf 40 780 Td 14 TL ({text}) Tj ET"
+    objects = [
+        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+        "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+        f"5 0 obj << /Length {len(stream.encode('latin-1', 'ignore'))} >> stream\n{stream}\nendstream endobj",
+    ]
+    content = "%PDF-1.4\n"
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(content.encode("latin-1")))
+        content += obj + "\n"
+    xref_at = len(content.encode("latin-1"))
+    content += f"xref\n0 {len(objects)+1}\n0000000000 65535 f \n"
+    for offset in offsets[1:]:
+        content += f"{offset:010d} 00000 n \n"
+    content += f"trailer << /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF"
+    return content.encode("latin-1", "ignore")
+
+def export_rows_response(title: str, rows: list[dict], fmt: str = "excel", notes: str = ""):
+    fmt = (fmt or "excel").lower()
+    filename = safe_filename(title)
+    if fmt in {"print", "html", "printable"}:
+        return HTMLResponse(document_html(title, rows, notes))
+    if fmt == "pdf":
+        return StreamingResponse(io.BytesIO(minimal_pdf_bytes(title, rows, notes)), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
+    path = DATA_DIR / f"{filename}.xlsx"
+    pd.DataFrame(rows or [{"message": "No rows available"}]).to_excel(path, index=False)
+    return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=path.name)
 
 @app.on_event("startup")
 def startup():
@@ -911,9 +1863,39 @@ def logout(request: Request):
 def portal():
     return FileResponse(BASE_DIR / "static" / "portal.html")
 
+@app.get("/dashboard")
+def dashboard_page():
+    return FileResponse(BASE_DIR / "static" / "portal.html")
+
 @app.get("/inventory")
 def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
+
+@app.get("/procurement")
+def procurement_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/sales")
+@app.get("/sales/{section:path}")
+def sales_page(section: str = ""):
+    return FileResponse(BASE_DIR / "static" / "sales.html")
+
+@app.get("/equipment-registry")
+@app.get("/equipment-registry/{section:path}")
+def equipment_registry_page(section: str = ""):
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/financials")
+def financials_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/reports")
+def reports_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
 
 @app.get("/crm")
 def crm_page():
@@ -923,6 +1905,15 @@ def crm_page():
 @app.get("/crm/client/{client_id}/{section:path}")
 def crm_client_page(client_id: int, section: str = ""):
     return FileResponse(BASE_DIR / "static" / "crm_client.html")
+
+@app.get("/sales-cases")
+def sales_cases_page():
+    return RedirectResponse(url="/sales", status_code=303)
+
+@app.get("/after-sales")
+@app.get("/after-sales/{section:path}")
+def after_sales_page(section: str = ""):
+    return FileResponse(BASE_DIR / "static" / "after_sales.html")
 
 @app.get("/pm")
 @app.get("/pm/")
@@ -971,9 +1962,11 @@ def create_crm_client(client: CRMClient, request: Request):
         address=client.address,
         main_contact=client.main_contact,
         contact_email=client.contact_email,
+        phone=client.phone,
         biomedical_department=client.biomedical_department,
         primary_engineer=client.primary_engineer,
         status=client.status,
+        financial_status=client.financial_status,
         notes=client.notes,
     )
     conn.commit()
@@ -988,6 +1981,22 @@ def crm_client_detail(client_id: int, request: Request):
     conn.commit()
     conn.close()
     return {**client, **metrics, "role": current_role(request), "can_edit": can_edit_crm(current_role(request))}
+
+@app.get("/api/crm/client/{client_id}/dashboard")
+def crm_client_dashboard(client_id: int):
+    conn = db()
+    data = crm_client_dashboard_data(conn, client_id)
+    conn.close()
+    return data
+
+@app.get("/api/after-sales/dashboard")
+def after_sales_dashboard():
+    conn = db()
+    ensure_clients_from_existing_data(conn)
+    conn.commit()
+    data = after_sales_dashboard_data(conn)
+    conn.close()
+    return data
 
 @app.get("/api/crm/client/{client_id}/equipment")
 def crm_client_equipment(client_id: int, q: str = "", warranty: str = "", pm_status: str = ""):
@@ -1057,6 +2066,23 @@ def crm_client_offers(client_id: int):
     conn.close()
     return rows
 
+@app.get("/api/crm/client/{client_id}/customer-requests")
+def crm_client_customer_requests(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("""
+        SELECT cr.*,
+               COUNT(cri.id) AS line_count,
+               COALESCE(SUM(cri.quantity * cri.unit_price), 0) AS amount
+        FROM customer_requests cr
+        LEFT JOIN customer_request_items cri ON cri.request_id=cr.id
+        WHERE cr.client_id=?
+        GROUP BY cr.id
+        ORDER BY cr.updated_at DESC
+    """, (client_id,)).fetchall()]
+    conn.close()
+    return rows
+
 @app.get("/api/crm/client/{client_id}/service-calls")
 def crm_client_service_calls(client_id: int):
     conn = db()
@@ -1106,6 +2132,486 @@ def create_crm_communication(client_id: int, entry: CRMCommunication, request: R
     conn.close()
     return {"id": cur.lastrowid, "message": "communication added"}
 
+@app.get("/api/customer-requests")
+def list_customer_requests(q: str = ""):
+    conn = db()
+    where = ""
+    params = []
+    if q.strip():
+        where = "WHERE case_no LIKE ? OR client_hospital LIKE ? OR contact_person LIKE ? OR request_source LIKE ?"
+        like = f"%{q.strip()}%"
+        params = [like, like, like, like]
+    rows = [request_with_lines(conn, r["id"]) for r in conn.execute(f"SELECT id FROM customer_requests {where} ORDER BY updated_at DESC", params).fetchall()]
+    conn.commit()
+    conn.close()
+    return rows
+
+@app.post("/api/customer-requests")
+def create_customer_request(payload: CustomerRequestIn, request: Request):
+    if not payload.client_hospital.strip():
+        raise HTTPException(status_code=400, detail="client/hospital is required")
+    if not payload.lines:
+        raise HTTPException(status_code=400, detail="At least one requested item is required")
+    conn = db()
+    client_id = ensure_client(conn, payload.client_hospital.strip(), main_contact=payload.contact_person)
+    cur = conn.execute("""
+        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, ("PENDING", client_id, payload.client_hospital.strip(), payload.contact_person, payload.request_source, "open", payload.notes, now(), now()))
+    request_id = cur.lastrowid
+    case_no = make_doc_no("CASE", request_id)
+    conn.execute("UPDATE customer_requests SET case_no=? WHERE id=?", (case_no, request_id))
+    for line in payload.lines:
+        if not line.requested_item.strip():
+            continue
+        if int(line.quantity or 0) <= 0:
+            raise HTTPException(status_code=400, detail="Line quantities must be positive")
+        inv = find_inventory_for_request_item(conn, line.requested_item) if line.item_type in STOCK_ITEM_TYPES else None
+        cur_line = conn.execute("""
+            INSERT INTO customer_request_items
+            (request_id, requested_item, item_type, quantity, unit_price, notes, related_equipment_serial,
+             inventory_item_id, pn, procurement_status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            request_id, line.requested_item.strip(), line.item_type, int(line.quantity), float(line.unit_price or 0),
+            line.notes, line.related_equipment_serial, inv["id"] if inv else None, inv["pn"] if inv else "",
+            "not_ordered", now(), now()
+        ))
+        sync_case_line_stock(conn, cur_line.lastrowid)
+    conn.execute("""
+        INSERT INTO crm_communications (client_id, type, user, note, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (client_id, "customer_request", request.session.get("username", current_role(request)), f"Created {case_no}", now()))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.get("/api/customer-requests/{request_id}")
+def get_customer_request(request_id: int):
+    conn = db()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    return data
+
+@app.post("/api/customer-requests/{request_id}/generate/{doc_type}")
+def generate_customer_request_document(request_id: int, doc_type: str):
+    if doc_type not in {"quotation", "pro_forma"}:
+        raise HTTPException(status_code=400, detail="Only quotation or pro_forma generation is allowed here")
+    conn = db()
+    doc = create_sales_document(conn, request_id, doc_type, "draft", "Generated from Customer Request")
+    if doc_type == "quotation":
+        req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+        conn.execute("""
+            INSERT INTO quotations (client_id, equipment_id, service_call_id, quotation_no, quote_date, status, amount, notes, created_at, updated_at, request_id, contact_person)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (req["client_id"], None, None, doc["doc_no"], date.today().isoformat(), "draft", doc["amount"], f"Linked to {req['case_no']}", now(), now(), request_id, req["contact_person"]))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/convert-client-order")
+def convert_customer_request_to_order(request_id: int):
+    conn = db()
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if not req:
+        raise HTTPException(status_code=404, detail="Customer request not found")
+    quotation = latest_sales_document(conn, request_id, "quotation")
+    if not quotation:
+        quotation = create_sales_document(conn, request_id, "quotation", "approved", "Auto-generated approved quotation before client order")
+    else:
+        conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("approved", now(), quotation["id"]))
+        conn.execute("UPDATE quotations SET status=?, updated_at=? WHERE quotation_no=?", ("approved", now(), quotation["doc_no"]))
+    doc = create_sales_document(conn, request_id, "client_order", "approved", "Converted from approved quotation", quotation["id"])
+    conn.execute("""
+        INSERT INTO client_orders (client_order_no, client_name, status, expected_date, notes, created_at, updated_at, request_id, quotation_id, client_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(client_order_no) DO UPDATE SET status=excluded.status, notes=excluded.notes, updated_at=excluded.updated_at, request_id=excluded.request_id, quotation_id=excluded.quotation_id, client_id=excluded.client_id
+    """, (doc["doc_no"], req["client_hospital"], "APPROVED", "", f"Linked to {req['case_no']} and quotation {quotation['doc_no']}", now(), now(), request_id, quotation["id"], req["client_id"]))
+    client_order_row = conn.execute("SELECT * FROM client_orders WHERE client_order_no=?", (doc["doc_no"],)).fetchone()
+    existing_lines = conn.execute("SELECT COUNT(*) AS c FROM client_order_items WHERE client_order_id=?", (client_order_row["id"],)).fetchone()["c"]
+    if not existing_lines:
+        for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=? ORDER BY id", (request_id,)).fetchall():
+            conn.execute("""
+                INSERT INTO client_order_items
+                (client_order_id, client_order_no, request_id, quotation_id, request_item_id, requested_item, item_type,
+                 quantity, unit_price, line_total, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                client_order_row["id"], doc["doc_no"], request_id, quotation["id"], line["id"], line["requested_item"],
+                line["item_type"], int(line["quantity"] or 0), float(line["unit_price"] or 0),
+                int(line["quantity"] or 0) * float(line["unit_price"] or 0), line["notes"], now(), now()
+            ))
+    conn.execute("UPDATE sales_case_documents SET client_order_id=?, quotation_id=?, updated_at=? WHERE id=?", (client_order_row["id"], quotation["id"], now(), doc["id"]))
+    service_lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? AND item_type IN ('labor','service','maintenance_contract')", (request_id,)).fetchall()
+    for line in service_lines:
+        call_no = make_doc_no("ST", request_id) + f"-{line['id']}"
+        conn.execute("""
+            INSERT INTO service_calls (client_id, equipment_id, request_id, call_no, status, engineer, issue, resolution, opened_at, closed_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (req["client_id"], None, request_id, call_no, "open", "", f"{line['item_type']}: {line['requested_item']}", "", now(), "", now(), now()))
+    conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", ("client_order_approved", now(), request_id))
+    conn.commit()
+    reserve_customer_request_stock_in_conn(conn, request_id, client_order_row["id"])
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/reserve-stock")
+def reserve_customer_request_stock(request_id: int):
+    conn = db()
+    client_order = latest_sales_document(conn, request_id, "client_order")
+    reserve_customer_request_stock_in_conn(conn, request_id, client_order.get("client_order_id") if client_order else None)
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/create-po-missing")
+def create_po_for_missing_items(request_id: int):
+    conn = db()
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if not req:
+        raise HTTPException(status_code=404, detail="Customer request not found")
+    po_no = make_doc_no("PO", request_id)
+    conn.execute("""
+        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(po_no) DO UPDATE SET updated_at=excluded.updated_at
+    """, (po_no, "", "DRAFT", "", f"Missing items for {req['case_no']}", now(), now()))
+    for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall():
+        data = sync_case_line_stock(conn, line["id"]) or dict(line)
+        if data.get("shortage_qty", 0) <= 0:
+            continue
+        if line["linked_purchase_order"]:
+            continue
+        conn.execute("""
+            INSERT INTO purchase_order_items
+            (po_no, pn, description, qty, received_qty, location, barcode, device_family, notes, received, created_at, updated_at, request_id, request_item_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (po_no, data.get("pn") or data["requested_item"], data["requested_item"], data["shortage_qty"], 0, "", "", "", f"Linked to {req['case_no']} line {line['id']}", 0, now(), now(), request_id, line["id"]))
+        conn.execute("UPDATE customer_request_items SET linked_purchase_order=?, procurement_status=?, updated_at=? WHERE id=?", (po_no, "po_draft", now(), line["id"]))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/receive-po-items")
+def receive_customer_request_po_items(request_id: int):
+    conn = db()
+    po_numbers = [r["linked_purchase_order"] for r in conn.execute("SELECT DISTINCT linked_purchase_order FROM customer_request_items WHERE request_id=? AND COALESCE(linked_purchase_order,'')!=''", (request_id,)).fetchall()]
+    received = 0
+    for po_no in po_numbers:
+        received += receive_purchase_order(conn, po_no)
+        conn.execute("UPDATE purchase_orders SET status=?, updated_at=? WHERE po_no=?", ("RECEIVED", now(), po_no))
+    for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=? AND COALESCE(linked_purchase_order,'')!=''", (request_id,)).fetchall():
+        po_summary = conn.execute("""
+            SELECT COALESCE(SUM(qty),0) AS ordered_qty, COALESCE(SUM(received_qty),0) AS received_qty
+            FROM purchase_order_items
+            WHERE request_item_id=?
+        """, (line["id"],)).fetchone()
+        ordered_qty = int(po_summary["ordered_qty"] or 0)
+        received_qty = int(po_summary["received_qty"] or 0)
+        if ordered_qty and received_qty >= ordered_qty:
+            procurement_status = "received"
+        elif received_qty > 0:
+            procurement_status = "partially_received"
+        else:
+            procurement_status = line["procurement_status"] or "po_draft"
+        conn.execute("UPDATE customer_request_items SET procurement_status=?, updated_at=? WHERE id=?", (procurement_status, now(), line["id"]))
+        sync_case_line_stock(conn, line["id"])
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return {"received": received, "request": data}
+
+@app.post("/api/customer-requests/{request_id}/delivery-note")
+def create_customer_request_delivery_note(request_id: int, selection: DeliverySelection | None = None):
+    conn = db()
+    quantities = {}
+    if selection and selection.quantities:
+        quantities = {int(k): int(v or 0) for k, v in selection.quantities.items()}
+    else:
+        for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall():
+            remaining = int(line["quantity"] or 0) - int(line["delivered_qty"] or 0)
+            if remaining <= 0:
+                continue
+            ready_qty = int(line["reserved_qty"] or 0) if line["item_type"] in STOCK_ITEM_TYPES else remaining
+            if ready_qty > 0:
+                quantities[line["id"]] = min(remaining, ready_qty)
+    if not quantities:
+        conn.close()
+        raise HTTPException(status_code=400, detail="No selected items are ready for delivery")
+    client_order = latest_sales_document(conn, request_id, "client_order")
+    doc = create_sales_document(conn, request_id, "delivery_note", "draft", "Delivery note generated for selected ready items", client_order["id"] if client_order else None, quantities)
+    conn.execute("UPDATE sales_case_documents SET client_order_id=?, updated_at=? WHERE id=?", (client_order.get("client_order_id") if client_order else None, now(), doc["id"]))
+    conn.execute("UPDATE customer_request_items SET linked_delivery_note=COALESCE(NULLIF(linked_delivery_note,''), ?), updated_at=? WHERE request_id=? AND id IN (%s)" % ",".join("?" for _ in quantities), (doc["doc_no"], now(), request_id, *quantities.keys()))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/remove-from-stock")
+def remove_customer_request_from_stock(request_id: int, selection: DeliverySelection | None = None):
+    conn = db()
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if not req:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Customer request not found")
+    if selection and selection.quantities:
+        create_customer_request_delivery_note(request_id, selection)
+        conn = db()
+    doc = latest_sales_document(conn, request_id, "delivery_note")
+    if not doc:
+        conn.close()
+        create_customer_request_delivery_note(request_id)
+        conn = db()
+        doc = latest_sales_document(conn, request_id, "delivery_note")
+    doc_lines = conn.execute("SELECT * FROM sales_case_document_lines WHERE document_id=? ORDER BY id", (doc["id"],)).fetchall()
+    if not doc_lines:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Delivery note has no selected items")
+    for doc_line in doc_lines:
+        line = conn.execute("SELECT * FROM customer_request_items WHERE id=?", (doc_line["request_item_id"],)).fetchone()
+        if not line:
+            continue
+        qty = min(int(doc_line["quantity"] or 0), int(line["quantity"] or 0) - int(line["delivered_qty"] or 0))
+        if qty <= 0:
+            continue
+        if line["item_type"] not in STOCK_ITEM_TYPES:
+            conn.execute("UPDATE customer_request_items SET delivered_qty=delivered_qty+?, linked_delivery_note=?, updated_at=? WHERE id=?", (qty, doc["doc_no"], now(), line["id"]))
+            continue
+        if line["item_type"] not in STOCK_ITEM_TYPES:
+            continue
+        data = sync_case_line_stock(conn, line["id"]) or dict(line)
+        qty = min(qty, int(line["reserved_qty"] or 0))
+        if qty <= 0:
+            continue
+        inv = conn.execute("SELECT * FROM inventory WHERE id=?", (data["inventory_item_id"],)).fetchone()
+        old_qty = int(inv["physical_qty"] or 0)
+        old_reserved = int(inv["reserved_qty"] or 0)
+        new_qty = max(0, old_qty - qty)
+        new_reserved = max(0, old_reserved - qty)
+        conn.execute("UPDATE inventory SET physical_qty=?, reserved_qty=?, difference=?, status=?, updated_at=? WHERE id=?", (new_qty, new_reserved, new_qty - int(inv["system_qty"] or 0), compute_status(int(inv["system_qty"] or 0), new_qty), now(), inv["id"]))
+        conn.execute("UPDATE customer_request_items SET delivered_qty=delivered_qty+?, reserved_qty=max(0,reserved_qty-?), linked_delivery_note=?, updated_at=? WHERE id=?", (qty, qty, doc["doc_no"], now(), line["id"]))
+        conn.execute("""
+            INSERT INTO transactions (item_id, pn, barcode, direction, qty, old_qty, new_qty, purchase_order_no, client_order_no, client_name, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (inv["id"], inv["pn"], inv["barcode"], "OUT", qty, old_qty, new_qty, "", "", req["client_hospital"], f"Delivered for {req['case_no']} via {doc['doc_no']}", now()))
+        conn.execute("""
+            INSERT INTO stock_movements
+            (movement_type, item_id, pn, qty, old_qty, new_qty, request_id, request_item_id, delivery_note_id, document_no, client_name, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, ("OUT", inv["id"], inv["pn"], qty, old_qty, new_qty, request_id, line["id"], doc["id"], doc["doc_no"], req["client_hospital"], "Delivery note stock removal", now()))
+        if doc.get("client_order_id"):
+            conn.execute("""
+                UPDATE client_order_items
+                SET delivered_qty=delivered_qty+?, reserved_qty=max(0,reserved_qty-?), updated_at=?
+                WHERE client_order_id=? AND request_item_id=?
+            """, (qty, qty, now(), doc["client_order_id"], line["id"]))
+        audit(conn, inv["id"], "DELIVERY_STOCK_OUT", old_qty, new_qty, f"{req['case_no']} {doc['doc_no']}")
+        sync_case_line_stock(conn, line["id"])
+    conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("completed", now(), doc["id"]))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/invoice")
+def generate_customer_request_invoice(request_id: int):
+    conn = db()
+    lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall()
+    invoice_quantities = {}
+    for line in lines:
+        delivered_qty = int(line["delivered_qty"] or 0)
+        invoiced_qty = int(line["invoiced_qty"] or 0)
+        quantity = max(0, delivered_qty - invoiced_qty)
+        if quantity > 0:
+            invoice_quantities[line["id"]] = quantity
+    if not invoice_quantities:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invoice can be generated only from delivered items")
+    delivery_note = latest_sales_document(conn, request_id, "delivery_note")
+    client_order = latest_sales_document(conn, request_id, "client_order")
+    doc = create_sales_document(conn, request_id, "invoice", "issued", "Invoice generated from delivered items", delivery_note["id"] if delivery_note else None, invoice_quantities)
+    conn.execute("""
+        UPDATE sales_case_documents
+        SET delivery_note_id=?, client_order_id=?, updated_at=?
+        WHERE id=?
+    """, (delivery_note["id"] if delivery_note else None, client_order.get("client_order_id") if client_order else None, now(), doc["id"]))
+    for line_id, quantity in invoice_quantities.items():
+        conn.execute("UPDATE customer_request_items SET linked_invoice=?, invoiced_qty=invoiced_qty+?, updated_at=? WHERE id=?", (doc["doc_no"], quantity, now(), line_id))
+        if client_order and client_order.get("client_order_id"):
+            conn.execute("""
+                UPDATE client_order_items
+                SET invoiced_qty=invoiced_qty+?, updated_at=?
+                WHERE client_order_id=? AND request_item_id=?
+            """, (quantity, now(), client_order["client_order_id"], line_id))
+    open_uninvoiced = conn.execute("""
+        SELECT COUNT(*) AS c FROM customer_request_items
+        WHERE request_id=? AND invoiced_qty < quantity
+    """, (request_id,)).fetchone()["c"]
+    conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", ("invoiced" if not open_uninvoiced else "partially_invoiced", now(), request_id))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.post("/api/customer-requests/{request_id}/status/{status}")
+def update_customer_request_status(request_id: int, status: str):
+    allowed = {"draft", "pending approval", "approved", "rejected", "partially available", "unavailable", "reserved", "ordered", "partially received", "received", "delivered", "invoiced", "cancelled", "open", "client_order_approved", "partially_delivered", "partially_invoiced"}
+    if status not in allowed:
+        raise HTTPException(status_code=400, detail="Unsupported status")
+    conn = db()
+    conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", (status, now(), request_id))
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return data
+
+@app.get("/api/sales-documents/{document_id}/export")
+def export_sales_document(document_id: int, format: str = "excel"):
+    conn = db()
+    doc = conn.execute("SELECT * FROM sales_case_documents WHERE id=?", (document_id,)).fetchone()
+    if not doc:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Document not found")
+    rows = [dict(r) for r in conn.execute("SELECT * FROM sales_case_document_lines WHERE document_id=? ORDER BY id", (document_id,)).fetchall()]
+    conn.close()
+    return export_rows_response(f"{doc['doc_type']}_{doc['doc_no']}", rows, format, dict(doc).get("notes", ""))
+
+@app.get("/api/stock-movements/export")
+def export_stock_movements(format: str = "excel"):
+    conn = db()
+    rows = [dict(r) for r in conn.execute("SELECT * FROM stock_movements ORDER BY created_at DESC").fetchall()]
+    conn.close()
+    return export_rows_response("stock_movement_report", rows, format, "Stock IN/OUT movements")
+
+@app.get("/api/equipment-bids")
+def list_equipment_bids():
+    conn = db()
+    bids = [dict(r) for r in conn.execute("SELECT * FROM equipment_bids ORDER BY updated_at DESC").fetchall()]
+    for bid in bids:
+        bid["items"] = [dict(r) for r in conn.execute("SELECT * FROM equipment_bid_items WHERE bid_id=? ORDER BY id", (bid["id"],)).fetchall()]
+    conn.close()
+    return bids
+
+@app.post("/api/equipment-bids")
+def create_equipment_bid(payload: EquipmentBidIn):
+    conn = db()
+    client_id = ensure_client(conn, payload.client_hospital, main_contact=payload.contact_person)
+    bid_no = payload.bid_no.strip() or f"BID-{date.today().strftime('%y%m%d')}"
+    cur = conn.execute("""
+        INSERT INTO equipment_bids (bid_no, client_id, client_hospital, contact_person, tender_source, status, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (bid_no, client_id, payload.client_hospital, payload.contact_person, payload.tender_source, payload.status, payload.notes, now(), now()))
+    bid_id = cur.lastrowid
+    if payload.bid_no.strip() == "":
+        conn.execute("UPDATE equipment_bids SET bid_no=? WHERE id=?", (f"{bid_no}-{bid_id:04d}", bid_id))
+    for item in payload.items:
+        conn.execute("""
+            INSERT INTO equipment_bid_items (bid_id, description, manufacturer, model, expected_qty, missing_qty, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (bid_id, item.description, item.manufacturer, item.model, item.expected_qty, item.expected_qty, item.notes, now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_bids WHERE id=?", (bid_id,)).fetchone())
+    row["items"] = [dict(r) for r in conn.execute("SELECT * FROM equipment_bid_items WHERE bid_id=? ORDER BY id", (bid_id,)).fetchall()]
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/equipment-bids/{bid_id}/packing-list")
+def upload_packing_list(bid_id: int, file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Packing list must be a PDF")
+    target = UPLOADS_DIR / f"packing_list_{bid_id}_{safe_filename(file.filename)}"
+    with target.open("wb") as handle:
+        shutil.copyfileobj(file.file, handle)
+    conn = db()
+    conn.execute("UPDATE equipment_bids SET packing_list_url=?, updated_at=? WHERE id=?", (f"/uploads/{target.name}", now(), bid_id))
+    conn.commit()
+    conn.close()
+    return {"packing_list_url": f"/uploads/{target.name}"}
+
+@app.post("/api/equipment-bids/{bid_id}/receive")
+def receive_equipment_bid_item(bid_id: int, payload: EquipmentReceivingIn):
+    conn = db()
+    item = conn.execute("SELECT * FROM equipment_bid_items WHERE id=? AND bid_id=?", (payload.item_id, bid_id)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Bid item not found")
+    serials = [s.strip() for s in payload.serial_numbers if str(s).strip()]
+    duplicate_serials = sorted({s for s in serials if serials.count(s) > 1})
+    expected = int(item["expected_qty"] or 0)
+    received = int(payload.received_qty or 0)
+    missing = max(0, expected - received)
+    validation = "valid" if not missing and len(serials) >= received and not duplicate_serials else "needs_review"
+    conn.execute("""
+        UPDATE equipment_bid_items SET received_qty=?, serial_numbers=?, missing_qty=?, validation_status=?, notes=?, updated_at=?
+        WHERE id=?
+    """, (received, ", ".join(serials), missing, validation, payload.notes, now(), payload.item_id))
+    conn.execute("""
+        INSERT INTO equipment_receiving_validations
+        (bid_id, bid_item_id, expected_qty, received_qty, missing_qty, serial_numbers, validation_result, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (bid_id, payload.item_id, expected, received, missing, ", ".join(serials), validation, f"Duplicate serials: {', '.join(duplicate_serials)}. {payload.notes}".strip(), now(), now()))
+    conn.execute("UPDATE equipment_bids SET receiving_status=?, updated_at=? WHERE id=?", ("received" if missing == 0 else "partially_received", now(), bid_id))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_bid_items WHERE id=?", (payload.item_id,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/equipment-bids/{bid_id}/register-equipment")
+def register_equipment_from_bid(bid_id: int):
+    conn = db()
+    bid = conn.execute("SELECT * FROM equipment_bids WHERE id=?", (bid_id,)).fetchone()
+    if not bid:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Bid not found")
+    created = []
+    for item in conn.execute("SELECT * FROM equipment_bid_items WHERE bid_id=? ORDER BY id", (bid_id,)).fetchall():
+        serials = [s.strip() for s in str(item["serial_numbers"] or "").split(",") if s.strip()]
+        for idx in range(max(1, int(item["received_qty"] or 0))):
+            serial = serials[idx] if idx < len(serials) else ""
+            asset_tag = f"EQ-{bid_id}-{item['id']}-{idx+1}"
+            conn.execute("""
+                INSERT OR IGNORE INTO pm_assets
+                (asset_tag, serial_number, manufacturer, model, hospital, client_id, status, warranty_start, warranty_status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (asset_tag, serial, item["manufacturer"], item["model"], bid["client_hospital"], bid["client_id"], "Installed", date.today().isoformat(), "active", now(), now()))
+            equipment_id = conn.execute("SELECT id FROM pm_assets WHERE asset_tag=?", (asset_tag,)).fetchone()["id"]
+            conn.execute("UPDATE equipment_bid_items SET equipment_id=?, updated_at=? WHERE id=?", (equipment_id, now(), item["id"]))
+            created.append({"equipment_id": equipment_id, "asset_tag": asset_tag, "serial_number": serial})
+    conn.execute("UPDATE equipment_bids SET installation_status=?, warranty_status=?, updated_at=? WHERE id=?", ("registered", "active", now(), bid_id))
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return {"created": created}
+
 @app.get("/api/crm/client/{client_id}/client-orders")
 def crm_client_orders(client_id: int):
     conn = db()
@@ -1132,6 +2638,213 @@ def crm_client_reports(client_id: int):
     metrics = crm_client_metrics(conn, client)
     conn.close()
     return {"client": client, "metrics": metrics, "reports": ["Equipment registry", "PM compliance", "Warranty alerts", "Open service calls", "Quotation pipeline"]}
+
+@app.get("/api/biomedical/equipment/{equipment_id}/profile")
+def biomedical_equipment_profile(equipment_id: int):
+    conn = db()
+    equipment = conn.execute("SELECT * FROM pm_assets WHERE id=?", (equipment_id,)).fetchone()
+    if not equipment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    profile = {
+        "equipment": dict(equipment),
+        "calibrations": [dict(r) for r in conn.execute("SELECT * FROM equipment_calibrations WHERE equipment_id=? ORDER BY calibration_date DESC", (equipment_id,)).fetchall()],
+        "risk": dict(conn.execute("SELECT * FROM equipment_risk_profiles WHERE equipment_id=?", (equipment_id,)).fetchone() or {}),
+        "uptime_events": [dict(r) for r in conn.execute("SELECT * FROM equipment_uptime_events WHERE equipment_id=? ORDER BY started_at DESC", (equipment_id,)).fetchall()],
+        "recalls": [dict(r) for r in conn.execute("SELECT * FROM equipment_recall_notices WHERE equipment_id=? ORDER BY created_at DESC", (equipment_id,)).fetchall()],
+        "compatibility": [dict(r) for r in conn.execute("SELECT * FROM equipment_compatibility WHERE equipment_id=? ORDER BY compatibility_type, part_no", (equipment_id,)).fetchall()],
+        "installation_qualification": [dict(r) for r in conn.execute("SELECT * FROM installation_qualification_forms WHERE equipment_id=? ORDER BY updated_at DESC", (equipment_id,)).fetchall()],
+        "acceptance_tests": [dict(r) for r in conn.execute("SELECT * FROM acceptance_testing_forms WHERE equipment_id=? ORDER BY updated_at DESC", (equipment_id,)).fetchall()],
+    }
+    downtime = sum(float(r.get("downtime_hours") or 0) for r in profile["uptime_events"])
+    failures = [r for r in profile["uptime_events"] if str(r.get("event_type", "")).lower() in {"failure", "outage"}]
+    uptime = float(dict(equipment).get("total_uptime_hours") or 0)
+    profile["uptime_summary"] = {
+        "total_uptime_hours": uptime,
+        "downtime_hours": downtime,
+        "outage_frequency": len(failures),
+        "operational_percentage": round((uptime / (uptime + downtime)) * 100, 2) if (uptime + downtime) else 100,
+        "mtbf_hours": round(uptime / len(failures), 2) if failures else uptime,
+        "recurring_issue_detected": any(int(r.get("recurring_issue") or 0) for r in profile["uptime_events"]),
+    }
+    conn.close()
+    return profile
+
+@app.post("/api/biomedical/calibrations")
+def add_calibration(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    cur = conn.execute("""
+        INSERT INTO equipment_calibrations
+        (equipment_id, client_id, calibration_date, next_due_date, calibrated_by, certificate_attachment, calibration_result, standards_used, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("calibration_date", ""), data.get("next_due_date", ""), data.get("calibrated_by", ""), data.get("certificate_attachment", ""), data.get("calibration_result", ""), data.get("standards_used", ""), data.get("notes", ""), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_calibrations WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/risk-profile")
+def save_risk_profile(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    conn.execute("""
+        INSERT INTO equipment_risk_profiles
+        (equipment_id, client_id, risk_level, life_support, criticality_level, department_risk_level, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(equipment_id) DO UPDATE SET risk_level=excluded.risk_level, life_support=excluded.life_support,
+            criticality_level=excluded.criticality_level, department_risk_level=excluded.department_risk_level,
+            notes=excluded.notes, updated_at=excluded.updated_at
+    """, (record.equipment_id, asset["client_id"], data.get("risk_level", "medium"), int(bool(data.get("life_support", False))), data.get("criticality_level", ""), data.get("department_risk_level", ""), data.get("notes", ""), now(), now()))
+    conn.execute("""
+        UPDATE pm_assets SET risk_level=?, life_support=?, criticality_level=?, department_risk_level=?, updated_at=? WHERE id=?
+    """, (data.get("risk_level", "medium"), int(bool(data.get("life_support", False))), data.get("criticality_level", ""), data.get("department_risk_level", ""), now(), record.equipment_id))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_risk_profiles WHERE equipment_id=?", (record.equipment_id,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/uptime-events")
+def add_uptime_event(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    downtime = float(data.get("downtime_hours") or 0)
+    cur = conn.execute("""
+        INSERT INTO equipment_uptime_events
+        (equipment_id, client_id, event_type, started_at, ended_at, downtime_hours, failure_category, recurring_issue, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("event_type", "outage"), data.get("started_at", ""), data.get("ended_at", ""), downtime, data.get("failure_category", ""), int(bool(data.get("recurring_issue", False))), data.get("notes", ""), now(), now()))
+    events = [dict(r) for r in conn.execute("SELECT * FROM equipment_uptime_events WHERE equipment_id=?", (record.equipment_id,)).fetchall()]
+    total_downtime = sum(float(r.get("downtime_hours") or 0) for r in events)
+    failures = [r for r in events if str(r.get("event_type", "")).lower() in {"failure", "outage"}]
+    total_uptime = float(asset["total_uptime_hours"] or data.get("total_uptime_hours") or 0)
+    operational = round((total_uptime / (total_uptime + total_downtime)) * 100, 2) if (total_uptime + total_downtime) else 100
+    mtbf = round(total_uptime / len(failures), 2) if failures else total_uptime
+    conn.execute("UPDATE pm_assets SET total_downtime_hours=?, outage_frequency=?, operational_percentage=?, mtbf_hours=?, recurring_issue_flag=?, updated_at=? WHERE id=?",
+                 (total_downtime, len(failures), operational, mtbf, int(any(int(r.get("recurring_issue") or 0) for r in events)), now(), record.equipment_id))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_uptime_events WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/recalls")
+def add_recall_notice(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    cur = conn.execute("""
+        INSERT INTO equipment_recall_notices
+        (equipment_id, client_id, notice_type, notice_no, manufacturer, affected_serial_numbers, completion_status, corrective_actions, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("notice_type", "recall"), data.get("notice_no", ""), data.get("manufacturer", asset["manufacturer"] or ""), data.get("affected_serial_numbers", ""), data.get("completion_status", "open"), data.get("corrective_actions", ""), data.get("notes", ""), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_recall_notices WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/compatibility")
+def add_compatibility(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    cur = conn.execute("""
+        INSERT INTO equipment_compatibility
+        (equipment_id, inventory_item_id, part_no, compatibility_type, description, supplier, substitute_part_no, equivalent_part_no, approved, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, data.get("inventory_item_id"), data.get("part_no", ""), data.get("compatibility_type", "accessory"), data.get("description", ""), data.get("supplier", ""), data.get("substitute_part_no", ""), data.get("equivalent_part_no", ""), int(bool(data.get("approved", True))), data.get("notes", ""), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment_compatibility WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/pm-checklist-templates")
+def save_pm_checklist_template(payload: dict):
+    conn = db()
+    cur = conn.execute("""
+        INSERT INTO pm_checklist_templates
+        (equipment_type, manufacturer, model, checklist_items, measurements, engineer_signature_required, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (payload.get("equipment_type", ""), payload.get("manufacturer", ""), payload.get("model", ""), payload.get("checklist_items", ""), payload.get("measurements", ""), int(bool(payload.get("engineer_signature_required", True))), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM pm_checklist_templates WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/installation-qualification")
+def save_installation_qualification(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    cur = conn.execute("""
+        INSERT INTO installation_qualification_forms
+        (equipment_id, client_id, bid_id, site_readiness, installation_checklist, environmental_conditions, networking_power_validation, engineer_signature, customer_signature, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("site_readiness", ""), data.get("installation_checklist", ""), data.get("environmental_conditions", ""), data.get("networking_power_validation", ""), data.get("engineer_signature", ""), data.get("customer_signature", ""), data.get("status", "draft"), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM installation_qualification_forms WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.post("/api/biomedical/acceptance-testing")
+def save_acceptance_testing(record: BiomedicalRecordIn):
+    data = record.data
+    conn = db()
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (record.equipment_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    cur = conn.execute("""
+        INSERT INTO acceptance_testing_forms
+        (equipment_id, client_id, bid_id, functionality, alarms, calibration_verification, electrical_safety, pass_fail_criteria, customer_approval, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("functionality", ""), data.get("alarms", ""), data.get("calibration_verification", ""), data.get("electrical_safety", ""), data.get("pass_fail_criteria", ""), data.get("customer_approval", ""), data.get("status", "draft"), now(), now()))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM acceptance_testing_forms WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return row
+
+@app.get("/api/biomedical/reports/{report_name}")
+def biomedical_report(report_name: str, format: str = "excel"):
+    conn = db()
+    queries = {
+        "calibration-certificate": "SELECT * FROM equipment_calibrations ORDER BY calibration_date DESC",
+        "equipment-history": "SELECT * FROM pm_history ORDER BY created_at DESC",
+        "installation-report": "SELECT * FROM installation_qualification_forms ORDER BY updated_at DESC",
+        "acceptance-test-report": "SELECT * FROM acceptance_testing_forms ORDER BY updated_at DESC",
+        "contract-pdf": "SELECT hospital, contract_no, contract_start_date, contract_end_date, COUNT(*) AS equipment_count FROM pm_assets WHERE COALESCE(contract_no,'')!='' GROUP BY hospital, contract_no, contract_start_date, contract_end_date",
+        "service-report": "SELECT * FROM service_calls ORDER BY updated_at DESC",
+    }
+    if report_name not in queries:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Report not found")
+    rows = [dict(r) for r in conn.execute(queries[report_name]).fetchall()]
+    conn.close()
+    return export_rows_response(report_name, rows, format, f"Biomedical {report_name.replace('-', ' ')}")
 
 
 def enrich_pm_asset(asset):

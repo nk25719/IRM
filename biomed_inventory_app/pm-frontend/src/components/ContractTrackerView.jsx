@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, FileText } from "lucide-react";
+import { Download, FileText, FileUp, PlusCircle } from "lucide-react";
 
 function getContractTimingLabel(daysLeft) {
   if (daysLeft < 0) return { label: `Expired ${Math.abs(daysLeft)} day(s) ago`, className: "badge badge-overdue" };
@@ -10,6 +10,12 @@ function getContractTimingLabel(daysLeft) {
 export default function ContractTrackerView({
   contracts,
   onOpenContract,
+  contractFileInputRef,
+  onImportContracts,
+  onExportContractsCsv,
+  isAddEquipmentVisible,
+  onToggleAddEquipment,
+  addEquipmentPanel,
 }) {
   return (
     <div className="card contracts-view-card">
@@ -21,7 +27,30 @@ export default function ContractTrackerView({
             Independent contract tracker with renewal reminders
           </div>
         </div>
+        <div className="actions actions-friendly">
+          <input
+            ref={contractFileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden-input"
+            onChange={onImportContracts}
+          />
+          <button className="button button-soft" onClick={() => contractFileInputRef?.current?.click()}>
+            <FileUp size={15} className="inline-icon" />
+            Import contracts
+          </button>
+          <button className="button button-soft" onClick={onExportContractsCsv}>
+            <Download size={15} className="inline-icon" />
+            Export contracts
+          </button>
+          <button className="button button-primary" onClick={onToggleAddEquipment}>
+            <PlusCircle size={15} className="inline-icon" />
+            {isAddEquipmentVisible ? "Hide add equipment" : "Add equipment"}
+          </button>
+        </div>
       </div>
+
+      {isAddEquipmentVisible ? addEquipmentPanel : null}
 
       <div className="table-wrap">
         <table className="table">

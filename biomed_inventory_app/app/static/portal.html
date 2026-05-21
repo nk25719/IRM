@@ -15,8 +15,11 @@
         <p>Biomedical operations modules</p>
       </div>
       <nav class="top-actions" aria-label="Portal navigation">
+        <a href="/dashboard">Dashboard</a>
         <a href="/crm">CRM / Clients</a>
+        <a href="/after-sales">After Sales</a>
         <a href="/inventory">Inventory</a>
+        <a href="/reports">Reports</a>
         <a href="/logout">Logout</a>
       </nav>
     </div>
@@ -25,57 +28,69 @@
   <main class="container">
     <section class="page-intro" aria-labelledby="portal-title">
       <h2 id="portal-title">Select a module</h2>
-      <p>Open client CRM workspaces, inventory workflows, PM tracking, reports, and administration.</p>
+      <p>Open the main ERP modules without duplicating client or After Sales workflows.</p>
     </section>
 
     <section class="grid" aria-label="Application modules">
+      <a class="card module-card" href="/dashboard">
+        <div class="module-icon" aria-hidden="true">D</div>
+        <h3>Dashboard</h3>
+        <p>ERP overview and launchpad for biomedical operations.</p>
+        <span>Open Dashboard</span>
+      </a>
+      <a class="card module-card" href="/crm">
+        <div class="module-icon" aria-hidden="true">C</div>
+        <h3>CRM / Clients</h3>
+        <p>Single hospital/client dashboard with offers, requests, orders, service, equipment, contracts, and financials.</p>
+        <span>Open CRM / Clients</span>
+      </a>
       <a class="card module-card" href="/inventory">
         <div class="module-icon" aria-hidden="true">I</div>
         <h3>Inventory</h3>
         <p>Clean inventory, audit/edit inventory, transactions, purchase orders, QR labels, and exports.</p>
         <span>Open Inventory</span>
       </a>
-      <a class="card module-card" href="/pm">
+      <a class="card module-card" href="/procurement">
         <div class="module-icon" aria-hidden="true">P</div>
-        <h3>PM Tracking</h3>
-        <p>Open the preventive maintenance module workspace and its dedicated PM navigation.</p>
-        <span>Open PM Tracking</span>
-      </a>
-      <a class="card module-card" href="/crm">
-        <div class="module-icon" aria-hidden="true">C</div>
-        <h3>CRM / Clients</h3>
-        <p>Open hospital-specific ERP profiles with equipment, contracts, PMs, service calls, communications, and reports.</p>
-        <span>Open Client CRM</span>
-      </a>
-      <a class="card module-card" href="/crm">
-        <div class="module-icon" aria-hidden="true">K</div>
-        <h3>Contracts</h3>
-        <p>Review contract coverage from client workspaces and equipment registry records.</p>
-        <span>Open Contracts</span>
-      </a>
-      <a class="card module-card" href="/inventory">
-        <div class="module-icon" aria-hidden="true">S</div>
-        <h3>Service Calls</h3>
-        <p>Service-call workspace placeholder linked through each client CRM profile.</p>
-        <span>Open Service Hub</span>
-      </a>
-      <a class="card module-card" href="/inventory">
-        <div class="module-icon" aria-hidden="true">B</div>
         <h3>Procurement</h3>
-        <p>Purchase orders and spare-parts procurement remain available in Inventory ERP.</p>
+        <p>Supplier purchase orders, shortage purchasing, receiving, and procurement exports.</p>
         <span>Open Procurement</span>
       </a>
-      <a class="card module-card" href="/api/export">
+      <a class="card module-card" href="/sales">
+        <div class="module-icon" aria-hidden="true">S</div>
+        <h3>Sales</h3>
+        <p>Customer requests, offers, pro formas, client orders, stock reservation, delivery notes, and invoices.</p>
+        <span>Open Sales</span>
+      </a>
+      <a class="card module-card" href="/after-sales">
+        <div class="module-icon" aria-hidden="true">A</div>
+        <h3>After Sales</h3>
+        <p>Service calls, preventive maintenance, contracts, warranty work, engineer workload, and reports.</p>
+        <span>Open After Sales</span>
+      </a>
+      <a class="card module-card" href="/equipment-registry">
+        <div class="module-icon" aria-hidden="true">E</div>
+        <h3>Equipment Registry</h3>
+        <p>Installed devices, risk classification, calibration, uptime, recalls, compatibility, and equipment history.</p>
+        <span>Open Equipment Registry</span>
+      </a>
+      <a class="card module-card" href="/financials">
+        <div class="module-icon" aria-hidden="true">F</div>
+        <h3>Financials</h3>
+        <p>Invoices, unpaid balances, client orders, and financial status.</p>
+        <span>Open Financials</span>
+      </a>
+      <a class="card module-card" href="/reports">
         <div class="module-icon" aria-hidden="true">R</div>
         <h3>Reports</h3>
-        <p>Download the current Excel export for inventory, transactions, orders, and audit history.</p>
-        <span>Download Export</span>
+        <p>PDF, Excel, and printable exports across inventory, stock, PM, service, contracts, and biomedical records.</p>
+        <span>Open Reports</span>
       </a>
-      <a class="card module-card" href="/portal" aria-disabled="true">
-        <div class="module-icon" aria-hidden="true">A</div>
-        <h3>Admin / Settings</h3>
-        <p>Configuration and administration tools placeholder for a future release.</p>
-        <span>Coming Next</span>
+      <a class="card module-card" href="/admin">
+        <div class="module-icon" aria-hidden="true">M</div>
+        <h3>Admin</h3>
+        <p>Audit trail, backup export, import safety, and administration tools.</p>
+        <span>Open Admin</span>
       </a>
     </section>
   </main>

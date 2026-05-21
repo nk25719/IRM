@@ -1,7 +1,7 @@
-export const MAX_PM_PLACEHOLDERS = 3;
+export const MAX_PM_PLACEHOLDERS = 30;
 
-export const statuses = ['All', 'Upcoming', 'Hospital notified', 'Confirmed', 'Completed', 'Deferred', 'Overdue'];
-export const editableStatuses = ['Upcoming', 'Hospital notified', 'Confirmed', 'Completed', 'Deferred'];
+export const statuses = ['All', 'Upcoming', 'Hospital notified', 'Confirmed', 'In progress', 'Completed', 'Deferred', 'Overdue'];
+export const editableStatuses = ['Upcoming', 'Hospital notified', 'Confirmed', 'In progress', 'Completed', 'Deferred'];
 
 export function normalizeStatus(value) {
   const text = String(value || '').trim();
@@ -11,6 +11,10 @@ export function normalizeStatus(value) {
 }
 
 export function createDefaultEquipmentForm() {
+  const pmPlaceholders = Object.fromEntries(
+    Array.from({ length: MAX_PM_PLACEHOLDERS }, (_, index) => [`pm${index + 1}Placeholder`, ''])
+  );
+
   return {
     hospital: '',
     contractNo: '',
@@ -37,9 +41,7 @@ export function createDefaultEquipmentForm() {
     contractHistory: [],
     comments: [],
     emailHistory: [],
-    pm1Placeholder: '',
-    pm2Placeholder: '',
-    pm3Placeholder: '',
+    ...pmPlaceholders,
   };
 }
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, FileText, PlusCircle, Trash2 } from "lucide-react";
+import { FileText, Pencil, PlusCircle, Trash2 } from "lucide-react";
 
 export default function ContractDetailView({
   contract,
@@ -8,7 +8,7 @@ export default function ContractDetailView({
   onAddEquipmentDraftChange,
   onAddEquipmentToContract,
   onRemoveEquipmentFromContract,
-  onBack,
+  onEditEquipment,
 }) {
   if (!contract) return null;
 
@@ -27,10 +27,6 @@ export default function ContractDetailView({
             {contract.hospital || "Unknown hospital"} · {contract.contractNo || "No contract #"}
           </div>
         </div>
-        <button className="button" onClick={onBack}>
-          <ArrowLeft size={15} className="inline-icon" />
-          Back to contracts
-        </button>
       </div>
 
       <div className="bulk-preview">
@@ -53,10 +49,16 @@ export default function ContractDetailView({
                 <div className="muted">
                   PM/year: {row.pmsPerYear || "—"} · Next PM: {row.nextPmDate || "—"}
                 </div>
-                <button className="button button-soft" onClick={() => onRemoveEquipmentFromContract(row.id)}>
-                  <Trash2 size={14} className="inline-icon" />
-                  Remove from contract
-                </button>
+                <div className="actions">
+                  <button className="button button-soft" onClick={() => onEditEquipment?.(row)}>
+                    <Pencil size={14} className="inline-icon" />
+                    Edit equipment
+                  </button>
+                  <button className="button button-soft" onClick={() => onRemoveEquipmentFromContract(row.id)}>
+                    <Trash2 size={14} className="inline-icon" />
+                    Remove from contract
+                  </button>
+                </div>
               </div>
             ))}
           </div>

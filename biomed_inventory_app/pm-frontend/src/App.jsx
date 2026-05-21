@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "./styles.css";
+import "./App.css";
 import { loadRowsFromStorage, saveRowsToStorage } from "./storage";
 import DashboardCards from "./components/DashboardCards";
 import EquipmentTable from "./components/EquipmentTable";
@@ -19,7 +19,9 @@ import {
   isDueThisMonth,
 } from "./utils/dateUtils";
 import {
+  exportRowsToJson,
   exportRowsToCsv,
+  parseCsvText,
   normalizeImportedRows,
   parseImportFile,
 } from "./utils/csvUtils";
@@ -195,6 +197,77 @@ function splitImportedEquipment(rawEquipment) {
         .filter(Boolean)
     )
   );
+}
+
+function getEquipmentMergeKey(row) {
+  return [
+    row.hospital,
+    row.contractNo,
+    row.equipment,
+    row.serial || row.model,
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join("::");
+}
+
+function mergeImportedRows(existingRows, importedRows, today) {
+  const existingByKey = new Map(existingRows.map((row) => [getEquipmentMergeKey(row), row]));
+  const usedKeys = new Set();
+
+  const mergedRows = existingRows.map((existingRow) => {
+    const matchingImport = importedRows.find((importedRow) => {
+      const key = getEquipmentMergeKey(importedRow);
+      return key && key === getEquipmentMergeKey(existingRow) && !usedKeys.has(key);
+    });
+
+    if (!matchingImport) return existingRow;
+
+    const key = getEquipmentMergeKey(matchingImport);
+    usedKeys.add(key);
+
+    const retainedFields = {
+      id: existingRow.id,
+      createdDate: existingRow.createdDate,
+      pmHistory: existingRow.pmHistory || [],
+      contractHistory: existingRow.contractHistory || [],
+      comments: existingRow.comments || [],
+      emailHistory: existingRow.emailHistory || [],
+    };
+    const mergedFields = Object.fromEntries(
+      Object.entries(matchingImport).map(([field, value]) => [
+        field,
+        value === "" || value === null || value === undefined ? existingRow[field] : value,
+      ])
+    );
+
+    return {
+      ...existingRow,
+      ...mergedFields,
+      ...retainedFields,
+      updatedDate: today,
+      updatedBy: matchingImport.updatedBy || existingRow.updatedBy || "Import",
+    };
+  });
+
+  const insertedKeys = new Set();
+  const insertedRows = importedRows.filter((importedRow) => {
+    const key = getEquipmentMergeKey(importedRow);
+    if (!key || existingByKey.has(key) || usedKeys.has(key) || insertedKeys.has(key)) {
+      return false;
+    }
+    insertedKeys.add(key);
+    return true;
+  });
+
+  return normalizeRows([...insertedRows, ...mergedRows]);
+}
+
+function getImportValidationErrors(row) {
+  const errors = [];
+  if (!String(row.hospital || "").trim()) errors.push("Hospital is required");
+  if (!String(row.equipment || "").trim()) errors.push("Equipment is required");
+  if (!String(row.nextPmDate || "").trim()) errors.push("Next PM Date is required");
+  return errors;
 }
 
 export default function App() {
@@ -523,9 +596,28 @@ export default function App() {
 
     try {
       const rawRows = await parseImportFile(file);
-      const imported = normalizeImportedRows(rawRows, normalizeStatus, getTodayIsoDate);
-      if (imported.length) setRows(normalizeRows(imported));
-      else setQuickActionFeedback("No valid records found in imported file.");
+      const normalized = normalizeImportedRows(rawRows, normalizeStatus, getTodayIsoDate);
+      const validRows = [];
+      const invalidRows = [];
+
+      normalized.forEach((row, index) => {
+        const errors = getImportValidationErrors(row);
+        if (errors.length) invalidRows.push({ index: index + 2, errors });
+        else validRows.push(row);
+      });
+
+      if (validRows.length) {
+        const today = getTodayIsoDate();
+        setRows((current) => mergeImportedRows(current, validRows, today));
+        setQuickActionFeedback(
+          `Imported ${validRows.length} valid record(s) with add/merge behavior${
+            invalidRows.length ? `; skipped ${invalidRows.length} row(s) missing required fields.` : "."
+          }`
+        );
+      }
+      else if (invalidRows.length) {
+        setQuickActionFeedback("No rows imported. Required fields: Hospital, Equipment, Next PM Date.");
+      } else setQuickActionFeedback("No valid records found in imported file.");
     } catch (error) {
       console.error("Import failed", error);
       setQuickActionFeedback(error.message || "Import failed. Please check file format.");
@@ -778,7 +870,19 @@ export default function App() {
   }
 
   function parseBulkEquipmentLines(text) {
-    const delimiter = text.includes("|") ? "|" : ",";
+    if (!text.trim()) return [];
+    if (!text.includes("|")) {
+      return parseCsvText(`Equipment,Serial,Model,Department\n${text}`)
+        .map((row) => ({
+          equipment: String(row.Equipment || "").trim(),
+          serial: String(row.Serial || "").trim(),
+          model: String(row.Model || "").trim(),
+          department: String(row.Department || "").trim(),
+        }))
+        .filter((item) => item.equipment);
+    }
+
+    const delimiter = "|";
     return text
       .split("\n")
       .map((line) => line.trim())
@@ -818,6 +922,19 @@ export default function App() {
 
   function handleSubmitEquipment(event) {
     event.preventDefault();
+    if (!String(equipmentForm.hospital || "").trim()) {
+      setQuickActionFeedback("Hospital is required before saving equipment.");
+      return;
+    }
+    if (!editingId && !bulkEquipmentText.trim() && !String(equipmentForm.equipment || "").trim()) {
+      setQuickActionFeedback("Equipment is required before saving.");
+      return;
+    }
+    if (!String(equipmentForm.nextPmDate || "").trim()) {
+      setQuickActionFeedback("Next PM Date is required before saving equipment.");
+      return;
+    }
+
     const today = getTodayIsoDate();
     const normalizedPmsPerYear = Number(equipmentForm.pmsPerYear) || 1;
     const intervalMonths = Math.max(1, Math.round(12 / normalizedPmsPerYear));
@@ -1113,6 +1230,26 @@ export default function App() {
         onSelectHospital={openHospitalDetail}
         hospitalSummaryFilter={hospitalSummaryFilter}
         onHospitalSummaryFilterChange={setHospitalSummaryFilter}
+        quickActions={
+          <div className="status-workflow-panel">
+            <div>
+              <div className="strong">Automation recommendations</div>
+              <div className="muted">
+                {aiInsights.riskiestHospital
+                  ? `${aiInsights.riskiestHospital[0]} has the highest overdue load (${aiInsights.riskiestHospital[1]} item(s)).`
+                  : "No overdue hospital risk detected."}
+              </div>
+              <div className="muted">
+                {aiInsights.soonRows.length} item(s) are due within 7 days and ready for availability confirmation.
+              </div>
+            </div>
+            <div className="actions">
+              <button className="button button-soft" onClick={markOverdueReminderOneSent}>Mark overdue R1</button>
+              <button className="button button-soft" onClick={markOverdueReminderTwoSent}>Mark overdue R2</button>
+              <button className="button button-primary" onClick={markOverdueEngineerAlertSent}>Alert engineers</button>
+            </div>
+          </div>
+        }
       />
     );
   }
@@ -1194,10 +1331,11 @@ export default function App() {
             <a className="button button-soft" href="/portal">ERP Portal</a>
             <a className="button button-soft" href="/inventory">Inventory</a>
             {currentPage === "dashboard" ? (
-              <ImportExportBar
+      <ImportExportBar
                 fileInputRef={fileInputRef}
                 onImportChange={handleImportFile}
                 onExportCsv={() => exportRowsToCsv(rows, getIntervalMonths)}
+                onExportJson={() => exportRowsToJson(rows)}
               />
             ) : null}
           </div>
@@ -1354,7 +1492,7 @@ export default function App() {
             onAddEquipmentDraftChange={handleContractEquipmentDraftChange}
             onAddEquipmentToContract={handleAddEquipmentToContract}
             onRemoveEquipmentFromContract={handleRemoveEquipmentFromContract}
-            onBack={() => setCurrentPage("contracts")}
+            onEditEquipment={startEdit}
           />
             );
           })()
@@ -1364,6 +1502,10 @@ export default function App() {
             getTrackingMeta={getTrackingMeta}
             badgeClass={badgeClass}
             getPmSlotStatus={getPmSlotStatus}
+            onView={setDetailRow}
+            onEdit={startEdit}
+            onDelete={handleDelete}
+            onComplete={markComplete}
           />
         )}
       </div>

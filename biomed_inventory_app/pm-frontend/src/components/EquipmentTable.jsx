@@ -1,10 +1,15 @@
 import React from "react";
+import { CheckCircle2, Eye, Pencil, Trash2 } from "lucide-react";
 
 export default function EquipmentTable({
   rows,
   getTrackingMeta,
   badgeClass,
   getPmSlotStatus,
+  onView,
+  onEdit,
+  onDelete,
+  onComplete,
 }) {
   return (
     <div className="card">
@@ -28,10 +33,11 @@ export default function EquipmentTable({
               <th>Reminders</th>
               <th>Due-soon Flags</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.length ? rows.map((row) => {
               const meta = getTrackingMeta(row);
               return (
                 <tr key={row.id}>
@@ -73,9 +79,31 @@ export default function EquipmentTable({
                   <td>
                     <span className={badgeClass(row.status, meta)}>{meta.effectiveStatus}</span>
                   </td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="icon-button" title="View equipment details" onClick={() => onView?.(row)}>
+                        <Eye size={15} />
+                      </button>
+                      <button className="icon-button" title="Edit equipment" onClick={() => onEdit?.(row)}>
+                        <Pencil size={15} />
+                      </button>
+                      <button className="icon-button" title="Mark PM complete" onClick={() => onComplete?.(row)}>
+                        <CheckCircle2 size={15} />
+                      </button>
+                      <button className="icon-button icon-button-danger" title="Delete equipment" onClick={() => onDelete?.(row.id)}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               );
-            })}
+            }) : (
+              <tr>
+                <td colSpan={16} className="empty-state">
+                  No PM equipment rows loaded yet. Import a CSV/Excel/JSON file or add equipment from the Contracts view.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

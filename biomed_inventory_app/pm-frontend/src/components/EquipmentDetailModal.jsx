@@ -50,6 +50,24 @@ export default function EquipmentDetailModal({ row, onClose }) {
             )}
           </div>
         </div>
+
+        <div>
+          <div className="strong">Contract History</div>
+          <div className="history-list">
+            {(row.contractHistory || []).length ? (
+              row.contractHistory.map((entry, index) => (
+                <div key={`${entry.at || "contract"}-${index}`} className="history-item">
+                  <div className="strong">{entry.contractNo || row.contractNo || "Contract update"}</div>
+                  <div className="muted">{entry.contractStartDate || "—"} to {entry.contractEndDate || "—"}</div>
+                  <div className="muted">By: {entry.by || "System"} · {entry.at || "—"}</div>
+                  {entry.note ? <div className="muted">{entry.note}</div> : null}
+                </div>
+              ))
+            ) : (
+              <div className="muted">No contract history yet.</div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

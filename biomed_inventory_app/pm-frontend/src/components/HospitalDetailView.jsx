@@ -1,5 +1,28 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Mail, MessageSquare, Send } from 'lucide-react';
+import { Clipboard, Mail, MessageSquare, Send } from 'lucide-react';
+
+function buildEmailDraft(hospital, rows) {
+  const lines = rows.map((row) => {
+    const equipment = [row.equipment, row.model, row.serial ? `S/N ${row.serial}` : '']
+      .filter(Boolean)
+      .join(' - ');
+    return `- ${equipment || 'Equipment'}: next PM ${row.nextPmDate || 'TBD'}, status ${row.status || 'Upcoming'}`;
+  });
+
+  return [
+    `Subject: PM follow-up - ${hospital || 'Hospital equipment'}`,
+    '',
+    `Dear ${hospital || 'Biomedical team'},`,
+    '',
+    'Kindly confirm availability for the following preventive maintenance items:',
+    ...lines,
+    '',
+    'Please share the suitable date/time window and any access notes so we can coordinate the engineer visit.',
+    '',
+    'Best regards,',
+    'PM Coordinator',
+  ].join('\n');
+}
 
 export default function HospitalDetailView({
   hospital,
@@ -12,6 +35,7 @@ export default function HospitalDetailView({
   const [selectedIds, setSelectedIds] = useState([]);
   const [comment, setComment] = useState('');
   const [author, setAuthor] = useState('PM Coordinator');
+  const [copied, setCopied] = useState(false);
 
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedIds.includes(row.id)),
@@ -38,6 +62,19 @@ export default function HospitalDetailView({
     setComment('');
   }
 
+  const draftRows = selectedRows.length ? selectedRows : rows.filter((row) => getTrackingMeta(row).effectiveStatus !== 'Completed');
+  const emailDraft = buildEmailDraft(hospital, draftRows);
+
+  async function copyDraft() {
+    try {
+      await navigator.clipboard.writeText(emailDraft);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (error) {
+      console.error('Failed to copy PM email draft', error);
+    }
+  }
+
   return (
     <div className="card hospital-detail-card">
       <div className="detail-head">
@@ -45,10 +82,6 @@ export default function HospitalDetailView({
           <h2 className="section-title">Hospital PM Detail</h2>
           <div className="hospital-headline">{hospital || 'Unknown hospital'} · {rows.length} equipment item(s)</div>
         </div>
-        <button className="button button-soft" onClick={() => window.location.reload()}>
-          <ArrowLeft size={15} className="inline-icon" />
-          Back
-        </button>
       </div>
 
       {quickActionFeedback ? <div className="feedback-banner">{quickActionFeedback}</div> : null}
@@ -64,6 +97,15 @@ export default function HospitalDetailView({
           <Send size={15} className="inline-icon" />
           Email all pending
         </button>
+        <button className="button button-soft" onClick={copyDraft}>
+          <Clipboard size={15} className="inline-icon" />
+          {copied ? 'Copied draft' : 'Copy draft'}
+        </button>
+      </div>
+
+      <div className="draft-panel">
+        <div className="strong">PM follow-up email draft</div>
+        <textarea className="input textarea draft-textarea" readOnly value={emailDraft} />
       </div>
 
       <div className="card form-card">
@@ -92,6 +134,7 @@ export default function HospitalDetailView({
               <th>Next PM</th>
               <th>Status</th>
               <th>Engineer</th>
+              <th>Email</th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +150,12 @@ export default function HospitalDetailView({
                   <td>{row.nextPmDate || '—'}</td>
                   <td><span className={meta.isOverdue ? 'badge badge-overdue' : meta.dueSoon7 ? 'badge badge-due-soon' : 'badge badge-default'}>{meta.effectiveStatus}</span></td>
                   <td>{row.engineer || '—'}</td>
+                  <td>
+                    <button className="button button-soft" onClick={() => onSendHospitalEmail?.([row], `${row.equipment || 'Equipment'} PM follow-up`)}>
+                      <Mail size={14} className="inline-icon" />
+                      Email
+                    </button>
+                  </td>
                 </tr>
               );
             })}
