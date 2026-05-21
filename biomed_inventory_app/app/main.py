@@ -208,6 +208,36 @@ class DocumentExportRequest(BaseModel):
     rows: list[dict] = []
     notes: str = ""
 
+class CaseCreate(BaseModel):
+    case_type: str
+    client_id: int
+    contact_id: int | None = None
+    equipment_id: int | None = None
+    request_id: int | None = None
+    quotation_id: int | None = None
+    client_order_id: int | None = None
+    purchase_order_id: int | None = None
+    delivery_note_id: int | None = None
+    invoice_id: int | None = None
+    engineer_id: int | None = None
+    contract_id: int | None = None
+    priority: str = "normal"
+    notes: str = ""
+
+class CaseUpdate(BaseModel):
+    status: str | None = None
+    workflow_state: str | None = None
+    priority: str | None = None
+    notes: str | None = None
+    equipment_id: int | None = None
+    engineer_id: int | None = None
+
+class CaseWorkflowStateIn(BaseModel):
+    state: str
+    user: str = ""
+    notes: str = ""
+    metadata: dict | None = None
+
 def current_role(request: Request | None = None) -> str:
     if request and request.session.get("role"):
         return request.session.get("role")
@@ -808,6 +838,41 @@ def init_db():
             status TEXT DEFAULT 'draft',
             created_at TEXT,
             updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS cases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_no TEXT UNIQUE,
+            case_type TEXT,
+            client_id INTEGER,
+            contact_id INTEGER,
+            equipment_id INTEGER,
+            request_id INTEGER,
+            quotation_id INTEGER,
+            client_order_id INTEGER,
+            purchase_order_id INTEGER,
+            delivery_note_id INTEGER,
+            invoice_id INTEGER,
+            engineer_id INTEGER,
+            contract_id INTEGER,
+            workflow_state TEXT DEFAULT 'lead',
+            status TEXT DEFAULT 'open',
+            priority TEXT DEFAULT 'normal',
+            created_at TEXT,
+            updated_at TEXT,
+            notes TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS case_workflow_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id INTEGER,
+            state TEXT,
+            timestamp TEXT,
+            user TEXT,
+            notes TEXT,
+            metadata TEXT
         )
     """)
     conn.commit()
@@ -2131,6 +2196,118 @@ def create_crm_communication(client_id: int, entry: CRMCommunication, request: R
     conn.commit()
     conn.close()
     return {"id": cur.lastrowid, "message": "communication added"}
+
+@app.post("/api/cases")
+def create_case(case: CaseCreate):
+    conn = db()
+    case_no = f"CASE-{int(datetime.now().timestamp())}"
+    import json
+    cur = conn.execute("""
+        INSERT INTO cases (case_no, case_type, client_id, contact_id, equipment_id, request_id,
+                          quotation_id, client_order_id, purchase_order_id, delivery_note_id,
+                          invoice_id, engineer_id, contract_id, priority, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case.case_type, case.client_id, case.contact_id, case.equipment_id, case.request_id,
+          case.quotation_id, case.client_order_id, case.purchase_order_id, case.delivery_note_id,
+          case.invoice_id, case.engineer_id, case.contract_id, case.priority, case.notes, now(), now()))
+    case_id = cur.lastrowid
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+        VALUES (?, ?, ?, ?, ?)
+    """, (case_id, "lead", now(), "system", "Case created"))
+    conn.commit()
+    conn.close()
+    return {"id": case_id, "case_no": case_no, "message": "Case created successfully"}
+
+@app.get("/api/cases")
+def list_cases(case_type: str = "", client_id: int | None = None):
+    conn = db()
+    where = "WHERE 1=1"
+    params = []
+    if case_type:
+        where += " AND case_type = ?"
+        params.append(case_type)
+    if client_id:
+        where += " AND client_id = ?"
+        params.append(client_id)
+    rows = conn.execute(f"""
+        SELECT id, case_no, case_type, client_id, workflow_state, status, priority, created_at, updated_at
+        FROM cases {where} ORDER BY created_at DESC
+    """, params).fetchall()
+    result = [dict(r) for r in rows]
+    conn.close()
+    return result
+
+@app.get("/api/cases/{case_id}")
+def get_case(case_id: int):
+    conn = db()
+    case_row = conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Case not found")
+    case_data = dict(case_row)
+    states = [dict(r) for r in conn.execute(
+        "SELECT state, timestamp, user, notes FROM case_workflow_states WHERE case_id = ? ORDER BY timestamp DESC",
+        (case_id,)
+    ).fetchall()]
+    case_data["workflow_history"] = states
+    conn.close()
+    return case_data
+
+@app.put("/api/cases/{case_id}")
+def update_case(case_id: int, update: CaseUpdate):
+    conn = db()
+    case_row = conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Case not found")
+    updates = []
+    params = []
+    if update.status is not None:
+        updates.append("status = ?")
+        params.append(update.status)
+    if update.workflow_state is not None:
+        updates.append("workflow_state = ?")
+        params.append(update.workflow_state)
+    if update.priority is not None:
+        updates.append("priority = ?")
+        params.append(update.priority)
+    if update.notes is not None:
+        updates.append("notes = ?")
+        params.append(update.notes)
+    if update.equipment_id is not None:
+        updates.append("equipment_id = ?")
+        params.append(update.equipment_id)
+    if update.engineer_id is not None:
+        updates.append("engineer_id = ?")
+        params.append(update.engineer_id)
+    if updates:
+        updates.append("updated_at = ?")
+        params.append(now())
+        params.append(case_id)
+        conn.execute(f"UPDATE cases SET {', '.join(updates)} WHERE id = ?", params)
+    conn.commit()
+    conn.close()
+    return {"message": "Case updated successfully"}
+
+@app.post("/api/cases/{case_id}/workflow-state")
+def transition_case_state(case_id: int, state_change: CaseWorkflowStateIn):
+    conn = db()
+    case_row = conn.execute("SELECT workflow_state FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Case not found")
+    import json
+    metadata_json = json.dumps(state_change.metadata) if state_change.metadata else None
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes, metadata)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (case_id, state_change.state, now(), state_change.user, state_change.notes, metadata_json))
+    conn.execute("UPDATE cases SET workflow_state = ?, updated_at = ? WHERE id = ?",
+                 (state_change.state, now(), case_id))
+    conn.commit()
+    conn.close()
+    return {"message": "Workflow state updated", "new_state": state_change.state}
 
 @app.get("/api/customer-requests")
 def list_customer_requests(q: str = ""):
