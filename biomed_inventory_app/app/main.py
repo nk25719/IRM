@@ -238,6 +238,26 @@ class CaseWorkflowStateIn(BaseModel):
     notes: str = ""
     metadata: dict | None = None
 
+class CaseLineItemIn(BaseModel):
+    requested_item: str
+    quantity: int = 1
+    item_type: str = "spare_part"
+    unit_price: float = 0
+    notes: str = ""
+    related_equipment_serial: str = ""
+
+class UnifiedCaseEntryIn(BaseModel):
+    case_type: str
+    client_hospital: str
+    contact_person: str = ""
+    department: str = ""
+    request_source: str = "call"
+    priority: str = "normal"
+    line_items: list[CaseLineItemIn]
+    notes: str = ""
+    auto_create_po: bool = True
+    auto_reserve_available: bool = True
+
 def current_role(request: Request | None = None) -> str:
     if request and request.session.get("role"):
         return request.session.get("role")
@@ -945,7 +965,7 @@ def init_db():
             conn.execute(f"ALTER TABLE quotations ADD COLUMN {col} {col_type}")
 
     po_cols = [r["name"] for r in conn.execute("PRAGMA table_info(purchase_orders)").fetchall()]
-    for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id"]:
+    for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id", "case_id"]:
         if col not in po_cols:
             conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} INTEGER")
 
@@ -2308,6 +2328,179 @@ def transition_case_state(case_id: int, state_change: CaseWorkflowStateIn):
     conn.commit()
     conn.close()
     return {"message": "Workflow state updated", "new_state": state_change.state}
+
+@app.get("/api/cases/{case_id}/summary")
+def get_case_summary(case_id: int):
+    conn = db()
+    case_row = conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    case_data = dict(case_row)
+    request_id = case_data.get("request_id")
+
+    if request_id:
+        request_data = request_with_lines(conn, request_id)
+        case_data["customer_request"] = request_data
+        case_data["total_items"] = len(request_data.get("lines", []))
+        case_data["total_shortage"] = sum(l.get("shortage_qty", 0) for l in request_data.get("lines", []))
+        case_data["total_available"] = sum(l.get("available_qty", 0) for l in request_data.get("lines", []))
+
+    conn.close()
+    return case_data
+
+@app.post("/api/cases/{case_id}/auto-procure-shortages")
+def auto_create_po_for_shortages(case_id: int):
+    conn = db()
+    case_row = conn.execute("SELECT request_id FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row or not case_row["request_id"]:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Case has no customer request")
+
+    request_id = case_row["request_id"]
+    shortage_lines = conn.execute("""
+        SELECT id, requested_item, shortage_qty, pn FROM customer_request_items
+        WHERE request_id = ? AND shortage_qty > 0 AND procurement_status = 'not_ordered'
+    """, (request_id,)).fetchall()
+
+    if not shortage_lines:
+        conn.close()
+        return {"message": "No shortages to procure"}
+
+    po_no = f"PO-{int(datetime.now().timestamp())}"
+    conn.execute("""
+        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (po_no, "To be assigned", "draft", add_days_iso(now(), 7), f"Auto-generated for case {case_id}", now(), now(), request_id))
+    po_id = conn.lastrowid
+
+    for line in shortage_lines:
+        conn.execute("""
+            INSERT INTO purchase_order_items (po_no, pn, description, qty, created_at, updated_at, request_id, request_item_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (po_no, line["pn"] or "", line["requested_item"], line["shortage_qty"], now(), now(), request_id, line["id"]))
+        conn.execute("""
+            UPDATE customer_request_items SET procurement_status = 'po_draft', linked_purchase_order = ? WHERE id = ?
+        """, (po_no, line["id"]))
+
+    conn.commit()
+    conn.close()
+    return {"po_no": po_no, "po_id": po_id, "lines_count": len(shortage_lines), "message": "Purchase order created"}
+
+@app.post("/api/cases/{case_id}/complete-workflow")
+def complete_case_workflow(case_id: int, final_status: str = "completed"):
+    conn = db()
+    case_row = conn.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone()
+    if not case_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    conn.execute("""
+        UPDATE cases SET status = ?, workflow_state = ?, updated_at = ?
+        WHERE id = ?
+    """, (final_status, "completed", now(), case_id))
+
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+        VALUES (?, ?, ?, ?, ?)
+    """, (case_id, "completed", now(), "system", f"Case marked as {final_status}"))
+
+    conn.commit()
+    conn.close()
+    return {"message": f"Case workflow completed with status: {final_status}"}
+
+@app.post("/api/unified-case-entry")
+def create_unified_case(case_entry: UnifiedCaseEntryIn, request: Request):
+    if not case_entry.client_hospital.strip():
+        raise HTTPException(status_code=400, detail="Client/hospital is required")
+    if not case_entry.line_items:
+        raise HTTPException(status_code=400, detail="At least one line item is required")
+
+    conn = db()
+    client_id = ensure_client(conn, case_entry.client_hospital.strip(), main_contact=case_entry.contact_person)
+
+    case_no = f"CASE-{int(datetime.now().timestamp())}"
+    cur = conn.execute("""
+        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, client_id, case_entry.client_hospital.strip(), case_entry.contact_person, case_entry.request_source, "open", case_entry.notes, now(), now()))
+    request_id = cur.lastrowid
+
+    case_cur = conn.execute("""
+        INSERT INTO cases (case_no, case_type, client_id, request_id, priority, status, workflow_state, created_at, updated_at, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case_entry.case_type, client_id, request_id, case_entry.priority, "open", "lead", now(), now(), case_entry.notes))
+    case_id = case_cur.lastrowid
+
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+        VALUES (?, ?, ?, ?, ?)
+    """, (case_id, "lead", now(), request.session.get("username", "system"), "Unified case entry created"))
+
+    total_shortage = 0
+    for line in case_entry.line_items:
+        if not line.requested_item.strip():
+            continue
+        if int(line.quantity or 0) <= 0:
+            raise HTTPException(status_code=400, detail="Line quantities must be positive")
+
+        inv = find_inventory_for_request_item(conn, line.requested_item) if line.item_type in STOCK_ITEM_TYPES else None
+        cur_line = conn.execute("""
+            INSERT INTO customer_request_items
+            (request_id, requested_item, item_type, quantity, unit_price, notes, related_equipment_serial,
+             inventory_item_id, pn, procurement_status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            request_id, line.requested_item.strip(), line.item_type, int(line.quantity), float(line.unit_price or 0),
+            line.notes, line.related_equipment_serial, inv["id"] if inv else None, inv["pn"] if inv else "",
+            "not_ordered", now(), now()
+        ))
+        line_data = sync_case_line_stock(conn, cur_line.lastrowid)
+        if line_data:
+            total_shortage += line_data.get("shortage_qty", 0)
+            if case_entry.auto_reserve_available and line_data.get("available_qty", 0) > 0:
+                available = min(line_data["available_qty"], line_data["requested_qty"])
+                conn.execute("""
+                    UPDATE customer_request_items SET reserved_qty = ? WHERE id = ?
+                """, (available, cur_line.lastrowid))
+
+    if case_entry.auto_create_po and total_shortage > 0:
+        po_no = f"PO-{int(datetime.now().timestamp())}"
+        conn.execute("""
+            INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, case_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (po_no, "To be assigned", "draft", add_days_iso(now(), 7), f"Auto-generated for {case_no}", now(), now(), request_id, case_id))
+
+        for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id = ? AND shortage_qty > 0", (request_id,)).fetchall():
+            conn.execute("""
+                INSERT INTO purchase_order_items (po_no, pn, description, qty, created_at, updated_at, request_id, request_item_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (po_no, line["pn"] or "", line["requested_item"], line["shortage_qty"], now(), now(), request_id, line["id"]))
+            conn.execute("UPDATE customer_request_items SET procurement_status = 'po_draft', linked_purchase_order = ? WHERE id = ?",
+                        (po_no, line["id"]))
+
+    conn.execute("""
+        INSERT INTO crm_communications (client_id, type, user, note, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (client_id, "customer_request", request.session.get("username", "system"), f"Created unified case {case_no}", now()))
+
+    conn.commit()
+    data = request_with_lines(conn, request_id)
+    conn.close()
+    export_excel(EXCEL_PATH)
+
+    return {
+        "case_id": case_id,
+        "case_no": case_no,
+        "request_id": request_id,
+        "client_id": client_id,
+        "total_items": len(case_entry.line_items),
+        "total_shortage": total_shortage,
+        "auto_po_created": case_entry.auto_create_po and total_shortage > 0,
+        "customer_request": data,
+        "message": "Unified case created successfully"
+    }
 
 @app.get("/api/customer-requests")
 def list_customer_requests(q: str = ""):
