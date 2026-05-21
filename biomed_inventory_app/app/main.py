@@ -2338,6 +2338,26 @@ def create_customer_request(payload: CustomerRequestIn, request: Request):
     request_id = cur.lastrowid
     case_no = make_doc_no("CASE", request_id)
     conn.execute("UPDATE customer_requests SET case_no=? WHERE id=?", (case_no, request_id))
+
+    case_type = "spare_parts_sale"
+    for line in payload.lines:
+        if line.item_type == "new_equipment":
+            case_type = "equipment_delivery"
+            break
+        elif line.item_type == "labor":
+            case_type = "corrective_maintenance"
+            break
+
+    case_cur = conn.execute("""
+        INSERT INTO cases (case_no, case_type, client_id, request_id, status, workflow_state, created_at, updated_at, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case_type, client_id, request_id, "open", "lead", now(), now(), payload.notes))
+    case_id = case_cur.lastrowid
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+        VALUES (?, ?, ?, ?, ?)
+    """, (case_id, "lead", now(), "system", f"Customer request {case_no} created"))
+
     for line in payload.lines:
         if not line.requested_item.strip():
             continue
