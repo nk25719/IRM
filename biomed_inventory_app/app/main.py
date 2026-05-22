@@ -169,6 +169,7 @@ class CustomerRequestLineIn(BaseModel):
 
 class CustomerRequestIn(BaseModel):
     client_hospital: str
+    department: str = ""
     contact_person: str = ""
     request_source: str = "call"
     notes: str = ""
@@ -258,6 +259,198 @@ class UnifiedCaseEntryIn(BaseModel):
     auto_create_po: bool = True
     auto_reserve_available: bool = True
 
+CASE_TYPES = {
+    "spare_parts_sale",
+    "accessories_sale",
+    "equipment_delivery",
+    "installation",
+    "corrective_maintenance",
+    "preventive_maintenance",
+    "warranty_call",
+    "maintenance_contract",
+    "calibration",
+    "training",
+    "demo",
+    "recall_fmi",
+}
+
+REQUEST_SOURCE_ALIASES = {
+    "whatsapp": "WhatsApp",
+    "customer po": "PO",
+    "customer_po": "PO",
+    "purchase order": "PO",
+}
+REQUEST_SOURCES = {"call", "email", "WhatsApp", "bid", "PO", "internal"}
+STOCK_ITEM_TYPES = {"spare_part", "accessory", "new_equipment"}
+SERVICE_ITEM_TYPES = {"labor", "service", "maintenance_contract", "training", "demo", "calibration"}
+LINE_ITEM_TYPES = STOCK_ITEM_TYPES | SERVICE_ITEM_TYPES
+PROCUREMENT_STATUSES = {
+    "not_ordered",
+    "po_draft",
+    "po_sent",
+    "supplier_confirmed",
+    "partially_received",
+    "received",
+    "cancelled",
+}
+
+DOCUMENT_PREFIXES = {
+    "quotation": "QT",
+    "pro_forma": "PF",
+    "client_order": "CO",
+    "purchase_order": "PO",
+    "delivery_note": "DN",
+    "invoice": "INV",
+    "service_report": "SR",
+    "pm_report": "PMR",
+    "installation_report": "IR",
+    "acceptance_test_report": "ATR",
+}
+GENERATABLE_DOCUMENT_TYPES = set(DOCUMENT_PREFIXES)
+PARENT_DOCUMENT_PREFIXES = {
+    "quotation": "OF",
+    "pro_forma": "PF",
+    "client_order": "CO",
+    "purchase_order": "PO",
+    "delivery_note": "DN",
+    "invoice": "INV",
+    "service_report": "SR",
+    "pm_report": "PM",
+    "installation_report": "IR",
+    "acceptance_test_report": "AT",
+    "calibration_certificate": "CAL",
+    "contract": "CT",
+}
+
+SOP_WORKFLOWS = {
+    "after_sales_sales": [
+        "lead",
+        "needs_detected",
+        "offer_required",
+        "parts_request_if_needed",
+        "offer_sent",
+        "follow_up",
+        "deal_closed",
+        "delivery_coordination",
+        "installation_follow_up",
+    ],
+    "delivery_installation": [
+        "upcoming_delivery",
+        "shipment_ready",
+        "site_readiness_follow_up",
+        "reception_form",
+        "delivery_order",
+        "customer_appointment",
+        "physical_delivery",
+        "installation",
+        "functional_test",
+        "service_report",
+        "signed_delivery_order",
+        "archive",
+        "accountant_notification",
+        "equipment_registration",
+    ],
+    "preventive_maintenance": [
+        "contract_new_installation_trigger",
+        "pm_scheduled",
+        "engineer_notified",
+        "appointment_set",
+        "checklist_prepared",
+        "pm_done",
+        "service_report_signed",
+        "checklist_archived",
+        "spare_part_need_detected",
+    ],
+    "corrective_maintenance": [
+        "call_received",
+        "coverage_checked",
+        "call_registered",
+        "engineer_informed",
+        "quotation_if_charged_call",
+        "customer_approval",
+        "appointment_or_workshop_pickup",
+        "service_visit",
+        "service_report",
+        "accountant_notified_for_invoice",
+        "customer_satisfaction_follow_up",
+    ],
+    "calibration": [
+        "calibration_requested",
+        "equipment_identified",
+        "appointment_set",
+        "calibration_done",
+        "certificate_attached",
+        "next_due_date_recorded",
+        "archive",
+    ],
+    "recall_fmi": [
+        "notice_received",
+        "affected_units_identified",
+        "client_notified",
+        "corrective_action_planned",
+        "corrective_action_completed",
+        "completion_status_recorded",
+        "archive",
+    ],
+}
+
+CASE_TYPE_WORKFLOW = {
+    "spare_parts_sale": "after_sales_sales",
+    "accessories_sale": "after_sales_sales",
+    "training": "after_sales_sales",
+    "demo": "after_sales_sales",
+    "equipment_delivery": "delivery_installation",
+    "installation": "delivery_installation",
+    "preventive_maintenance": "preventive_maintenance",
+    "maintenance_contract": "preventive_maintenance",
+    "corrective_maintenance": "corrective_maintenance",
+    "warranty_call": "corrective_maintenance",
+    "calibration": "calibration",
+    "recall_fmi": "recall_fmi",
+}
+
+def normalize_request_source(source: str = "") -> str:
+    raw = (source or "call").strip()
+    normalized = REQUEST_SOURCE_ALIASES.get(raw.lower(), raw)
+    if normalized not in REQUEST_SOURCES:
+        raise HTTPException(status_code=400, detail=f"Unsupported request source: {source}")
+    return normalized
+
+def validate_case_type(case_type: str = "") -> str:
+    normalized = (case_type or "spare_parts_sale").strip()
+    if normalized not in CASE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported case type: {case_type}")
+    return normalized
+
+def validate_item_type(item_type: str = "") -> str:
+    normalized = (item_type or "spare_part").strip()
+    if normalized not in LINE_ITEM_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported item/service type: {item_type}")
+    return normalized
+
+def workflow_key_for_case_type(case_type: str) -> str:
+    return CASE_TYPE_WORKFLOW.get(validate_case_type(case_type), "after_sales_sales")
+
+def workflow_states_for_case_type(case_type: str) -> list[str]:
+    return SOP_WORKFLOWS[workflow_key_for_case_type(case_type)]
+
+def initial_workflow_state(case_type: str) -> str:
+    return workflow_states_for_case_type(case_type)[0]
+
+def infer_case_type_from_lines(lines: list[CustomerRequestLineIn]) -> str:
+    item_types = {validate_item_type(line.item_type) for line in lines}
+    if "new_equipment" in item_types:
+        return "equipment_delivery"
+    if "maintenance_contract" in item_types:
+        return "maintenance_contract"
+    if "calibration" in item_types:
+        return "calibration"
+    if "labor" in item_types or "service" in item_types:
+        return "corrective_maintenance"
+    if "accessory" in item_types:
+        return "accessories_sale"
+    return "spare_parts_sale"
+
 def current_role(request: Request | None = None) -> str:
     if request and request.session.get("role"):
         return request.session.get("role")
@@ -326,11 +519,48 @@ def lookup_url_for(pn: str, description: str = "") -> str:
     query = f"{pn} {description} biomedical spare part GE Healthcare".strip()
     return "https://www.google.com/search?q=" + urllib.parse.quote_plus(query)
 
+def generate_parent_case_reference(conn) -> str:
+    year = date.today().year
+    prefix = f"AS-{year}-"
+    rows = conn.execute("""
+        SELECT parent_case_reference FROM cases
+        WHERE parent_case_reference LIKE ?
+        UNION
+        SELECT parent_case_reference FROM customer_requests
+        WHERE parent_case_reference LIKE ?
+    """, (prefix + "%", prefix + "%")).fetchall()
+    highest = 0
+    for row in rows:
+        try:
+            highest = max(highest, int(str(row["parent_case_reference"]).rsplit("-", 1)[-1]))
+        except (TypeError, ValueError):
+            continue
+    return f"{prefix}{highest + 1:04d}"
+
+def document_reference_for(parent_case_reference: str = "", doc_type: str = "") -> str:
+    if not parent_case_reference:
+        return ""
+    return f"{PARENT_DOCUMENT_PREFIXES.get(doc_type, 'DOC')}-{parent_case_reference}"
+
 def audit(conn, item_id, action, old_value="", new_value="", notes=""):
     conn.execute("""
         INSERT INTO audit_log (item_id, action, old_value, new_value, notes, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (item_id, action, str(old_value), str(new_value), notes, now()))
+
+def case_timeline(conn, parent_case_reference: str = "", parent_case_id: int | None = None, event_type: str = "",
+                  title: str = "", status: str = "", user: str = "system", notes: str = "",
+                  related_table: str = "", related_id: int | None = None):
+    if not parent_case_reference and parent_case_id:
+        row = conn.execute("SELECT parent_case_reference FROM cases WHERE id=?", (parent_case_id,)).fetchone()
+        parent_case_reference = row["parent_case_reference"] if row else ""
+    if not parent_case_reference and not parent_case_id:
+        return
+    conn.execute("""
+        INSERT INTO case_timeline
+        (parent_case_reference, parent_case_id, event_type, title, status, user, notes, related_table, related_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (parent_case_reference, parent_case_id, event_type, title, status, user, notes, related_table, related_id, now()))
 
 def init_db():
     conn = db()
@@ -494,6 +724,21 @@ def init_db():
             notes TEXT,
             created_at TEXT,
             updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS client_departments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_name TEXT,
+            floor_location TEXT,
+            main_contact_name TEXT,
+            phone TEXT,
+            email TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE(client_id, department_name)
         )
     """)
     conn.execute("""
@@ -895,6 +1140,41 @@ def init_db():
             metadata TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS case_timeline (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
+            event_type TEXT,
+            title TEXT,
+            status TEXT,
+            user TEXT,
+            notes TEXT,
+            related_table TEXT,
+            related_id INTEGER,
+            created_at TEXT
+        )
+    """)
+    for table_name in ["delivery_notes", "invoices", "service_reports", "pm_reports", "calibration_reports", "contracts"]:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id INTEGER,
+                doc_no TEXT,
+                document_reference TEXT,
+                parent_case_reference TEXT,
+                parent_case_id INTEGER,
+                client_id INTEGER,
+                department_id INTEGER,
+                request_id INTEGER,
+                equipment_id INTEGER,
+                status TEXT,
+                amount REAL DEFAULT 0,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
     conn.commit()
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(inventory)").fetchall()]
@@ -968,6 +1248,125 @@ def init_db():
     for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id", "case_id"]:
         if col not in po_cols:
             conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} INTEGER")
+
+    extra_table_columns = {
+        "customer_requests": {
+            "department": "TEXT",
+            "department_id": "INTEGER",
+            "contact_id": "INTEGER",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+        },
+        "cases": {
+            "department": "TEXT",
+            "department_id": "INTEGER",
+            "request_source": "TEXT",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+        },
+        "quotations": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "document_reference": "TEXT",
+            "department_id": "INTEGER",
+        },
+        "client_orders": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "document_reference": "TEXT",
+            "department_id": "INTEGER",
+        },
+        "purchase_orders": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "document_reference": "TEXT",
+            "department_id": "INTEGER",
+        },
+        "sales_case_documents": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "document_reference": "TEXT",
+            "department_id": "INTEGER",
+        },
+        "stock_movements": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+        },
+        "pm_assets": {
+            "department_id": "INTEGER",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+        },
+        "service_calls": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+            "priority": "TEXT DEFAULT 'normal'",
+            "response_time_hours": "REAL DEFAULT 0",
+            "progress_state": "TEXT",
+            "invoice_required": "INTEGER DEFAULT 0",
+        },
+        "pm_tasks": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+            "report_status": "TEXT",
+            "checklist_status": "TEXT",
+        },
+        "pm_history": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+        },
+        "equipment_bids": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+        },
+        "equipment_calibrations": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+            "result": "TEXT",
+        },
+        "equipment_uptime_events": {
+            "outage_reason": "TEXT",
+            "response_time_hours": "REAL DEFAULT 0",
+            "repair_time_hours": "REAL DEFAULT 0",
+        },
+        "equipment_recall_notices": {
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+            "affected_model": "TEXT",
+        },
+        "equipment_compatibility": {
+            "equipment_model": "TEXT",
+            "compatible_consumables": "TEXT",
+            "compatible_accessories": "TEXT",
+            "compatible_part_numbers": "TEXT",
+            "alternatives_substitutes": "TEXT",
+        },
+        "pm_checklist_templates": {
+            "pass_fail_items": "TEXT",
+            "measurement_values": "TEXT",
+            "comments": "TEXT",
+            "engineer_signature": "TEXT",
+            "customer_signature": "TEXT",
+        },
+        "installation_qualification_forms": {
+            "power_network_validation": "TEXT",
+        },
+        "acceptance_testing_forms": {
+            "functional_tests": "TEXT",
+            "pass_fail": "TEXT",
+        },
+    }
+    for table, columns in extra_table_columns.items():
+        existing_cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        for col, col_type in columns.items():
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
 
     ensure_clients_from_existing_data(conn)
     conn.commit()
@@ -1212,6 +1611,76 @@ def ensure_client(conn, name: str, **defaults) -> int | None:
     ))
     return cur.lastrowid
 
+def ensure_contact(conn, client_id: int | None, name: str = "", department: str = "", email: str = "", phone: str = "") -> int | None:
+    clean_name = str(name or "").strip()
+    if not client_id or not clean_name:
+        return None
+    existing = conn.execute(
+        "SELECT * FROM crm_contacts WHERE client_id=? AND lower(trim(name))=lower(trim(?))",
+        (client_id, clean_name),
+    ).fetchone()
+    role = department or (existing["role"] if existing else "")
+    if existing:
+        conn.execute("""
+            UPDATE crm_contacts
+            SET role=COALESCE(NULLIF(?, ''), role),
+                email=COALESCE(NULLIF(?, ''), email),
+                phone=COALESCE(NULLIF(?, ''), phone),
+                updated_at=?
+            WHERE id=?
+        """, (role, email, phone, now(), existing["id"]))
+        return existing["id"]
+    cur = conn.execute("""
+        INSERT INTO crm_contacts (client_id, name, role, email, phone, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (client_id, clean_name, department, email, phone, "Created from unified case entry", now(), now()))
+    return cur.lastrowid
+
+def ensure_department(conn, client_id: int | None, department_name: str = "", **defaults) -> int | None:
+    if not client_id:
+        return None
+    clean_name = str(department_name or "").strip() or "Biomedical Department"
+    existing = conn.execute("""
+        SELECT id FROM client_departments
+        WHERE client_id=? AND lower(trim(department_name))=lower(trim(?))
+    """, (client_id, clean_name)).fetchone()
+    if existing:
+        conn.execute("""
+            UPDATE client_departments
+            SET floor_location=COALESCE(NULLIF(?, ''), floor_location),
+                main_contact_name=COALESCE(NULLIF(?, ''), main_contact_name),
+                phone=COALESCE(NULLIF(?, ''), phone),
+                email=COALESCE(NULLIF(?, ''), email),
+                notes=COALESCE(NULLIF(?, ''), notes),
+                updated_at=?
+            WHERE id=?
+        """, (
+            defaults.get("floor_location", ""),
+            defaults.get("main_contact_name", ""),
+            defaults.get("phone", ""),
+            defaults.get("email", ""),
+            defaults.get("notes", ""),
+            now(),
+            existing["id"],
+        ))
+        return existing["id"]
+    cur = conn.execute("""
+        INSERT INTO client_departments
+        (client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        client_id,
+        clean_name,
+        defaults.get("floor_location", ""),
+        defaults.get("main_contact_name", ""),
+        defaults.get("phone", ""),
+        defaults.get("email", ""),
+        defaults.get("notes", ""),
+        now(),
+        now(),
+    ))
+    return cur.lastrowid
+
 def ensure_clients_from_existing_data(conn):
     client_ids = {}
     rows = conn.execute("""
@@ -1237,6 +1706,22 @@ def ensure_clients_from_existing_data(conn):
         if client_id:
             conn.execute("UPDATE pm_assets SET client_id=? WHERE lower(trim(COALESCE(hospital, '')))=?", (client_id, key))
             conn.execute("UPDATE inventory SET client_id=?, client_name=(SELECT name FROM clients WHERE id=?) WHERE lower(trim(COALESCE(client_name, '')))=?", (client_id, client_id, key))
+            for row in conn.execute("""
+                SELECT DISTINCT department, contact_email
+                FROM pm_assets
+                WHERE client_id=? AND COALESCE(department, '') != ''
+            """, (client_id,)).fetchall():
+                department_id = ensure_department(
+                    conn,
+                    client_id,
+                    row["department"],
+                    email=row["contact_email"] or "",
+                    notes="Discovered from installed equipment",
+                )
+                conn.execute("""
+                    UPDATE pm_assets SET department_id=?
+                    WHERE client_id=? AND lower(trim(COALESCE(department, '')))=lower(trim(?))
+                """, (department_id, client_id, row["department"]))
 
 def crm_client_row(conn, client_id: int):
     ensure_clients_from_existing_data(conn)
@@ -1341,6 +1826,18 @@ def crm_client_dashboard_data(conn, client_id: int):
         WHERE client_id=? OR lower(trim(client_name))=lower(trim(?))
         ORDER BY updated_at DESC
     """, (client_id, client["name"])).fetchall()]
+    purchase_orders = [dict(r) for r in conn.execute("""
+        SELECT * FROM purchase_orders
+        WHERE client_id=?
+           OR request_id IN (SELECT id FROM customer_requests WHERE client_id=?)
+           OR case_id IN (SELECT id FROM cases WHERE client_id=?)
+        ORDER BY updated_at DESC
+    """, (client_id, client_id, client_id)).fetchall()]
+    cases = [dict(r) for r in conn.execute("""
+        SELECT * FROM cases
+        WHERE client_id=?
+        ORDER BY updated_at DESC, id DESC
+    """, (client_id,)).fetchall()]
     service_calls = [dict(r) for r in conn.execute("SELECT * FROM service_calls WHERE client_id=? ORDER BY COALESCE(opened_at, created_at) DESC", (client_id,)).fetchall()]
     equipment_history = [dict(r) for r in conn.execute("""
         SELECT h.*, a.asset_tag, a.serial_number, a.model
@@ -1416,7 +1913,9 @@ def crm_client_dashboard_data(conn, client_id: int):
         "offers": offers,
         "documents": docs,
         "requests": requests,
+        "cases": cases,
         "orders": orders,
+        "purchase_orders": purchase_orders,
         "service_calls": service_calls,
         "engineer_activities": engineer_activities,
         "equipment_history": equipment_history,
@@ -1426,6 +1925,8 @@ def crm_client_dashboard_data(conn, client_id: int):
             "offers": offer_counts,
             "requests": request_counts,
             "orders": order_counts,
+            "cases_open": sum(1 for c in cases if str(c.get("status", "")).lower() not in {"completed", "closed", "cancelled"}),
+            "pending_procurement": sum(1 for p in purchase_orders if str(p.get("status", "")).lower() not in {"received", "closed", "cancelled"}),
             "service_open": sum(1 for c in service_calls if str(c.get("status", "")).lower() not in {"closed", "resolved", "cancelled"}),
             "pm_due": sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) in {"due_today", "due_this_week", "overdue"}),
             "warranty_equipment": sum(1 for e in equipment if warranty_status(e.get("warranty_end", "")) in {"active", "expiring_soon"}),
@@ -1543,6 +2044,42 @@ def after_sales_dashboard_data(conn):
 
     active_contracts = [c for c in contracts if c.get("status") in {"active", "expiring_soon"}]
     expiring_contracts = [c for c in contracts if c.get("status") == "expiring_soon"]
+    delivery_installation = [dict(r) for r in conn.execute("""
+        SELECT b.*, c.name AS client_name
+        FROM equipment_bids b
+        LEFT JOIN clients c ON c.id=b.client_id
+        WHERE lower(COALESCE(b.installation_status, 'pending')) NOT IN ('completed', 'registered', 'cancelled')
+           OR lower(COALESCE(b.acceptance_status, 'pending')) NOT IN ('completed', 'accepted', 'cancelled')
+        ORDER BY b.updated_at DESC
+        LIMIT 20
+    """).fetchall()]
+    calibrations = [dict(r) for r in conn.execute("""
+        SELECT cal.*, a.asset_tag, a.model, a.serial_number, c.name AS client_name
+        FROM equipment_calibrations cal
+        LEFT JOIN pm_assets a ON a.id=cal.equipment_id
+        LEFT JOIN clients c ON c.id=cal.client_id
+        WHERE COALESCE(cal.next_due_date, '') = ''
+           OR cal.next_due_date <= ?
+        ORDER BY COALESCE(cal.next_due_date, ''), cal.updated_at DESC
+        LIMIT 20
+    """, ((today + timedelta(days=30)).isoformat(),)).fetchall()]
+    recalls = [dict(r) for r in conn.execute("""
+        SELECT r.*, a.asset_tag, a.model, a.serial_number, c.name AS client_name
+        FROM equipment_recall_notices r
+        LEFT JOIN pm_assets a ON a.id=r.equipment_id
+        LEFT JOIN clients c ON c.id=r.client_id
+        WHERE lower(COALESCE(r.completion_status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        ORDER BY r.updated_at DESC
+        LIMIT 20
+    """).fetchall()]
+    case_pipeline = [dict(r) for r in conn.execute("""
+        SELECT cases.*, c.name AS client_name
+        FROM cases
+        LEFT JOIN clients c ON c.id=cases.client_id
+        WHERE lower(COALESCE(cases.status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        ORDER BY cases.updated_at DESC
+        LIMIT 30
+    """).fetchall()]
     return {
         "metrics": {
             "open_service_calls": len(service_calls),
@@ -1552,7 +2089,12 @@ def after_sales_dashboard_data(conn):
             "reports_pending": len(report_rows),
             "engineer_workload": sum(w["total"] for w in workload.values()),
             "warranty_equipment_needing_pm": len(warranty_pm),
+            "delivery_installations": len(delivery_installation),
+            "calibrations_due": len(calibrations),
+            "open_recalls_fmi": len(recalls),
+            "open_cases": len(case_pipeline),
         },
+        "case_pipeline": case_pipeline,
         "service_calls": service_calls,
         "pm_due": pm_due[:20],
         "pm_completed": [enrich_pm_asset(r) for r in conn.execute("""
@@ -1564,19 +2106,23 @@ def after_sales_dashboard_data(conn):
             LIMIT 20
         """).fetchall()],
         "contracts": contracts,
+        "delivery_installation": delivery_installation,
+        "calibrations": calibrations,
+        "recalls": recalls,
         "reports_pending": report_rows,
         "engineer_workload": sorted(workload.values(), key=lambda item: item["total"], reverse=True),
         "warranty_pm": warranty_pm[:20],
         "submodules": [
+            {"name": "Dashboard", "path": "/after-sales", "existing_route": "/after-sales", "description": "Unified workload, case pipeline, service, PM, delivery, calibration, and recall overview."},
             {"name": "Service Calls", "path": "/after-sales/service-calls", "existing_route": "/crm", "description": "Corrective maintenance, labor, spare parts + installation, assignments, statuses, and service history."},
             {"name": "PM Tracking", "path": "/after-sales/pm-tracking", "existing_route": "/pm", "description": "Schedules, due lists, completed PMs, engineer assignment, PM reports, and warranty PM tracking."},
             {"name": "Contracts", "path": "/after-sales/contracts", "existing_route": "/pm/contracts", "description": "Maintenance contracts, warranty contracts, covered equipment, dates, and status."},
+            {"name": "Delivery & Installation", "path": "/after-sales/delivery-installation", "existing_route": "/equipment-registry", "description": "Delivery readiness, reception, physical delivery, installation, acceptance testing, and equipment registration."},
+            {"name": "Calibration", "path": "/after-sales/calibration", "existing_route": "/equipment-registry/calibration", "description": "Calibration history, due dates, certificates, standards used, and results."},
+            {"name": "FMI / Recall", "path": "/after-sales/fmi-recall", "existing_route": "/equipment-registry/recalls", "description": "Manufacturer notices, affected models and serials, corrective actions, and completion status."},
             {"name": "Reports", "path": "/after-sales/reports", "existing_route": "/pm/reports", "description": "Service, PM, engineer, client, and equipment history reports."},
         ],
     }
-
-STOCK_ITEM_TYPES = {"spare_part", "accessory", "new_equipment"}
-SERVICE_ITEM_TYPES = {"labor", "service", "maintenance_contract"}
 
 def stock_status_for(requested_qty: int, available_qty: int, reserved_qty: int = 0, delivered_qty: int = 0, invoiced_qty: int = 0) -> str:
     if invoiced_qty >= requested_qty and requested_qty > 0:
@@ -1674,19 +2220,83 @@ def request_with_lines(conn, request_id: int):
 def make_doc_no(prefix: str, request_id: int) -> str:
     return f"{prefix}-{date.today().strftime('%y%m%d')}-{request_id:04d}"
 
+def case_identity_for_request(conn, request_id: int):
+    row = conn.execute("""
+        SELECT c.id AS case_id, c.parent_case_reference, c.department_id, c.client_id
+        FROM cases c
+        WHERE c.request_id=?
+        ORDER BY c.id DESC
+        LIMIT 1
+    """, (request_id,)).fetchone()
+    if row and row["parent_case_reference"]:
+        return {
+            "parent_case_id": row["case_id"],
+            "parent_case_reference": row["parent_case_reference"],
+            "department_id": row["department_id"],
+            "client_id": row["client_id"],
+        }
+    req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
+    if req and req["parent_case_reference"]:
+        return {
+            "parent_case_id": req["parent_case_id"],
+            "parent_case_reference": req["parent_case_reference"],
+            "department_id": req["department_id"],
+            "client_id": req["client_id"],
+        }
+    return {"parent_case_id": None, "parent_case_reference": "", "department_id": None, "client_id": req["client_id"] if req else None}
+
+def sync_reference_registry(conn, doc_type: str, document_id: int, doc_no: str, document_reference: str,
+                            parent_case_reference: str, parent_case_id: int | None, client_id: int | None,
+                            department_id: int | None, request_id: int | None, status: str = "",
+                            amount: float = 0, notes: str = ""):
+    table_map = {
+        "delivery_note": "delivery_notes",
+        "invoice": "invoices",
+        "service_report": "service_reports",
+        "pm_report": "pm_reports",
+        "calibration_certificate": "calibration_reports",
+        "contract": "contracts",
+    }
+    table = table_map.get(doc_type)
+    if not table:
+        return
+    existing = conn.execute(f"SELECT id FROM {table} WHERE document_id=?", (document_id,)).fetchone()
+    if existing:
+        conn.execute(f"""
+            UPDATE {table}
+            SET doc_no=?, document_reference=?, parent_case_reference=?, parent_case_id=?,
+                client_id=?, department_id=?, request_id=?, status=?, amount=?, notes=?, updated_at=?
+            WHERE id=?
+        """, (doc_no, document_reference, parent_case_reference, parent_case_id, client_id, department_id, request_id, status, amount, notes, now(), existing["id"]))
+        return
+    conn.execute(f"""
+        INSERT INTO {table}
+        (document_id, doc_no, document_reference, parent_case_reference, parent_case_id, client_id, department_id, request_id, status, amount, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (document_id, doc_no, document_reference, parent_case_reference, parent_case_id, client_id, department_id, request_id, status, amount, notes, now(), now()))
+
 def create_sales_document(conn, request_id: int, doc_type: str, status: str = "draft", notes: str = "", source_document_id: int | None = None, line_quantities: dict[int, int] | None = None):
+    if doc_type not in GENERATABLE_DOCUMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported document type: {doc_type}")
     req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
     if not req:
         raise HTTPException(status_code=404, detail="Customer request not found")
-    prefix = {
-        "quotation": "QT",
-        "pro_forma": "PF",
-        "client_order": "CO",
-        "delivery_note": "DN",
-        "invoice": "INV",
-    }.get(doc_type, "DOC")
+    case_identity = case_identity_for_request(conn, request_id)
+    parent_case_reference = case_identity["parent_case_reference"]
+    parent_case_id = case_identity["parent_case_id"]
+    department_id = case_identity["department_id"]
+    prefix = DOCUMENT_PREFIXES.get(doc_type, "DOC")
     existing = conn.execute("SELECT * FROM sales_case_documents WHERE request_id=? AND doc_type=? ORDER BY id DESC LIMIT 1", (request_id, doc_type)).fetchone()
     if existing and doc_type not in {"delivery_note", "invoice"}:
+        if parent_case_reference and not existing["parent_case_reference"]:
+            document_reference = document_reference_for(parent_case_reference, doc_type)
+            conn.execute("""
+                UPDATE sales_case_documents
+                SET parent_case_reference=?, parent_case_id=?, document_reference=?, department_id=?, updated_at=?
+                WHERE id=?
+            """, (parent_case_reference, parent_case_id, document_reference, department_id, now(), existing["id"]))
+            sync_reference_registry(conn, doc_type, existing["id"], existing["doc_no"], document_reference, parent_case_reference, parent_case_id, req["client_id"], department_id, request_id, existing["status"], existing["amount"], existing["notes"])
+            existing = conn.execute("SELECT * FROM sales_case_documents WHERE id=?", (existing["id"],)).fetchone()
         return dict(existing)
     lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? ORDER BY id", (request_id,)).fetchall()
     amount = 0
@@ -1701,11 +2311,14 @@ def create_sales_document(conn, request_id: int, doc_type: str, status: str = "d
         amount += line_total
         selected_lines.append((line, quantity, line_total))
     doc_no = make_doc_no(prefix, request_id)
+    document_reference = document_reference_for(parent_case_reference, doc_type)
     cur = conn.execute("""
         INSERT INTO sales_case_documents
-        (request_id, client_id, doc_type, doc_no, status, source_document_id, amount, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (request_id, req["client_id"], doc_type, doc_no, status, source_document_id, amount, notes, now(), now()))
+        (request_id, client_id, doc_type, doc_no, status, source_document_id, amount, notes, created_at, updated_at,
+         parent_case_reference, parent_case_id, document_reference, department_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (request_id, req["client_id"], doc_type, doc_no, status, source_document_id, amount, notes, now(), now(),
+          parent_case_reference, parent_case_id, document_reference, department_id))
     document_id = cur.lastrowid
     for line, quantity, line_total in selected_lines:
         conn.execute("""
@@ -1716,11 +2329,101 @@ def create_sales_document(conn, request_id: int, doc_type: str, status: str = "d
             document_id, line["id"], line["requested_item"], line["item_type"], quantity,
             float(line["unit_price"] or 0), line_total, line["notes"], line["related_equipment_serial"], now()
         ))
+    sync_reference_registry(conn, doc_type, document_id, doc_no, document_reference, parent_case_reference, parent_case_id, req["client_id"], department_id, request_id, status, amount, notes)
+    case_timeline(conn, parent_case_reference, parent_case_id, "document_created", f"{doc_type.replace('_', ' ').title()} created", status, "system", doc_no, "sales_case_documents", document_id)
     return dict(conn.execute("SELECT * FROM sales_case_documents WHERE id=?", (document_id,)).fetchone())
 
 def latest_sales_document(conn, request_id: int, doc_type: str):
     row = conn.execute("SELECT * FROM sales_case_documents WHERE request_id=? AND doc_type=? ORDER BY id DESC LIMIT 1", (request_id, doc_type)).fetchone()
     return dict(row) if row else None
+
+def refresh_case_links(conn, request_id: int):
+    if not request_id:
+        return
+    identity = case_identity_for_request(conn, request_id)
+    parent_case_reference = identity["parent_case_reference"]
+    parent_case_id = identity["parent_case_id"]
+    department_id = identity["department_id"]
+    quotation = conn.execute("SELECT id FROM quotations WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    client_order = conn.execute("SELECT id FROM client_orders WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    purchase_order = conn.execute("SELECT id FROM purchase_orders WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    delivery_note = conn.execute("SELECT id FROM sales_case_documents WHERE request_id=? AND doc_type='delivery_note' ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    invoice = conn.execute("SELECT id FROM sales_case_documents WHERE request_id=? AND doc_type='invoice' ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    conn.execute("""
+        UPDATE cases
+        SET quotation_id=COALESCE(?, quotation_id),
+            client_order_id=COALESCE(?, client_order_id),
+            purchase_order_id=COALESCE(?, purchase_order_id),
+            delivery_note_id=COALESCE(?, delivery_note_id),
+            invoice_id=COALESCE(?, invoice_id),
+            updated_at=?
+        WHERE request_id=?
+    """, (
+        quotation["id"] if quotation else None,
+        client_order["id"] if client_order else None,
+        purchase_order["id"] if purchase_order else None,
+        delivery_note["id"] if delivery_note else None,
+        invoice["id"] if invoice else None,
+        now(),
+        request_id,
+    ))
+    if parent_case_reference:
+        conn.execute("""
+            UPDATE customer_requests
+            SET parent_case_reference=?, parent_case_id=COALESCE(parent_case_id, ?), department_id=COALESCE(department_id, ?), updated_at=?
+            WHERE id=?
+        """, (parent_case_reference, parent_case_id, department_id, now(), request_id))
+        conn.execute("""
+            UPDATE sales_case_documents
+            SET parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?),
+                document_reference=COALESCE(NULLIF(document_reference, ''), '')
+            WHERE request_id=?
+        """, (parent_case_reference, parent_case_id, department_id, request_id))
+        for doc in conn.execute("SELECT * FROM sales_case_documents WHERE request_id=?", (request_id,)).fetchall():
+            document_reference = doc["document_reference"] or document_reference_for(parent_case_reference, doc["doc_type"])
+            conn.execute("""
+                UPDATE sales_case_documents
+                SET document_reference=?, parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?)
+                WHERE id=?
+            """, (document_reference, parent_case_reference, parent_case_id, department_id, doc["id"]))
+            sync_reference_registry(conn, doc["doc_type"], doc["id"], doc["doc_no"], document_reference, parent_case_reference, parent_case_id, doc["client_id"], doc["department_id"] or department_id, request_id, doc["status"], doc["amount"], doc["notes"])
+        conn.execute("""
+            UPDATE quotations
+            SET parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?),
+                document_reference=COALESCE(NULLIF(document_reference, ''), ?)
+            WHERE request_id=?
+        """, (parent_case_reference, parent_case_id, department_id, document_reference_for(parent_case_reference, "quotation"), request_id))
+        conn.execute("""
+            UPDATE client_orders
+            SET parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?),
+                document_reference=COALESCE(NULLIF(document_reference, ''), ?)
+            WHERE request_id=?
+        """, (parent_case_reference, parent_case_id, department_id, document_reference_for(parent_case_reference, "client_order"), request_id))
+        conn.execute("""
+            UPDATE purchase_orders
+            SET parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?),
+                document_reference=COALESCE(NULLIF(document_reference, ''), ?)
+            WHERE request_id=?
+        """, (parent_case_reference, parent_case_id, department_id, document_reference_for(parent_case_reference, "purchase_order"), request_id))
+        conn.execute("""
+            UPDATE service_calls
+            SET parent_case_reference=?, parent_case_id=?, department_id=COALESCE(department_id, ?)
+            WHERE request_id=?
+        """, (parent_case_reference, parent_case_id, department_id, request_id))
+
+def advance_case_for_request(conn, request_id: int, state: str, notes: str = "", user: str = "system"):
+    row = conn.execute("SELECT id, case_type, parent_case_reference FROM cases WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    if not row:
+        return
+    allowed = workflow_states_for_case_type(row["case_type"])
+    if state not in allowed:
+        return
+    conn.execute("""
+        INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+        VALUES (?, ?, ?, ?, ?)
+    """, (row["id"], state, now(), user, notes))
+    conn.execute("UPDATE cases SET workflow_state=?, updated_at=? WHERE id=?", (state, now(), row["id"]))
+    case_timeline(conn, row["parent_case_reference"], row["id"], "workflow_state", state.replace("_", " ").title(), state, user, notes, "cases", row["id"])
 
 def reserve_customer_request_stock_in_conn(conn, request_id: int, client_order_id: int | None = None):
     request_with_lines(conn, request_id)
@@ -2217,27 +2920,45 @@ def create_crm_communication(client_id: int, entry: CRMCommunication, request: R
     conn.close()
     return {"id": cur.lastrowid, "message": "communication added"}
 
+@app.get("/api/cases/workflows")
+def case_workflow_definitions():
+    return {
+        "case_types": sorted(CASE_TYPES),
+        "request_sources": sorted(REQUEST_SOURCES),
+        "item_types": sorted(LINE_ITEM_TYPES),
+        "procurement_statuses": sorted(PROCUREMENT_STATUSES),
+        "documents": sorted(GENERATABLE_DOCUMENT_TYPES),
+        "workflows": SOP_WORKFLOWS,
+        "case_type_workflows": CASE_TYPE_WORKFLOW,
+    }
+
 @app.post("/api/cases")
 def create_case(case: CaseCreate):
     conn = db()
-    case_no = f"CASE-{int(datetime.now().timestamp())}"
-    import json
+    case_type = validate_case_type(case.case_type)
+    workflow_state = initial_workflow_state(case_type)
+    parent_case_reference = generate_parent_case_reference(conn)
+    case_no = f"CASE-{datetime.now().strftime('%y%m%d%H%M%S%f')}"
     cur = conn.execute("""
         INSERT INTO cases (case_no, case_type, client_id, contact_id, equipment_id, request_id,
                           quotation_id, client_order_id, purchase_order_id, delivery_note_id,
-                          invoice_id, engineer_id, contract_id, priority, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (case_no, case.case_type, case.client_id, case.contact_id, case.equipment_id, case.request_id,
+                          invoice_id, engineer_id, contract_id, priority, notes, created_at, updated_at,
+                          parent_case_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case_type, case.client_id, case.contact_id, case.equipment_id, case.request_id,
           case.quotation_id, case.client_order_id, case.purchase_order_id, case.delivery_note_id,
-          case.invoice_id, case.engineer_id, case.contract_id, case.priority, case.notes, now(), now()))
+          case.invoice_id, case.engineer_id, case.contract_id, case.priority, case.notes, now(), now(),
+          parent_case_reference))
     case_id = cur.lastrowid
+    conn.execute("UPDATE cases SET workflow_state=?, parent_case_id=? WHERE id=?", (workflow_state, case_id, case_id))
     conn.execute("""
         INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
         VALUES (?, ?, ?, ?, ?)
-    """, (case_id, "lead", now(), "system", "Case created"))
+    """, (case_id, workflow_state, now(), "system", "Case created"))
+    case_timeline(conn, parent_case_reference, case_id, "case_created", "Case created", "open", "system", case.notes, "cases", case_id)
     conn.commit()
     conn.close()
-    return {"id": case_id, "case_no": case_no, "message": "Case created successfully"}
+    return {"id": case_id, "case_no": case_no, "parent_case_reference": parent_case_reference, "message": "Case created successfully"}
 
 @app.get("/api/cases")
 def list_cases(case_type: str = "", client_id: int | None = None):
@@ -2271,6 +2992,8 @@ def get_case(case_id: int):
         (case_id,)
     ).fetchall()]
     case_data["workflow_history"] = states
+    case_data["workflow_key"] = workflow_key_for_case_type(case_data["case_type"])
+    case_data["allowed_states"] = workflow_states_for_case_type(case_data["case_type"])
     conn.close()
     return case_data
 
@@ -2313,10 +3036,14 @@ def update_case(case_id: int, update: CaseUpdate):
 @app.post("/api/cases/{case_id}/workflow-state")
 def transition_case_state(case_id: int, state_change: CaseWorkflowStateIn):
     conn = db()
-    case_row = conn.execute("SELECT workflow_state FROM cases WHERE id = ?", (case_id,)).fetchone()
+    case_row = conn.execute("SELECT workflow_state, case_type FROM cases WHERE id = ?", (case_id,)).fetchone()
     if not case_row:
         conn.close()
         raise HTTPException(status_code=404, detail="Case not found")
+    allowed = workflow_states_for_case_type(case_row["case_type"])
+    if state_change.state not in allowed:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Unsupported workflow state for {case_row['case_type']}: {state_change.state}")
     import json
     metadata_json = json.dumps(state_change.metadata) if state_change.metadata else None
     conn.execute("""
@@ -2369,11 +3096,11 @@ def auto_create_po_for_shortages(case_id: int):
         return {"message": "No shortages to procure"}
 
     po_no = f"PO-{int(datetime.now().timestamp())}"
-    conn.execute("""
+    po_cur = conn.execute("""
         INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (po_no, "To be assigned", "draft", add_days_iso(now(), 7), f"Auto-generated for case {case_id}", now(), now(), request_id))
-    po_id = conn.lastrowid
+    """, (po_no, "To be assigned", "draft", add_days_iso(date.today().isoformat(), 7), f"Auto-generated for case {case_id}", now(), now(), request_id))
+    po_id = po_cur.lastrowid
 
     for line in shortage_lines:
         conn.execute("""
@@ -2383,6 +3110,9 @@ def auto_create_po_for_shortages(case_id: int):
         conn.execute("""
             UPDATE customer_request_items SET procurement_status = 'po_draft', linked_purchase_order = ? WHERE id = ?
         """, (po_no, line["id"]))
+    conn.execute("UPDATE cases SET purchase_order_id=?, updated_at=? WHERE id=?", (po_id, now(), case_id))
+    advance_case_for_request(conn, request_id, "parts_request_if_needed", f"PO {po_no} drafted for shortage items")
+    refresh_case_links(conn, request_id)
 
     conn.commit()
     conn.close()
@@ -2416,61 +3146,77 @@ def create_unified_case(case_entry: UnifiedCaseEntryIn, request: Request):
         raise HTTPException(status_code=400, detail="Client/hospital is required")
     if not case_entry.line_items:
         raise HTTPException(status_code=400, detail="At least one line item is required")
+    case_type = validate_case_type(case_entry.case_type)
+    request_source = normalize_request_source(case_entry.request_source)
+    workflow_state = initial_workflow_state(case_type)
 
     conn = db()
     client_id = ensure_client(conn, case_entry.client_hospital.strip(), main_contact=case_entry.contact_person)
+    department_id = ensure_department(conn, client_id, case_entry.department, main_contact_name=case_entry.contact_person)
+    contact_id = ensure_contact(conn, client_id, case_entry.contact_person, case_entry.department)
+    parent_case_reference = generate_parent_case_reference(conn)
 
-    case_no = f"CASE-{int(datetime.now().timestamp())}"
+    case_no = f"CASE-{datetime.now().strftime('%y%m%d%H%M%S%f')}"
     cur = conn.execute("""
-        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (case_no, client_id, case_entry.client_hospital.strip(), case_entry.contact_person, case_entry.request_source, "open", case_entry.notes, now(), now()))
+        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at, department, department_id, contact_id, parent_case_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, client_id, case_entry.client_hospital.strip(), case_entry.contact_person, request_source, "open", case_entry.notes, now(), now(), case_entry.department, department_id, contact_id, parent_case_reference))
     request_id = cur.lastrowid
 
     case_cur = conn.execute("""
-        INSERT INTO cases (case_no, case_type, client_id, request_id, priority, status, workflow_state, created_at, updated_at, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (case_no, case_entry.case_type, client_id, request_id, case_entry.priority, "open", "lead", now(), now(), case_entry.notes))
+        INSERT INTO cases (case_no, case_type, client_id, contact_id, request_id, priority, status, workflow_state, created_at, updated_at, notes, department, department_id, request_source, parent_case_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case_type, client_id, contact_id, request_id, case_entry.priority, "open", workflow_state, now(), now(), case_entry.notes, case_entry.department, department_id, request_source, parent_case_reference))
     case_id = case_cur.lastrowid
+    conn.execute("UPDATE cases SET parent_case_id=? WHERE id=?", (case_id, case_id))
+    conn.execute("UPDATE customer_requests SET parent_case_id=? WHERE id=?", (case_id, request_id))
 
     conn.execute("""
         INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
         VALUES (?, ?, ?, ?, ?)
-    """, (case_id, "lead", now(), request.session.get("username", "system"), "Unified case entry created"))
+    """, (case_id, workflow_state, now(), request.session.get("username", "system"), "Unified case entry created"))
 
     total_shortage = 0
     for line in case_entry.line_items:
         if not line.requested_item.strip():
             continue
+        item_type = validate_item_type(line.item_type)
         if int(line.quantity or 0) <= 0:
             raise HTTPException(status_code=400, detail="Line quantities must be positive")
 
-        inv = find_inventory_for_request_item(conn, line.requested_item) if line.item_type in STOCK_ITEM_TYPES else None
+        inv = find_inventory_for_request_item(conn, line.requested_item) if item_type in STOCK_ITEM_TYPES else None
         cur_line = conn.execute("""
             INSERT INTO customer_request_items
             (request_id, requested_item, item_type, quantity, unit_price, notes, related_equipment_serial,
              inventory_item_id, pn, procurement_status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            request_id, line.requested_item.strip(), line.item_type, int(line.quantity), float(line.unit_price or 0),
+            request_id, line.requested_item.strip(), item_type, int(line.quantity), float(line.unit_price or 0),
             line.notes, line.related_equipment_serial, inv["id"] if inv else None, inv["pn"] if inv else "",
             "not_ordered", now(), now()
         ))
         line_data = sync_case_line_stock(conn, cur_line.lastrowid)
         if line_data:
             total_shortage += line_data.get("shortage_qty", 0)
-            if case_entry.auto_reserve_available and line_data.get("available_qty", 0) > 0:
-                available = min(line_data["available_qty"], line_data["requested_qty"])
-                conn.execute("""
-                    UPDATE customer_request_items SET reserved_qty = ? WHERE id = ?
-                """, (available, cur_line.lastrowid))
+
+    if case_entry.auto_reserve_available:
+        reserve_customer_request_stock_in_conn(conn, request_id)
+    total_shortage = sum(
+        int((sync_case_line_stock(conn, line["id"]) or {}).get("shortage_qty", 0))
+        for line in conn.execute("SELECT id FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall()
+    )
 
     if case_entry.auto_create_po and total_shortage > 0:
-        po_no = f"PO-{int(datetime.now().timestamp())}"
-        conn.execute("""
+        po_no = f"PO-{datetime.now().strftime('%y%m%d%H%M%S%f')}"
+        po_cur = conn.execute("""
             INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, case_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (po_no, "To be assigned", "draft", add_days_iso(now(), 7), f"Auto-generated for {case_no}", now(), now(), request_id, case_id))
+        """, (po_no, "To be assigned", "draft", add_days_iso(date.today().isoformat(), 7), f"Auto-generated for {case_no}", now(), now(), request_id, case_id))
+        conn.execute("""
+            UPDATE purchase_orders
+            SET parent_case_reference=?, parent_case_id=?, document_reference=?, client_id=?, department_id=?
+            WHERE id=?
+        """, (parent_case_reference, case_id, document_reference_for(parent_case_reference, "purchase_order"), client_id, department_id, po_cur.lastrowid))
 
         for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id = ? AND shortage_qty > 0", (request_id,)).fetchall():
             conn.execute("""
@@ -2479,12 +3225,15 @@ def create_unified_case(case_entry: UnifiedCaseEntryIn, request: Request):
             """, (po_no, line["pn"] or "", line["requested_item"], line["shortage_qty"], now(), now(), request_id, line["id"]))
             conn.execute("UPDATE customer_request_items SET procurement_status = 'po_draft', linked_purchase_order = ? WHERE id = ?",
                         (po_no, line["id"]))
+        conn.execute("UPDATE cases SET purchase_order_id=?, updated_at=? WHERE id=?", (po_cur.lastrowid, now(), case_id))
 
     conn.execute("""
         INSERT INTO crm_communications (client_id, type, user, note, created_at)
         VALUES (?, ?, ?, ?, ?)
     """, (client_id, "customer_request", request.session.get("username", "system"), f"Created unified case {case_no}", now()))
 
+    case_timeline(conn, parent_case_reference, case_id, "case_created", "Unified case created", "open", request.session.get("username", "system"), case_entry.notes, "customer_requests", request_id)
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.close()
@@ -2493,6 +3242,7 @@ def create_unified_case(case_entry: UnifiedCaseEntryIn, request: Request):
     return {
         "case_id": case_id,
         "case_no": case_no,
+        "parent_case_reference": parent_case_reference,
         "request_id": request_id,
         "client_id": client_id,
         "total_items": len(case_entry.line_items),
@@ -2522,48 +3272,48 @@ def create_customer_request(payload: CustomerRequestIn, request: Request):
         raise HTTPException(status_code=400, detail="client/hospital is required")
     if not payload.lines:
         raise HTTPException(status_code=400, detail="At least one requested item is required")
+    request_source = normalize_request_source(payload.request_source)
+    case_type = infer_case_type_from_lines(payload.lines)
+    workflow_state = initial_workflow_state(case_type)
     conn = db()
     client_id = ensure_client(conn, payload.client_hospital.strip(), main_contact=payload.contact_person)
+    department_id = ensure_department(conn, client_id, payload.department, main_contact_name=payload.contact_person)
+    contact_id = ensure_contact(conn, client_id, payload.contact_person, payload.department)
+    parent_case_reference = generate_parent_case_reference(conn)
     cur = conn.execute("""
-        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, ("PENDING", client_id, payload.client_hospital.strip(), payload.contact_person, payload.request_source, "open", payload.notes, now(), now()))
+        INSERT INTO customer_requests (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at, department, department_id, contact_id, parent_case_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, ("PENDING", client_id, payload.client_hospital.strip(), payload.contact_person, request_source, "open", payload.notes, now(), now(), payload.department, department_id, contact_id, parent_case_reference))
     request_id = cur.lastrowid
     case_no = make_doc_no("CASE", request_id)
     conn.execute("UPDATE customer_requests SET case_no=? WHERE id=?", (case_no, request_id))
 
-    case_type = "spare_parts_sale"
-    for line in payload.lines:
-        if line.item_type == "new_equipment":
-            case_type = "equipment_delivery"
-            break
-        elif line.item_type == "labor":
-            case_type = "corrective_maintenance"
-            break
-
     case_cur = conn.execute("""
-        INSERT INTO cases (case_no, case_type, client_id, request_id, status, workflow_state, created_at, updated_at, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (case_no, case_type, client_id, request_id, "open", "lead", now(), now(), payload.notes))
+        INSERT INTO cases (case_no, case_type, client_id, contact_id, request_id, status, workflow_state, created_at, updated_at, notes, department, department_id, request_source, parent_case_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (case_no, case_type, client_id, contact_id, request_id, "open", workflow_state, now(), now(), payload.notes, payload.department, department_id, request_source, parent_case_reference))
     case_id = case_cur.lastrowid
+    conn.execute("UPDATE cases SET parent_case_id=? WHERE id=?", (case_id, case_id))
+    conn.execute("UPDATE customer_requests SET parent_case_id=? WHERE id=?", (case_id, request_id))
     conn.execute("""
         INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
         VALUES (?, ?, ?, ?, ?)
-    """, (case_id, "lead", now(), "system", f"Customer request {case_no} created"))
+    """, (case_id, workflow_state, now(), "system", f"Customer request {case_no} created"))
 
     for line in payload.lines:
         if not line.requested_item.strip():
             continue
+        item_type = validate_item_type(line.item_type)
         if int(line.quantity or 0) <= 0:
             raise HTTPException(status_code=400, detail="Line quantities must be positive")
-        inv = find_inventory_for_request_item(conn, line.requested_item) if line.item_type in STOCK_ITEM_TYPES else None
+        inv = find_inventory_for_request_item(conn, line.requested_item) if item_type in STOCK_ITEM_TYPES else None
         cur_line = conn.execute("""
             INSERT INTO customer_request_items
             (request_id, requested_item, item_type, quantity, unit_price, notes, related_equipment_serial,
              inventory_item_id, pn, procurement_status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            request_id, line.requested_item.strip(), line.item_type, int(line.quantity), float(line.unit_price or 0),
+            request_id, line.requested_item.strip(), item_type, int(line.quantity), float(line.unit_price or 0),
             line.notes, line.related_equipment_serial, inv["id"] if inv else None, inv["pn"] if inv else "",
             "not_ordered", now(), now()
         ))
@@ -2572,6 +3322,8 @@ def create_customer_request(payload: CustomerRequestIn, request: Request):
         INSERT INTO crm_communications (client_id, type, user, note, created_at)
         VALUES (?, ?, ?, ?, ?)
     """, (client_id, "customer_request", request.session.get("username", current_role(request)), f"Created {case_no}", now()))
+    case_timeline(conn, parent_case_reference, case_id, "case_created", "Customer request created", "open", request.session.get("username", current_role(request)), payload.notes, "customer_requests", request_id)
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2589,16 +3341,26 @@ def get_customer_request(request_id: int):
 
 @app.post("/api/customer-requests/{request_id}/generate/{doc_type}")
 def generate_customer_request_document(request_id: int, doc_type: str):
-    if doc_type not in {"quotation", "pro_forma"}:
-        raise HTTPException(status_code=400, detail="Only quotation or pro_forma generation is allowed here")
+    allowed = {"quotation", "pro_forma", "service_report", "pm_report", "installation_report", "acceptance_test_report"}
+    if doc_type not in allowed:
+        raise HTTPException(status_code=400, detail="Unsupported document generation action")
     conn = db()
     doc = create_sales_document(conn, request_id, doc_type, "draft", "Generated from Customer Request")
     if doc_type == "quotation":
         req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
-        conn.execute("""
-            INSERT INTO quotations (client_id, equipment_id, service_call_id, quotation_no, quote_date, status, amount, notes, created_at, updated_at, request_id, contact_person)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (req["client_id"], None, None, doc["doc_no"], date.today().isoformat(), "draft", doc["amount"], f"Linked to {req['case_no']}", now(), now(), request_id, req["contact_person"]))
+        quote = conn.execute("SELECT * FROM quotations WHERE quotation_no=? ORDER BY id DESC LIMIT 1", (doc["doc_no"],)).fetchone()
+        if not quote:
+            conn.execute("""
+                INSERT INTO quotations (client_id, equipment_id, service_call_id, quotation_no, quote_date, status, amount, notes, created_at, updated_at, request_id, contact_person,
+                                        parent_case_reference, parent_case_id, document_reference, department_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (req["client_id"], None, None, doc["doc_no"], date.today().isoformat(), "draft", doc["amount"], f"Linked to {req['case_no']}", now(), now(), request_id, req["contact_person"], doc["parent_case_reference"], doc["parent_case_id"], doc["document_reference"], doc["department_id"]))
+        advance_case_for_request(conn, request_id, "offer_sent", f"Quotation {doc['doc_no']} generated")
+    elif doc_type == "pro_forma":
+        advance_case_for_request(conn, request_id, "offer_sent", f"Pro forma {doc['doc_no']} generated")
+    elif doc_type in {"service_report", "pm_report", "installation_report", "acceptance_test_report"}:
+        advance_case_for_request(conn, request_id, "service_report", f"{doc_type.replace('_', ' ').title()} {doc['doc_no']} generated")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2618,12 +3380,24 @@ def convert_customer_request_to_order(request_id: int):
     else:
         conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("approved", now(), quotation["id"]))
         conn.execute("UPDATE quotations SET status=?, updated_at=? WHERE quotation_no=?", ("approved", now(), quotation["doc_no"]))
+    quote_row = conn.execute("SELECT id FROM quotations WHERE quotation_no=? ORDER BY id DESC LIMIT 1", (quotation["doc_no"],)).fetchone()
+    if not quote_row:
+        quote_cur = conn.execute("""
+            INSERT INTO quotations (client_id, equipment_id, service_call_id, quotation_no, quote_date, status, amount, notes, created_at, updated_at, request_id, contact_person,
+                                    parent_case_reference, parent_case_id, document_reference, department_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (req["client_id"], None, None, quotation["doc_no"], date.today().isoformat(), "approved", quotation["amount"], f"Linked to {req['case_no']}", now(), now(), request_id, req["contact_person"], quotation["parent_case_reference"], quotation["parent_case_id"], quotation["document_reference"], quotation["department_id"]))
+        quotation_id = quote_cur.lastrowid
+    else:
+        quotation_id = quote_row["id"]
     doc = create_sales_document(conn, request_id, "client_order", "approved", "Converted from approved quotation", quotation["id"])
     conn.execute("""
-        INSERT INTO client_orders (client_order_no, client_name, status, expected_date, notes, created_at, updated_at, request_id, quotation_id, client_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(client_order_no) DO UPDATE SET status=excluded.status, notes=excluded.notes, updated_at=excluded.updated_at, request_id=excluded.request_id, quotation_id=excluded.quotation_id, client_id=excluded.client_id
-    """, (doc["doc_no"], req["client_hospital"], "APPROVED", "", f"Linked to {req['case_no']} and quotation {quotation['doc_no']}", now(), now(), request_id, quotation["id"], req["client_id"]))
+        INSERT INTO client_orders (client_order_no, client_name, status, expected_date, notes, created_at, updated_at, request_id, quotation_id, client_id,
+                                   parent_case_reference, parent_case_id, document_reference, department_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(client_order_no) DO UPDATE SET status=excluded.status, notes=excluded.notes, updated_at=excluded.updated_at, request_id=excluded.request_id, quotation_id=excluded.quotation_id, client_id=excluded.client_id,
+            parent_case_reference=excluded.parent_case_reference, parent_case_id=excluded.parent_case_id, document_reference=excluded.document_reference, department_id=excluded.department_id
+    """, (doc["doc_no"], req["client_hospital"], "APPROVED", "", f"Linked to {req['case_no']} and quotation {quotation['doc_no']}", now(), now(), request_id, quotation_id, req["client_id"], doc["parent_case_reference"], doc["parent_case_id"], doc["document_reference"], doc["department_id"]))
     client_order_row = conn.execute("SELECT * FROM client_orders WHERE client_order_no=?", (doc["doc_no"],)).fetchone()
     existing_lines = conn.execute("SELECT COUNT(*) AS c FROM client_order_items WHERE client_order_id=?", (client_order_row["id"],)).fetchone()["c"]
     if not existing_lines:
@@ -2634,21 +3408,26 @@ def convert_customer_request_to_order(request_id: int):
                  quantity, unit_price, line_total, notes, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                client_order_row["id"], doc["doc_no"], request_id, quotation["id"], line["id"], line["requested_item"],
+                client_order_row["id"], doc["doc_no"], request_id, quotation_id, line["id"], line["requested_item"],
                 line["item_type"], int(line["quantity"] or 0), float(line["unit_price"] or 0),
                 int(line["quantity"] or 0) * float(line["unit_price"] or 0), line["notes"], now(), now()
             ))
-    conn.execute("UPDATE sales_case_documents SET client_order_id=?, quotation_id=?, updated_at=? WHERE id=?", (client_order_row["id"], quotation["id"], now(), doc["id"]))
+    conn.execute("UPDATE sales_case_documents SET client_order_id=?, quotation_id=?, updated_at=? WHERE id=?", (client_order_row["id"], quotation_id, now(), doc["id"]))
     service_lines = conn.execute("SELECT * FROM customer_request_items WHERE request_id=? AND item_type IN ('labor','service','maintenance_contract')", (request_id,)).fetchall()
     for line in service_lines:
         call_no = make_doc_no("ST", request_id) + f"-{line['id']}"
         conn.execute("""
-            INSERT INTO service_calls (client_id, equipment_id, request_id, call_no, status, engineer, issue, resolution, opened_at, closed_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (req["client_id"], None, request_id, call_no, "open", "", f"{line['item_type']}: {line['requested_item']}", "", now(), "", now(), now()))
+            INSERT INTO service_calls (client_id, equipment_id, request_id, call_no, status, engineer, issue, resolution, opened_at, closed_at, created_at, updated_at,
+                                       parent_case_reference, parent_case_id, department_id, priority, progress_state, invoice_required)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (req["client_id"], None, request_id, call_no, "open", "", f"{line['item_type']}: {line['requested_item']}", "", now(), "", now(), now(),
+              doc["parent_case_reference"], doc["parent_case_id"], doc["department_id"], "normal", "call_registered", 1))
     conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", ("client_order_approved", now(), request_id))
     conn.commit()
     reserve_customer_request_stock_in_conn(conn, request_id, client_order_row["id"])
+    advance_case_for_request(conn, request_id, "deal_closed", f"Client order {doc['doc_no']} approved")
+    advance_case_for_request(conn, request_id, "delivery_coordination", "Stock reservation and delivery coordination started")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2661,6 +3440,8 @@ def reserve_customer_request_stock(request_id: int):
     conn = db()
     client_order = latest_sales_document(conn, request_id, "client_order")
     reserve_customer_request_stock_in_conn(conn, request_id, client_order.get("client_order_id") if client_order else None)
+    advance_case_for_request(conn, request_id, "delivery_coordination", "Available stock reserved")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2674,12 +3455,14 @@ def create_po_for_missing_items(request_id: int):
     req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
     if not req:
         raise HTTPException(status_code=404, detail="Customer request not found")
+    case_row = conn.execute("SELECT id FROM cases WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
     po_no = make_doc_no("PO", request_id)
     conn.execute("""
-        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(po_no) DO UPDATE SET updated_at=excluded.updated_at
-    """, (po_no, "", "DRAFT", "", f"Missing items for {req['case_no']}", now(), now()))
+        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, client_id, case_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(po_no) DO UPDATE SET updated_at=excluded.updated_at, request_id=excluded.request_id, client_id=excluded.client_id, case_id=excluded.case_id
+    """, (po_no, "", "DRAFT", "", f"Missing items for {req['case_no']}", now(), now(), request_id, req["client_id"], case_row["id"] if case_row else None))
+    po_row = conn.execute("SELECT id FROM purchase_orders WHERE po_no=?", (po_no,)).fetchone()
     for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall():
         data = sync_case_line_stock(conn, line["id"]) or dict(line)
         if data.get("shortage_qty", 0) <= 0:
@@ -2692,6 +3475,10 @@ def create_po_for_missing_items(request_id: int):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (po_no, data.get("pn") or data["requested_item"], data["requested_item"], data["shortage_qty"], 0, "", "", "", f"Linked to {req['case_no']} line {line['id']}", 0, now(), now(), request_id, line["id"]))
         conn.execute("UPDATE customer_request_items SET linked_purchase_order=?, procurement_status=?, updated_at=? WHERE id=?", (po_no, "po_draft", now(), line["id"]))
+    if po_row:
+        conn.execute("UPDATE cases SET purchase_order_id=?, updated_at=? WHERE request_id=?", (po_row["id"], now(), request_id))
+    advance_case_for_request(conn, request_id, "parts_request_if_needed", f"PO {po_no} drafted for shortage items")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2723,6 +3510,8 @@ def receive_customer_request_po_items(request_id: int):
             procurement_status = line["procurement_status"] or "po_draft"
         conn.execute("UPDATE customer_request_items SET procurement_status=?, updated_at=? WHERE id=?", (procurement_status, now(), line["id"]))
         sync_case_line_stock(conn, line["id"])
+    advance_case_for_request(conn, request_id, "shipment_ready", "Linked PO items received or updated")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2751,6 +3540,8 @@ def create_customer_request_delivery_note(request_id: int, selection: DeliverySe
     doc = create_sales_document(conn, request_id, "delivery_note", "draft", "Delivery note generated for selected ready items", client_order["id"] if client_order else None, quantities)
     conn.execute("UPDATE sales_case_documents SET client_order_id=?, updated_at=? WHERE id=?", (client_order.get("client_order_id") if client_order else None, now(), doc["id"]))
     conn.execute("UPDATE customer_request_items SET linked_delivery_note=COALESCE(NULLIF(linked_delivery_note,''), ?), updated_at=? WHERE request_id=? AND id IN (%s)" % ",".join("?" for _ in quantities), (doc["doc_no"], now(), request_id, *quantities.keys()))
+    advance_case_for_request(conn, request_id, "delivery_order", f"Delivery note {doc['doc_no']} drafted")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2819,6 +3610,8 @@ def remove_customer_request_from_stock(request_id: int, selection: DeliverySelec
         audit(conn, inv["id"], "DELIVERY_STOCK_OUT", old_qty, new_qty, f"{req['case_no']} {doc['doc_no']}")
         sync_case_line_stock(conn, line["id"])
     conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("completed", now(), doc["id"]))
+    advance_case_for_request(conn, request_id, "physical_delivery", f"Stock removed for {doc['doc_no']}")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -2861,6 +3654,9 @@ def generate_customer_request_invoice(request_id: int):
         WHERE request_id=? AND invoiced_qty < quantity
     """, (request_id,)).fetchone()["c"]
     conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", ("invoiced" if not open_uninvoiced else "partially_invoiced", now(), request_id))
+    advance_case_for_request(conn, request_id, "accountant_notified_for_invoice", f"Invoice {doc['doc_no']} issued")
+    advance_case_for_request(conn, request_id, "accountant_notification", f"Invoice {doc['doc_no']} issued")
+    refresh_case_links(conn, request_id)
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
@@ -3070,9 +3866,9 @@ def add_calibration(record: BiomedicalRecordIn):
         raise HTTPException(status_code=404, detail="Equipment not found")
     cur = conn.execute("""
         INSERT INTO equipment_calibrations
-        (equipment_id, client_id, calibration_date, next_due_date, calibrated_by, certificate_attachment, calibration_result, standards_used, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, asset["client_id"], data.get("calibration_date", ""), data.get("next_due_date", ""), data.get("calibrated_by", ""), data.get("certificate_attachment", ""), data.get("calibration_result", ""), data.get("standards_used", ""), data.get("notes", ""), now(), now()))
+        (equipment_id, client_id, calibration_date, next_due_date, calibrated_by, certificate_attachment, calibration_result, result, standards_used, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("calibration_date", ""), data.get("next_due_date", ""), data.get("calibrated_by", ""), data.get("certificate_attachment", ""), data.get("calibration_result", data.get("result", "")), data.get("result", data.get("calibration_result", "")), data.get("standards_used", ""), data.get("notes", ""), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM equipment_calibrations WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3115,9 +3911,9 @@ def add_uptime_event(record: BiomedicalRecordIn):
     downtime = float(data.get("downtime_hours") or 0)
     cur = conn.execute("""
         INSERT INTO equipment_uptime_events
-        (equipment_id, client_id, event_type, started_at, ended_at, downtime_hours, failure_category, recurring_issue, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, asset["client_id"], data.get("event_type", "outage"), data.get("started_at", ""), data.get("ended_at", ""), downtime, data.get("failure_category", ""), int(bool(data.get("recurring_issue", False))), data.get("notes", ""), now(), now()))
+        (equipment_id, client_id, event_type, started_at, ended_at, downtime_hours, outage_reason, response_time_hours, repair_time_hours, failure_category, recurring_issue, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("event_type", "outage"), data.get("started_at", ""), data.get("ended_at", ""), downtime, data.get("outage_reason", data.get("failure_category", "")), float(data.get("response_time_hours") or 0), float(data.get("repair_time_hours") or 0), data.get("failure_category", ""), int(bool(data.get("recurring_issue", False))), data.get("notes", ""), now(), now()))
     events = [dict(r) for r in conn.execute("SELECT * FROM equipment_uptime_events WHERE equipment_id=?", (record.equipment_id,)).fetchall()]
     total_downtime = sum(float(r.get("downtime_hours") or 0) for r in events)
     failures = [r for r in events if str(r.get("event_type", "")).lower() in {"failure", "outage"}]
@@ -3142,9 +3938,9 @@ def add_recall_notice(record: BiomedicalRecordIn):
         raise HTTPException(status_code=404, detail="Equipment not found")
     cur = conn.execute("""
         INSERT INTO equipment_recall_notices
-        (equipment_id, client_id, notice_type, notice_no, manufacturer, affected_serial_numbers, completion_status, corrective_actions, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, asset["client_id"], data.get("notice_type", "recall"), data.get("notice_no", ""), data.get("manufacturer", asset["manufacturer"] or ""), data.get("affected_serial_numbers", ""), data.get("completion_status", "open"), data.get("corrective_actions", ""), data.get("notes", ""), now(), now()))
+        (equipment_id, client_id, notice_type, notice_no, manufacturer, affected_model, affected_serial_numbers, completion_status, corrective_actions, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("notice_type", "recall"), data.get("notice_no", ""), data.get("manufacturer", asset["manufacturer"] or ""), data.get("affected_model", asset["model"] or ""), data.get("affected_serial_numbers", ""), data.get("completion_status", "open"), data.get("corrective_actions", ""), data.get("notes", ""), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM equipment_recall_notices WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3157,9 +3953,10 @@ def add_compatibility(record: BiomedicalRecordIn):
     conn = db()
     cur = conn.execute("""
         INSERT INTO equipment_compatibility
-        (equipment_id, inventory_item_id, part_no, compatibility_type, description, supplier, substitute_part_no, equivalent_part_no, approved, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, data.get("inventory_item_id"), data.get("part_no", ""), data.get("compatibility_type", "accessory"), data.get("description", ""), data.get("supplier", ""), data.get("substitute_part_no", ""), data.get("equivalent_part_no", ""), int(bool(data.get("approved", True))), data.get("notes", ""), now(), now()))
+        (equipment_id, inventory_item_id, part_no, compatibility_type, description, supplier, substitute_part_no, equivalent_part_no, approved, notes,
+         equipment_model, compatible_consumables, compatible_accessories, compatible_part_numbers, alternatives_substitutes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, data.get("inventory_item_id"), data.get("part_no", ""), data.get("compatibility_type", "accessory"), data.get("description", ""), data.get("supplier", ""), data.get("substitute_part_no", ""), data.get("equivalent_part_no", ""), int(bool(data.get("approved", True))), data.get("notes", ""), data.get("equipment_model", ""), data.get("compatible_consumables", ""), data.get("compatible_accessories", ""), data.get("compatible_part_numbers", ""), data.get("alternatives_substitutes", data.get("substitute_part_no", "")), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM equipment_compatibility WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3171,9 +3968,10 @@ def save_pm_checklist_template(payload: dict):
     conn = db()
     cur = conn.execute("""
         INSERT INTO pm_checklist_templates
-        (equipment_type, manufacturer, model, checklist_items, measurements, engineer_signature_required, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (payload.get("equipment_type", ""), payload.get("manufacturer", ""), payload.get("model", ""), payload.get("checklist_items", ""), payload.get("measurements", ""), int(bool(payload.get("engineer_signature_required", True))), now(), now()))
+        (equipment_type, manufacturer, model, checklist_items, measurements, engineer_signature_required,
+         pass_fail_items, measurement_values, comments, engineer_signature, customer_signature, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (payload.get("equipment_type", ""), payload.get("manufacturer", ""), payload.get("model", ""), payload.get("checklist_items", ""), payload.get("measurements", ""), int(bool(payload.get("engineer_signature_required", True))), payload.get("pass_fail_items", ""), payload.get("measurement_values", ""), payload.get("comments", ""), payload.get("engineer_signature", ""), payload.get("customer_signature", ""), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM pm_checklist_templates WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3190,9 +3988,9 @@ def save_installation_qualification(record: BiomedicalRecordIn):
         raise HTTPException(status_code=404, detail="Equipment not found")
     cur = conn.execute("""
         INSERT INTO installation_qualification_forms
-        (equipment_id, client_id, bid_id, site_readiness, installation_checklist, environmental_conditions, networking_power_validation, engineer_signature, customer_signature, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("site_readiness", ""), data.get("installation_checklist", ""), data.get("environmental_conditions", ""), data.get("networking_power_validation", ""), data.get("engineer_signature", ""), data.get("customer_signature", ""), data.get("status", "draft"), now(), now()))
+        (equipment_id, client_id, bid_id, site_readiness, installation_checklist, environmental_conditions, networking_power_validation, power_network_validation, engineer_signature, customer_signature, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("site_readiness", ""), data.get("installation_checklist", ""), data.get("environmental_conditions", ""), data.get("networking_power_validation", data.get("power_network_validation", "")), data.get("power_network_validation", data.get("networking_power_validation", "")), data.get("engineer_signature", ""), data.get("customer_signature", ""), data.get("status", "draft"), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM installation_qualification_forms WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3209,9 +4007,9 @@ def save_acceptance_testing(record: BiomedicalRecordIn):
         raise HTTPException(status_code=404, detail="Equipment not found")
     cur = conn.execute("""
         INSERT INTO acceptance_testing_forms
-        (equipment_id, client_id, bid_id, functionality, alarms, calibration_verification, electrical_safety, pass_fail_criteria, customer_approval, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("functionality", ""), data.get("alarms", ""), data.get("calibration_verification", ""), data.get("electrical_safety", ""), data.get("pass_fail_criteria", ""), data.get("customer_approval", ""), data.get("status", "draft"), now(), now()))
+        (equipment_id, client_id, bid_id, functionality, functional_tests, alarms, calibration_verification, electrical_safety, pass_fail_criteria, pass_fail, customer_approval, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (record.equipment_id, asset["client_id"], data.get("bid_id"), data.get("functionality", data.get("functional_tests", "")), data.get("functional_tests", data.get("functionality", "")), data.get("alarms", ""), data.get("calibration_verification", ""), data.get("electrical_safety", ""), data.get("pass_fail_criteria", ""), data.get("pass_fail", data.get("pass_fail_criteria", "")), data.get("customer_approval", ""), data.get("status", "draft"), now(), now()))
     conn.commit()
     row = dict(conn.execute("SELECT * FROM acceptance_testing_forms WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -3490,7 +4288,7 @@ def pm_calendar(month: str = ""):
     }
 
 @app.get("/api/pm-reports")
-def pm_reports(report: str = "completion"):
+def pm_reports(report: str = "completion", format: str = "excel"):
     conn = db()
     if report == "completion":
         df = pd.read_sql_query("""
@@ -3548,6 +4346,9 @@ def pm_reports(report: str = "completion"):
         conn.close()
         raise HTTPException(status_code=404, detail="Unknown PM report")
     conn.close()
+    if format.lower() in {"print", "html", "printable", "pdf"}:
+        rows = df.fillna("").to_dict(orient="records")
+        return export_rows_response(filename.replace(".xlsx", ""), rows, format, f"PM {report.replace('-', ' ')}")
     path = DATA_DIR / filename
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         df.fillna("").to_excel(writer, sheet_name=report[:31], index=False)
