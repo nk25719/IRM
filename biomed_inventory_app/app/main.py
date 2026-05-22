@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from pathlib import Path
-import sqlite3, os, shutil, urllib.parse, io, base64
+import sqlite3, os, shutil, urllib.parse, io, base64, json
 import html as html_module
 import secrets
 import pandas as pd
@@ -322,6 +322,52 @@ PARENT_DOCUMENT_PREFIXES = {
     "contract": "CT",
 }
 
+IMPORT_STATUS_MAP = {
+    "pending": "pending",
+    "open": "pending",
+    "in progress": "in_progress",
+    "in_progress": "in_progress",
+    "approved": "approved",
+    "accepted": "approved",
+    "rejected": "rejected",
+    "ordered": "ordered",
+    "delivered": "delivered",
+    "invoiced": "invoiced",
+    "closed": "closed",
+    "blocked": "blocked",
+    "cancelled": "cancelled",
+    "canceled": "cancelled",
+}
+BLOCKED_REASONS = {
+    "none",
+    "finance",
+    "procurement",
+    "service_engineer",
+    "customer_availability",
+    "supplier",
+    "stock_shortage",
+    "technical_issue",
+    "management_approval",
+    "waiting_payment",
+    "waiting_client_approval",
+    "missing_document",
+}
+BULK_TARGETS = {
+    "cases": "cases",
+    "pending_calls": "cases",
+    "customer_requests": "customer_requests",
+    "offers": "quotations",
+    "quotations": "quotations",
+    "service_calls": "service_calls",
+    "pm_tasks": "pm_tasks",
+    "equipment": "pm_assets",
+    "inventory_items": "inventory",
+    "inventory": "inventory",
+    "procurement_items": "customer_request_items",
+    "purchase_orders": "purchase_orders",
+    "departments": "departments",
+}
+
 SOP_WORKFLOWS = {
     "after_sales_sales": [
         "lead",
@@ -535,7 +581,7 @@ def generate_parent_case_reference(conn) -> str:
             highest = max(highest, int(str(row["parent_case_reference"]).rsplit("-", 1)[-1]))
         except (TypeError, ValueError):
             continue
-    return f"{prefix}{highest + 1:04d}"
+    return f"{prefix}{highest + 1:05d}"
 
 def document_reference_for(parent_case_reference: str = "", doc_type: str = "") -> str:
     if not parent_case_reference:
@@ -655,6 +701,29 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS inventory_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventory_id INTEGER UNIQUE,
+            pn TEXT,
+            description TEXT,
+            device_family TEXT,
+            barcode TEXT,
+            default_location_id INTEGER,
+            active INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS stock_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            location_name TEXT UNIQUE,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS pm_assets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             asset_tag TEXT UNIQUE,
@@ -676,6 +745,39 @@ def init_db():
             notes TEXT,
             linked_inventory_pn TEXT,
             barcode TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment_models (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            manufacturer TEXT,
+            model TEXT,
+            equipment_family TEXT,
+            modality TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE(manufacturer, model)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS equipment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pm_asset_id INTEGER UNIQUE,
+            client_id INTEGER,
+            department_id INTEGER,
+            equipment_model_id INTEGER,
+            asset_tag TEXT,
+            serial_number TEXT,
+            manufacturer TEXT,
+            model TEXT,
+            status TEXT,
+            warranty_id INTEGER,
+            contract_id INTEGER,
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
             created_at TEXT,
             updated_at TEXT
         )
@@ -742,9 +844,38 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS departments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_name TEXT,
+            floor_location TEXT,
+            main_contact_name TEXT,
+            phone TEXT,
+            email TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE(client_id, department_name)
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS crm_contacts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER,
+            name TEXT,
+            role TEXT,
+            email TEXT,
+            phone TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_id INTEGER,
             name TEXT,
             role TEXT,
             email TEXT,
@@ -1042,6 +1173,24 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS fmi_notices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            notice_type TEXT,
+            manufacturer TEXT,
+            affected_model TEXT,
+            affected_serial_numbers TEXT,
+            corrective_action TEXT,
+            completion_status TEXT DEFAULT 'open',
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS equipment_compatibility (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             equipment_id INTEGER,
@@ -1130,6 +1279,23 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS case_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id INTEGER,
+            request_item_id INTEGER UNIQUE,
+            inventory_item_id INTEGER,
+            requested_item TEXT,
+            item_type TEXT,
+            quantity INTEGER DEFAULT 1,
+            reserved_qty INTEGER DEFAULT 0,
+            shortage_qty INTEGER DEFAULT 0,
+            procurement_status TEXT DEFAULT 'not_ordered',
+            parent_case_reference TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS case_workflow_states (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             case_id INTEGER,
@@ -1175,6 +1341,67 @@ def init_db():
                 updated_at TEXT
             )
         """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS installation_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            doc_no TEXT,
+            document_reference TEXT,
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            request_id INTEGER,
+            equipment_id INTEGER,
+            status TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS warranties (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            warranty_start TEXT,
+            warranty_end TEXT,
+            status TEXT,
+            vendor TEXT,
+            notes TEXT,
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            full_name TEXT,
+            role TEXT,
+            email TEXT,
+            phone TEXT,
+            active INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS engineers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            engineer_name TEXT UNIQUE,
+            email TEXT,
+            phone TEXT,
+            active INTEGER DEFAULT 1,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
     conn.commit()
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(inventory)").fetchall()]
@@ -1369,6 +1596,7 @@ def init_db():
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
 
     ensure_clients_from_existing_data(conn)
+    sync_core_reference_tables(conn)
     conn.commit()
 
     count = conn.execute("SELECT COUNT(*) AS c FROM inventory").fetchone()["c"]
@@ -1629,11 +1857,21 @@ def ensure_contact(conn, client_id: int | None, name: str = "", department: str 
                 updated_at=?
             WHERE id=?
         """, (role, email, phone, now(), existing["id"]))
+        conn.execute("""
+            INSERT INTO contacts (id, client_id, name, role, email, phone, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET client_id=excluded.client_id, name=excluded.name,
+                role=excluded.role, email=excluded.email, phone=excluded.phone, updated_at=excluded.updated_at
+        """, (existing["id"], client_id, clean_name, role, email, phone, existing["notes"] if "notes" in existing.keys() else "", existing["created_at"] if "created_at" in existing.keys() else now(), now()))
         return existing["id"]
     cur = conn.execute("""
         INSERT INTO crm_contacts (client_id, name, role, email, phone, notes, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (client_id, clean_name, department, email, phone, "Created from unified case entry", now(), now()))
+    conn.execute("""
+        INSERT INTO contacts (id, client_id, name, role, email, phone, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (cur.lastrowid, client_id, clean_name, department, email, phone, "Created from unified case entry", now(), now()))
     return cur.lastrowid
 
 def ensure_department(conn, client_id: int | None, department_name: str = "", **defaults) -> int | None:
@@ -1663,12 +1901,38 @@ def ensure_department(conn, client_id: int | None, department_name: str = "", **
             now(),
             existing["id"],
         ))
+        conn.execute("""
+            INSERT INTO departments (id, client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET client_id=excluded.client_id, department_name=excluded.department_name,
+                floor_location=excluded.floor_location, main_contact_name=excluded.main_contact_name,
+                phone=excluded.phone, email=excluded.email, notes=excluded.notes, updated_at=excluded.updated_at
+        """, (
+            existing["id"], client_id, clean_name, defaults.get("floor_location", ""),
+            defaults.get("main_contact_name", ""), defaults.get("phone", ""), defaults.get("email", ""),
+            defaults.get("notes", ""), now(), now()
+        ))
         return existing["id"]
     cur = conn.execute("""
         INSERT INTO client_departments
         (client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
+        client_id,
+        clean_name,
+        defaults.get("floor_location", ""),
+        defaults.get("main_contact_name", ""),
+        defaults.get("phone", ""),
+        defaults.get("email", ""),
+        defaults.get("notes", ""),
+        now(),
+        now(),
+    ))
+    conn.execute("""
+        INSERT INTO departments (id, client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cur.lastrowid,
         client_id,
         clean_name,
         defaults.get("floor_location", ""),
@@ -1722,6 +1986,115 @@ def ensure_clients_from_existing_data(conn):
                     UPDATE pm_assets SET department_id=?
                     WHERE client_id=? AND lower(trim(COALESCE(department, '')))=lower(trim(?))
                 """, (department_id, client_id, row["department"]))
+
+def sync_core_reference_tables(conn):
+    for row in conn.execute("SELECT * FROM client_departments").fetchall():
+        conn.execute("""
+            INSERT OR IGNORE INTO departments
+            (id, client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            row["id"], row["client_id"], row["department_name"], row["floor_location"], row["main_contact_name"],
+            row["phone"], row["email"], row["notes"], row["created_at"], row["updated_at"]
+        ))
+    for row in conn.execute("SELECT * FROM crm_contacts").fetchall():
+        department_id = None
+        if row["role"]:
+            dept = conn.execute("""
+                SELECT id FROM departments
+                WHERE client_id=? AND lower(trim(department_name))=lower(trim(?))
+            """, (row["client_id"], row["role"])).fetchone()
+            department_id = dept["id"] if dept else None
+        conn.execute("""
+            INSERT OR IGNORE INTO contacts
+            (id, client_id, department_id, name, role, email, phone, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (row["id"], row["client_id"], department_id, row["name"], row["role"], row["email"], row["phone"], row["notes"], row["created_at"], row["updated_at"]))
+    for row in conn.execute("SELECT DISTINCT COALESCE(location, '') AS location FROM inventory WHERE COALESCE(location, '') != ''").fetchall():
+        conn.execute("""
+            INSERT OR IGNORE INTO stock_locations (location_name, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+        """, (row["location"], "Discovered from inventory", now(), now()))
+    for row in conn.execute("SELECT * FROM inventory").fetchall():
+        loc = conn.execute("SELECT id FROM stock_locations WHERE location_name=?", (row["location"],)).fetchone()
+        conn.execute("""
+            INSERT OR IGNORE INTO inventory_items
+            (id, inventory_id, pn, description, device_family, barcode, default_location_id, active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (row["id"], row["id"], row["pn"], row["description"], row["device_family"], row["barcode"], loc["id"] if loc else None, 1, row["updated_at"] or now(), row["updated_at"] or now()))
+    for row in conn.execute("SELECT * FROM pm_assets").fetchall():
+        if row["manufacturer"] or row["model"]:
+            conn.execute("""
+                INSERT OR IGNORE INTO equipment_models (manufacturer, model, equipment_family, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (row["manufacturer"], row["model"], detect_family(" ".join([row["manufacturer"] or "", row["model"] or ""])), "Discovered from installed equipment", now(), now()))
+        model = conn.execute("""
+            SELECT id FROM equipment_models
+            WHERE COALESCE(manufacturer, '')=COALESCE(?, '') AND COALESCE(model, '')=COALESCE(?, '')
+        """, (row["manufacturer"], row["model"])).fetchone()
+        conn.execute("""
+            INSERT OR IGNORE INTO equipment
+            (id, pm_asset_id, client_id, department_id, equipment_model_id, asset_tag, serial_number, manufacturer, model, status, parent_case_reference, parent_case_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (row["id"], row["id"], row["client_id"], row["department_id"] if "department_id" in row.keys() else None, model["id"] if model else None, row["asset_tag"], row["serial_number"], row["manufacturer"], row["model"], row["status"], row["parent_case_reference"] if "parent_case_reference" in row.keys() else "", row["parent_case_id"] if "parent_case_id" in row.keys() else None, row["created_at"], row["updated_at"]))
+        conn.execute("""
+            UPDATE equipment
+            SET client_id=?, department_id=?, equipment_model_id=?, asset_tag=?, serial_number=?,
+                manufacturer=?, model=?, status=?, parent_case_reference=?, parent_case_id=?, updated_at=?
+            WHERE pm_asset_id=?
+        """, (
+            row["client_id"], row["department_id"] if "department_id" in row.keys() else None,
+            model["id"] if model else None, row["asset_tag"], row["serial_number"], row["manufacturer"],
+            row["model"], row["status"], row["parent_case_reference"] if "parent_case_reference" in row.keys() else "",
+            row["parent_case_id"] if "parent_case_id" in row.keys() else None, row["updated_at"], row["id"]
+        ))
+        if row["warranty_start"] or row["warranty_end"]:
+            existing = conn.execute("SELECT id FROM warranties WHERE equipment_id=?", (row["id"],)).fetchone()
+            status = row["warranty_status"] or warranty_status(row["warranty_end"])
+            if existing:
+                conn.execute("""
+                    UPDATE warranties SET client_id=?, department_id=?, warranty_start=?, warranty_end=?, status=?, vendor=?, notes=?, updated_at=?
+                    WHERE id=?
+                """, (row["client_id"], row["department_id"] if "department_id" in row.keys() else None, row["warranty_start"], row["warranty_end"], status, row["vendor"], row["warranty_notes"], now(), existing["id"]))
+            else:
+                conn.execute("""
+                    INSERT INTO warranties
+                    (equipment_id, client_id, department_id, warranty_start, warranty_end, status, vendor, notes, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (row["id"], row["client_id"], row["department_id"] if "department_id" in row.keys() else None, row["warranty_start"], row["warranty_end"], status, row["vendor"], row["warranty_notes"], now(), now()))
+    for row in conn.execute("SELECT * FROM equipment_recall_notices").fetchall():
+        conn.execute("""
+            INSERT OR IGNORE INTO fmi_notices
+            (id, equipment_id, client_id, notice_type, manufacturer, affected_model, affected_serial_numbers, corrective_action, completion_status, parent_case_reference, parent_case_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (row["id"], row["equipment_id"], row["client_id"], row["notice_type"], row["manufacturer"], row["affected_model"] if "affected_model" in row.keys() else "", row["affected_serial_numbers"], row["corrective_actions"], row["completion_status"], row["parent_case_reference"] if "parent_case_reference" in row.keys() else "", row["parent_case_id"] if "parent_case_id" in row.keys() else None, row["created_at"], row["updated_at"]))
+    for row in conn.execute("""
+        SELECT i.*, c.id AS case_id, c.parent_case_reference
+        FROM customer_request_items i
+        JOIN customer_requests r ON r.id=i.request_id
+        LEFT JOIN cases c ON c.request_id=r.id
+    """).fetchall():
+        conn.execute("""
+            INSERT OR IGNORE INTO case_items
+            (case_id, request_item_id, inventory_item_id, requested_item, item_type, quantity, reserved_qty, shortage_qty, procurement_status, parent_case_reference, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            row["case_id"], row["id"], row["inventory_item_id"], row["requested_item"], row["item_type"],
+            row["quantity"], row["reserved_qty"], row["shortage_qty"], row["procurement_status"],
+            row["parent_case_reference"], row["created_at"], row["updated_at"]
+        ))
+    engineer_names = set()
+    for row in conn.execute("SELECT engineer FROM pm_assets WHERE COALESCE(engineer, '') != ''").fetchall():
+        engineer_names.add(row["engineer"].strip())
+    for row in conn.execute("SELECT engineer FROM service_calls WHERE COALESCE(engineer, '') != ''").fetchall():
+        engineer_names.add(row["engineer"].strip())
+    for row in conn.execute("SELECT assigned_to FROM pm_tasks WHERE COALESCE(assigned_to, '') != ''").fetchall():
+        engineer_names.add(row["assigned_to"].strip())
+    for name in sorted(n for n in engineer_names if n):
+        conn.execute("""
+            INSERT OR IGNORE INTO engineers (engineer_name, active, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (name, 1, "Discovered from ERP activity", now(), now()))
 
 def crm_client_row(conn, client_id: int):
     ensure_clients_from_existing_data(conn)
@@ -2573,6 +2946,7 @@ def sync_reference_registry(conn, doc_type: str, document_id: int, doc_no: str, 
         "invoice": "invoices",
         "service_report": "service_reports",
         "pm_report": "pm_reports",
+        "installation_report": "installation_reports",
         "calibration_certificate": "calibration_reports",
         "contract": "contracts",
     }
@@ -2972,7 +3346,7 @@ def portal():
 
 @app.get("/dashboard")
 def dashboard_page():
-    return FileResponse(BASE_DIR / "static" / "portal.html")
+    return FileResponse(BASE_DIR / "static" / "dashboard.html")
 
 @app.get("/inventory")
 def inventory_page():
@@ -3008,10 +3382,26 @@ def admin_page():
 def crm_page():
     return FileResponse(BASE_DIR / "static" / "crm.html")
 
+@app.get("/clients")
+def clients_page():
+    return FileResponse(BASE_DIR / "static" / "crm.html")
+
 @app.get("/crm/client/{client_id}")
 @app.get("/crm/client/{client_id}/{section:path}")
 def crm_client_page(client_id: int, section: str = ""):
     return FileResponse(BASE_DIR / "static" / "crm_client.html")
+
+@app.get("/departments")
+def departments_page():
+    return FileResponse(BASE_DIR / "static" / "core_list.html")
+
+@app.get("/equipment")
+def equipment_page():
+    return FileResponse(BASE_DIR / "static" / "core_list.html")
+
+@app.get("/cases")
+def cases_page():
+    return FileResponse(BASE_DIR / "static" / "core_list.html")
 
 @app.get("/sales-cases")
 def sales_cases_page():
@@ -3063,6 +3453,339 @@ def hospitals_dashboard():
     conn.commit()
     conn.close()
     return rows
+
+@app.get("/api/clients")
+def list_clients(q: str = "", status: str = ""):
+    return crm_clients(q=q, status=status)
+
+@app.post("/api/clients")
+def save_client(client: CRMClient, request: Request):
+    return create_crm_client(client, request)
+
+@app.get("/api/departments")
+def list_departments(client_id: int | None = None):
+    conn = db()
+    where = "WHERE client_id=?" if client_id else ""
+    params = [client_id] if client_id else []
+    rows = [dict(r) for r in conn.execute(f"SELECT * FROM departments {where} ORDER BY department_name", params).fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/departments")
+def save_department(payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    client_id = payload.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="client_id is required")
+    conn = db()
+    crm_client_row(conn, int(client_id))
+    department_id = ensure_department(
+        conn,
+        int(client_id),
+        payload.get("department_name", ""),
+        floor_location=payload.get("floor_location", ""),
+        main_contact_name=payload.get("main_contact_name", ""),
+        phone=payload.get("phone", ""),
+        email=payload.get("email", ""),
+        notes=payload.get("notes", ""),
+    )
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM departments WHERE id=?", (department_id,)).fetchone())
+    conn.close()
+    return row
+
+@app.put("/api/departments/{department_id}")
+def update_department(department_id: int, payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    existing = conn.execute("SELECT * FROM departments WHERE id=?", (department_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Department not found")
+    conn.execute("""
+        UPDATE departments
+        SET department_name=COALESCE(NULLIF(?, ''), department_name),
+            floor_location=?, main_contact_name=?, phone=?, email=?, notes=?, updated_at=?
+        WHERE id=?
+    """, (
+        payload.get("department_name", existing["department_name"]), payload.get("floor_location", existing["floor_location"]),
+        payload.get("main_contact_name", existing["main_contact_name"]), payload.get("phone", existing["phone"]),
+        payload.get("email", existing["email"]), payload.get("notes", existing["notes"]), now(), department_id
+    ))
+    conn.execute("""
+        UPDATE client_departments
+        SET department_name=(SELECT department_name FROM departments WHERE id=?),
+            floor_location=(SELECT floor_location FROM departments WHERE id=?),
+            main_contact_name=(SELECT main_contact_name FROM departments WHERE id=?),
+            phone=(SELECT phone FROM departments WHERE id=?),
+            email=(SELECT email FROM departments WHERE id=?),
+            notes=(SELECT notes FROM departments WHERE id=?),
+            updated_at=?
+        WHERE id=?
+    """, (department_id, department_id, department_id, department_id, department_id, department_id, now(), department_id))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM departments WHERE id=?", (department_id,)).fetchone())
+    conn.close()
+    return row
+
+@app.get("/api/equipment")
+def list_equipment(client_id: int | None = None, department_id: int | None = None, q: str = ""):
+    conn = db()
+    sync_core_reference_tables(conn)
+    where, params = [], []
+    if client_id:
+        where.append("e.client_id=?")
+        params.append(client_id)
+    if department_id:
+        where.append("e.department_id=?")
+        params.append(department_id)
+    if q:
+        where.append("(e.asset_tag LIKE ? OR e.serial_number LIKE ? OR e.manufacturer LIKE ? OR e.model LIKE ?)")
+        params.extend([f"%{q}%"] * 4)
+    sql = """
+        SELECT e.*, c.name AS client_name, d.department_name, w.warranty_start, w.warranty_end, w.status AS warranty_status
+        FROM equipment e
+        LEFT JOIN clients c ON c.id=e.client_id
+        LEFT JOIN departments d ON d.id=e.department_id
+        LEFT JOIN warranties w ON w.equipment_id=e.id
+    """
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY c.name, d.department_name, e.asset_tag"
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    conn.commit()
+    conn.close()
+    return rows
+
+@app.get("/api/equipment/{equipment_id}")
+def get_equipment(equipment_id: int):
+    conn = db()
+    row = conn.execute("SELECT * FROM equipment WHERE id=?", (equipment_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    return dict(row)
+
+@app.post("/api/equipment")
+def create_equipment(payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    asset_tag = str(payload.get("asset_tag", "")).strip()
+    if not asset_tag:
+        raise HTTPException(status_code=400, detail="asset_tag is required")
+    conn = db()
+    client_id = payload.get("client_id")
+    hospital = payload.get("hospital", "")
+    if client_id:
+        client = crm_client_row(conn, int(client_id))
+        hospital = hospital or client["name"]
+    department_id = payload.get("department_id")
+    department = payload.get("department", "")
+    if department_id and not department:
+        dept = conn.execute("SELECT department_name FROM departments WHERE id=?", (department_id,)).fetchone()
+        department = dept["department_name"] if dept else ""
+    try:
+        cur = conn.execute("""
+            INSERT INTO pm_assets
+            (asset_tag, serial_number, manufacturer, model, department, hospital, location, engineer, contact_email,
+             contract_no, contract_start_date, contract_end_date, frequency_days, next_pm_date, last_pm_date, status,
+             notes, linked_inventory_pn, barcode, created_at, updated_at, client_id, department_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            asset_tag, payload.get("serial_number", ""), payload.get("manufacturer", ""), payload.get("model", ""),
+            department, hospital, payload.get("location", ""), payload.get("engineer", ""), payload.get("contact_email", ""),
+            payload.get("contract_no", ""), payload.get("contract_start_date", ""), payload.get("contract_end_date", ""),
+            int(payload.get("frequency_days") or 180), payload.get("next_pm_date", ""), payload.get("last_pm_date", ""),
+            payload.get("status", "Installed"), payload.get("notes", ""), payload.get("linked_inventory_pn", ""),
+            payload.get("barcode", ""), now(), now(), client_id, department_id,
+        ))
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Asset tag already exists")
+    conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
+                 (cur.lastrowid, "ASSET_CREATED", "Equipment created from core API", payload.get("engineer", ""), now()))
+    sync_core_reference_tables(conn)
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment WHERE pm_asset_id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    return row
+
+@app.put("/api/equipment/{equipment_id}")
+def update_equipment(equipment_id: int, payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    existing = conn.execute("SELECT * FROM equipment WHERE id=?", (equipment_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    pm_asset_id = existing["pm_asset_id"]
+    conn.execute("""
+        UPDATE pm_assets
+        SET serial_number=COALESCE(?, serial_number), manufacturer=COALESCE(?, manufacturer),
+            model=COALESCE(?, model), department=COALESCE(?, department),
+            hospital=COALESCE(?, hospital), location=COALESCE(?, location),
+            engineer=COALESCE(?, engineer), status=COALESCE(?, status),
+            notes=COALESCE(?, notes), client_id=COALESCE(?, client_id),
+            department_id=COALESCE(?, department_id), updated_at=?
+        WHERE id=?
+    """, (
+        payload.get("serial_number"), payload.get("manufacturer"), payload.get("model"),
+        payload.get("department"), payload.get("hospital"), payload.get("location"),
+        payload.get("engineer"), payload.get("status"), payload.get("notes"),
+        payload.get("client_id"), payload.get("department_id"), now(), pm_asset_id,
+    ))
+    conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
+                 (pm_asset_id, "ASSET_UPDATED", "Equipment updated from core API", payload.get("engineer", ""), now()))
+    sync_core_reference_tables(conn)
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM equipment WHERE id=?", (equipment_id,)).fetchone())
+    conn.close()
+    return row
+
+@app.get("/api/contracts")
+def list_contracts(client_id: int | None = None):
+    conn = db()
+    where = "WHERE client_id=?" if client_id else ""
+    params = [client_id] if client_id else []
+    rows = [dict(r) for r in conn.execute(f"SELECT * FROM contracts {where} ORDER BY updated_at DESC, id DESC", params).fetchall()]
+    if not rows:
+        rows = [dict(r) for r in conn.execute("""
+            SELECT MIN(id) AS id, client_id, NULL AS department_id, contract_no AS doc_no,
+                   contract_no AS document_reference, '' AS parent_case_reference, NULL AS parent_case_id,
+                   MIN(contract_start_date) AS created_at, MAX(contract_end_date) AS updated_at,
+                   'active' AS status, COUNT(*) AS equipment_count, hospital AS notes
+            FROM pm_assets
+            WHERE COALESCE(contract_no, '') != ''
+            GROUP BY client_id, hospital, contract_no
+            ORDER BY updated_at DESC
+        """).fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/contracts")
+def save_contract(payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    client_id = payload.get("client_id")
+    if client_id:
+        crm_client_row(conn, int(client_id))
+    cur = conn.execute("""
+        INSERT INTO contracts
+        (doc_no, document_reference, parent_case_reference, parent_case_id, client_id, department_id, request_id, equipment_id, status, amount, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        payload.get("contract_no") or payload.get("doc_no", ""),
+        payload.get("document_reference", ""),
+        payload.get("parent_case_reference", ""),
+        payload.get("parent_case_id"),
+        client_id,
+        payload.get("department_id"),
+        payload.get("request_id"),
+        payload.get("equipment_id"),
+        payload.get("status", "active"),
+        float(payload.get("amount") or 0),
+        payload.get("notes", ""),
+        now(),
+        now(),
+    ))
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM contracts WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    return row
+
+@app.get("/api/service-calls")
+def list_service_calls(client_id: int | None = None, department_id: int | None = None, status: str = ""):
+    conn = db()
+    where, params = [], []
+    if client_id:
+        where.append("client_id=?")
+        params.append(client_id)
+    if department_id:
+        where.append("department_id=?")
+        params.append(department_id)
+    if status:
+        where.append("status=?")
+        params.append(status)
+    sql = "SELECT * FROM service_calls"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY COALESCE(opened_at, created_at) DESC"
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/service-calls")
+def create_service_call(payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    client_id = payload.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="client_id is required")
+    crm_client_row(conn, int(client_id))
+    parent_ref = payload.get("parent_case_reference", "")
+    parent_case_id = payload.get("parent_case_id")
+    if not parent_ref and payload.get("case_id"):
+        case_row = conn.execute("SELECT id, parent_case_reference FROM cases WHERE id=?", (payload.get("case_id"),)).fetchone()
+        parent_ref = case_row["parent_case_reference"] if case_row else ""
+        parent_case_id = case_row["id"] if case_row else None
+    call_no = payload.get("call_no") or f"SC-{date.today().strftime('%y%m%d')}-{int(datetime.now().timestamp())}"
+    cur = conn.execute("""
+        INSERT INTO service_calls
+        (client_id, equipment_id, request_id, call_no, status, engineer, issue, resolution, opened_at, closed_at, created_at, updated_at,
+         parent_case_reference, parent_case_id, department_id, priority, response_time_hours, progress_state, invoice_required)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        client_id, payload.get("equipment_id"), payload.get("request_id"), call_no, payload.get("status", "open"),
+        payload.get("engineer", ""), payload.get("issue", ""), payload.get("resolution", ""),
+        payload.get("opened_at", now()), payload.get("closed_at", ""), now(), now(),
+        parent_ref, parent_case_id, payload.get("department_id"), payload.get("priority", "normal"),
+        float(payload.get("response_time_hours") or 0), payload.get("progress_state", "call_received"),
+        int(bool(payload.get("invoice_required", False))),
+    ))
+    case_timeline(conn, parent_ref, parent_case_id, "service_call", "Service call created", payload.get("status", "open"), request.session.get("username", "system"), call_no, "service_calls", cur.lastrowid)
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM service_calls WHERE id=?", (cur.lastrowid,)).fetchone())
+    conn.close()
+    return row
+
+@app.put("/api/service-calls/{call_id}")
+def update_service_call(call_id: int, payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    existing = conn.execute("SELECT * FROM service_calls WHERE id=?", (call_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Service call not found")
+    conn.execute("""
+        UPDATE service_calls
+        SET status=COALESCE(?, status), engineer=COALESCE(?, engineer), issue=COALESCE(?, issue),
+            resolution=COALESCE(?, resolution), department_id=COALESCE(?, department_id),
+            priority=COALESCE(?, priority), progress_state=COALESCE(?, progress_state),
+            response_time_hours=COALESCE(?, response_time_hours), updated_at=?
+        WHERE id=?
+    """, (
+        payload.get("status"), payload.get("engineer"), payload.get("issue"), payload.get("resolution"),
+        payload.get("department_id"), payload.get("priority"), payload.get("progress_state"),
+        payload.get("response_time_hours"), now(), call_id
+    ))
+    case_timeline(conn, existing["parent_case_reference"], existing["parent_case_id"], "engineer_update", "Service call updated", payload.get("status", existing["status"]), request.session.get("username", "system"), payload.get("notes", ""), "service_calls", call_id)
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM service_calls WHERE id=?", (call_id,)).fetchone())
+    conn.close()
+    return row
 
 @app.post("/api/crm/clients")
 def create_crm_client(client: CRMClient, request: Request):
