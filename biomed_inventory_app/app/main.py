@@ -1798,9 +1798,206 @@ def classify_order_status(status: str) -> str:
         return "partially_fulfilled"
     return "open"
 
-def crm_client_dashboard_data(conn, client_id: int):
+def progress_for_case(case_row: dict, docs: list[dict], lines: list[dict]) -> dict:
+    doc_types = {d.get("doc_type") for d in docs}
+    line_statuses = {l.get("stock_status") for l in lines}
+    procurement_statuses = {l.get("procurement_status") for l in lines}
+    case_type = case_row.get("case_type", "")
+    if case_type in {"corrective_maintenance", "warranty_call", "training"}:
+        stages = [
+            ("call received", True),
+            ("assigned", bool(case_row.get("engineer_id"))),
+            ("scheduled", case_row.get("workflow_state") in {"appointment_or_workshop_pickup", "service_visit", "service_report", "accountant_notified_for_invoice", "customer_satisfaction_follow_up"}),
+            ("visited", case_row.get("workflow_state") in {"service_visit", "service_report", "accountant_notified_for_invoice", "customer_satisfaction_follow_up"}),
+            ("report submitted", "service_report" in doc_types),
+            ("invoiced/closed", "invoice" in doc_types or case_row.get("status") in {"completed", "closed"}),
+        ]
+    elif case_type in {"preventive_maintenance", "maintenance_contract"}:
+        stages = [
+            ("scheduled", case_row.get("workflow_state") in {"pm_scheduled", "engineer_notified", "appointment_set", "checklist_prepared", "pm_done", "service_report_signed", "checklist_archived"}),
+            ("assigned", bool(case_row.get("engineer_id"))),
+            ("checklist prepared", case_row.get("workflow_state") in {"checklist_prepared", "pm_done", "service_report_signed", "checklist_archived"}),
+            ("completed", case_row.get("workflow_state") in {"pm_done", "service_report_signed", "checklist_archived"}),
+            ("report signed", "pm_report" in doc_types),
+            ("archived", case_row.get("workflow_state") == "checklist_archived"),
+        ]
+    elif case_type in {"equipment_delivery", "installation"}:
+        stages = [
+            ("delivery planned", case_row.get("workflow_state") in {"upcoming_delivery", "shipment_ready", "site_readiness_follow_up", "delivery_order", "customer_appointment", "physical_delivery", "installation", "functional_test", "service_report", "equipment_registration"}),
+            ("delivered", "delivery_note" in doc_types or case_row.get("workflow_state") in {"physical_delivery", "installation", "functional_test", "service_report", "equipment_registration"}),
+            ("installed", case_row.get("workflow_state") in {"installation", "functional_test", "service_report", "equipment_registration"}),
+            ("tested", "acceptance_test_report" in doc_types or case_row.get("workflow_state") in {"functional_test", "service_report", "equipment_registration"}),
+            ("accepted", "acceptance_test_report" in doc_types or case_row.get("workflow_state") == "equipment_registration"),
+            ("warranty active", case_row.get("workflow_state") == "equipment_registration"),
+        ]
+    elif any(l.get("item_type") in {"spare_part", "accessory"} for l in lines):
+        stages = [
+            ("request", True),
+            ("stock check", bool(lines)),
+            ("reserved/shortage", bool(line_statuses & {"reserved", "partially_reserved", "available", "partially_available", "unavailable"})),
+            ("PO created", bool(procurement_statuses & {"po_draft", "po_sent", "supplier_confirmed", "partially_received", "received"})),
+            ("received", "received" in procurement_statuses),
+            ("delivered", "delivery_note" in doc_types or "delivered" in line_statuses),
+            ("invoiced", "invoice" in doc_types or "invoiced" in line_statuses),
+        ]
+    else:
+        stages = [
+            ("request", True),
+            ("quotation", "quotation" in doc_types),
+            ("approval", case_row.get("workflow_state") in {"deal_closed", "delivery_coordination", "installation_follow_up"} or "client_order" in doc_types),
+            ("client order", "client_order" in doc_types),
+            ("delivery", "delivery_note" in doc_types),
+            ("invoice", "invoice" in doc_types),
+            ("paid", any(str(d.get("status", "")).lower() == "paid" for d in docs if d.get("doc_type") == "invoice")),
+        ]
+    done = sum(1 for _, ok in stages if ok)
+    return {
+        "stages": [{"label": label, "done": bool(ok)} for label, ok in stages],
+        "percent": round((done / len(stages)) * 100) if stages else 0,
+    }
+
+def parent_reference_groups(conn, client_id: int | None = None, department_id: int | None = None):
+    where = ["COALESCE(parent_case_reference, '') != ''"]
+    params = []
+    if client_id:
+        where.append("client_id=?")
+        params.append(client_id)
+    if department_id:
+        where.append("department_id=?")
+        params.append(department_id)
+    cases = [dict(r) for r in conn.execute(f"""
+        SELECT * FROM cases
+        WHERE {' AND '.join(where)}
+        ORDER BY updated_at DESC, id DESC
+    """, params).fetchall()]
+    groups = []
+    for case_row in cases:
+        ref = case_row.get("parent_case_reference")
+        request_id = case_row.get("request_id")
+        docs = [dict(r) for r in conn.execute("SELECT * FROM sales_case_documents WHERE parent_case_reference=? ORDER BY created_at", (ref,)).fetchall()]
+        lines = [dict(r) for r in conn.execute("""
+            SELECT cri.*
+            FROM customer_request_items cri
+            JOIN customer_requests cr ON cr.id=cri.request_id
+            WHERE cr.parent_case_reference=?
+            ORDER BY cri.id
+        """, (ref,)).fetchall()]
+        timeline = [dict(r) for r in conn.execute("""
+            SELECT * FROM case_timeline
+            WHERE parent_case_reference=?
+            ORDER BY created_at, id
+        """, (ref,)).fetchall()]
+        if not timeline:
+            request_row = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone() if request_id else None
+            if request_row:
+                timeline.append({"event_type": "case_created", "title": "Customer request created", "status": request_row["status"], "created_at": request_row["created_at"], "notes": request_row["notes"]})
+            for doc in docs:
+                timeline.append({"event_type": "document_created", "title": doc["doc_type"].replace("_", " ").title(), "status": doc["status"], "created_at": doc["created_at"], "notes": doc["doc_no"]})
+        groups.append({
+            "parent_case_reference": ref,
+            "case_id": case_row.get("id"),
+            "case_no": case_row.get("case_no"),
+            "case_type": case_row.get("case_type"),
+            "status": case_row.get("status"),
+            "workflow_state": case_row.get("workflow_state"),
+            "priority": case_row.get("priority"),
+            "request_id": request_id,
+            "department_id": case_row.get("department_id"),
+            "documents": docs,
+            "line_items": lines,
+            "timeline": timeline,
+            "progress": progress_for_case(case_row, docs, lines),
+        })
+    return groups
+
+def traceability_data(conn, reference: str):
+    ref = str(reference or "").strip()
+    if not ref:
+        raise HTTPException(status_code=400, detail="reference is required")
+    case_row = conn.execute("""
+        SELECT * FROM cases
+        WHERE parent_case_reference=? OR case_no=?
+        ORDER BY id DESC LIMIT 1
+    """, (ref, ref)).fetchone()
+    if not case_row:
+        doc = conn.execute("""
+            SELECT parent_case_reference FROM sales_case_documents
+            WHERE doc_no=? OR document_reference=?
+            UNION SELECT parent_case_reference FROM quotations WHERE quotation_no=? OR document_reference=?
+            UNION SELECT parent_case_reference FROM client_orders WHERE client_order_no=? OR document_reference=?
+            UNION SELECT parent_case_reference FROM purchase_orders WHERE po_no=? OR document_reference=?
+            LIMIT 1
+        """, (ref, ref, ref, ref, ref, ref, ref, ref)).fetchone()
+        if doc and doc["parent_case_reference"]:
+            ref = doc["parent_case_reference"]
+            case_row = conn.execute("SELECT * FROM cases WHERE parent_case_reference=? ORDER BY id DESC LIMIT 1", (ref,)).fetchone()
+    if not case_row:
+        raise HTTPException(status_code=404, detail="Parent case reference not found")
+    case_data = dict(case_row)
+    parent_ref = case_data.get("parent_case_reference")
+    request_ids = [r["id"] for r in conn.execute("SELECT id FROM customer_requests WHERE parent_case_reference=?", (parent_ref,)).fetchall()]
+    request_placeholders = ",".join("?" for _ in request_ids) or "NULL"
+    customer_requests = [request_with_lines(conn, rid) for rid in request_ids]
+    documents = [dict(r) for r in conn.execute("SELECT * FROM sales_case_documents WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    quotations = [dict(r) for r in conn.execute("SELECT * FROM quotations WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    client_orders = [dict(r) for r in conn.execute("SELECT * FROM client_orders WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    purchase_orders = [dict(r) for r in conn.execute("SELECT * FROM purchase_orders WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    stock_movements = [dict(r) for r in conn.execute(f"""
+        SELECT * FROM stock_movements
+        WHERE parent_case_reference=?
+           OR request_id IN ({request_placeholders})
+        ORDER BY created_at
+    """, [parent_ref, *request_ids]).fetchall()]
+    service_calls = [dict(r) for r in conn.execute("SELECT * FROM service_calls WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    pm_reports = [dict(r) for r in conn.execute("SELECT * FROM pm_reports WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    service_reports = [dict(r) for r in conn.execute("SELECT * FROM service_reports WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    delivery_notes = [dict(r) for r in conn.execute("SELECT * FROM delivery_notes WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    invoices = [dict(r) for r in conn.execute("SELECT * FROM invoices WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    contracts = [dict(r) for r in conn.execute("SELECT * FROM contracts WHERE parent_case_reference=? ORDER BY created_at", (parent_ref,)).fetchall()]
+    equipment_history = [dict(r) for r in conn.execute("""
+        SELECT h.*, a.asset_tag, a.model, a.serial_number
+        FROM pm_history h
+        LEFT JOIN pm_assets a ON a.id=h.asset_id
+        WHERE h.parent_case_reference=?
+           OR a.parent_case_reference=?
+        ORDER BY h.created_at
+    """, (parent_ref, parent_ref)).fetchall()]
+    engineer_activities = [dict(r) for r in conn.execute("""
+        SELECT 'service_call' AS activity_type, call_no AS reference, engineer, status, issue AS notes, updated_at AS activity_at
+        FROM service_calls WHERE parent_case_reference=?
+        UNION ALL
+        SELECT 'pm_history' AS activity_type, a.asset_tag AS reference, h.engineer, h.action AS status, h.notes, h.created_at AS activity_at
+        FROM pm_history h LEFT JOIN pm_assets a ON a.id=h.asset_id
+        WHERE h.parent_case_reference=?
+        ORDER BY activity_at
+    """, (parent_ref, parent_ref)).fetchall()]
+    timeline = [dict(r) for r in conn.execute("SELECT * FROM case_timeline WHERE parent_case_reference=? ORDER BY created_at, id", (parent_ref,)).fetchall()]
+    return {
+        "parent_case_reference": parent_ref,
+        "case": case_data,
+        "timeline": timeline,
+        "customer_requests": customer_requests,
+        "offers": quotations,
+        "quotations": quotations,
+        "client_orders": client_orders,
+        "purchase_orders": purchase_orders,
+        "stock_reservations": [line for req in customer_requests for line in req.get("lines", []) if int(line.get("reserved_qty") or 0) > 0],
+        "stock_movements": stock_movements,
+        "deliveries": delivery_notes,
+        "delivery_notes": delivery_notes,
+        "invoices": invoices,
+        "service_reports": service_reports,
+        "pm_reports": pm_reports,
+        "engineer_activities": engineer_activities,
+        "contracts": contracts,
+        "equipment_history": equipment_history,
+        "documents": documents,
+    }
+
+def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = None):
     client = crm_client_row(conn, client_id)
     metrics = crm_client_metrics(conn, client)
+    departments = [dict(r) for r in conn.execute("SELECT * FROM client_departments WHERE client_id=? ORDER BY department_name", (client_id,)).fetchall()]
     contacts = [dict(r) for r in conn.execute("SELECT * FROM crm_contacts WHERE client_id=? ORDER BY name", (client_id,)).fetchall()]
     equipment = [dict(r) for r in conn.execute("""
         SELECT * FROM pm_assets
@@ -1872,6 +2069,24 @@ def crm_client_dashboard_data(conn, client_id: int):
           )
         ORDER BY cri.updated_at DESC
     """, (client_id,)).fetchall()]
+    all_equipment = list(equipment)
+    all_requests = list(requests)
+    all_service_calls = list(service_calls)
+    all_pending_items = list(pending_items)
+    if department_id:
+        equipment_ids = {e["id"] for e in equipment if e.get("department_id") == department_id}
+        request_ids = {r["id"] for r in requests if r.get("department_id") == department_id}
+        equipment = [e for e in equipment if e.get("department_id") == department_id]
+        requests = [r for r in requests if r.get("department_id") == department_id]
+        orders = [o for o in orders if o.get("department_id") in {department_id, None, ""} and (not o.get("request_id") or o.get("request_id") in request_ids)]
+        purchase_orders = [p for p in purchase_orders if p.get("department_id") == department_id or p.get("request_id") in request_ids]
+        cases = [c for c in cases if c.get("department_id") == department_id]
+        docs = [d for d in docs if d.get("department_id") == department_id or d.get("request_id") in request_ids]
+        offers = [o for o in offers if o.get("department_id") == department_id or o.get("request_id") in request_ids]
+        service_calls = [s for s in service_calls if s.get("department_id") == department_id or s.get("equipment_id") in equipment_ids or s.get("request_id") in request_ids]
+        equipment_history = [h for h in equipment_history if h.get("asset_id") in equipment_ids]
+        engineer_activities = [a for a in engineer_activities if a.get("equipment_id") in equipment_ids or a.get("request_id") in request_ids]
+        pending_items = [p for p in pending_items if p.get("request_id") in request_ids]
     invoices = [d for d in docs if d.get("doc_type") == "invoice"]
     paid_invoices = [d for d in invoices if str(d.get("status", "")).lower() == "paid"]
     overdue_invoices = [d for d in invoices if str(d.get("status", "")).lower() == "overdue"]
@@ -1906,8 +2121,28 @@ def crm_client_dashboard_data(conn, client_id: int):
         "financial_status": client.get("financial_status") or "good standing",
         "invoices": invoices,
     }
+    department_summaries = []
+    for dept in departments:
+        dept_id = dept["id"]
+        dept_equipment = [e for e in all_equipment if e.get("department_id") == dept_id]
+        dept_equipment_ids = {e["id"] for e in dept_equipment}
+        dept_requests = [r for r in all_requests if r.get("department_id") == dept_id]
+        dept_request_ids = {r["id"] for r in dept_requests}
+        department_summaries.append({
+            **dept,
+            "equipment_count": len(dept_equipment),
+            "warranty_machines": sum(1 for e in dept_equipment if warranty_status(e.get("warranty_end", "")) in {"active", "expiring_soon"}),
+            "pm_due": sum(1 for e in dept_equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) in {"due_today", "due_this_week", "overdue"}),
+            "open_service_calls": sum(1 for s in all_service_calls if s.get("department_id") == dept_id or s.get("equipment_id") in dept_equipment_ids),
+            "pending_spare_parts": sum(1 for p in all_pending_items if p.get("request_id") in dept_request_ids and p.get("item_type") == "spare_part"),
+        })
+    parent_timelines = parent_reference_groups(conn, client_id, department_id)
     return {
         "client": {**client, **metrics},
+        "departments": departments,
+        "department_summaries": department_summaries,
+        "active_department_id": department_id,
+        "parent_timelines": parent_timelines,
         "contacts": contacts,
         "equipment": equipment,
         "offers": offers,
@@ -2123,6 +2358,90 @@ def after_sales_dashboard_data(conn):
             {"name": "Reports", "path": "/after-sales/reports", "existing_route": "/pm/reports", "description": "Service, PM, engineer, client, and equipment history reports."},
         ],
     }
+
+def hospital_dashboard_rows(conn):
+    ensure_clients_from_existing_data(conn)
+    clients = [dict(r) for r in conn.execute("SELECT * FROM clients ORDER BY name").fetchall()]
+    rows = []
+    today = date.today()
+    month_end = today + timedelta(days=30)
+    for client in clients:
+        client_id = client["id"]
+        name = client["name"]
+        metrics = crm_client_metrics(conn, client)
+        sales_orders = conn.execute("""
+            SELECT COUNT(*) AS c FROM customer_requests
+            WHERE client_id=? AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'invoiced', 'cancelled')
+        """, (client_id,)).fetchone()["c"]
+        spare_parts = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM customer_request_items i
+            JOIN customer_requests r ON r.id=i.request_id
+            WHERE r.client_id=? AND i.item_type='spare_part'
+              AND COALESCE(i.invoiced_qty,0) < COALESCE(i.quantity,0)
+        """, (client_id,)).fetchone()["c"]
+        accessories = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM customer_request_items i
+            JOIN customer_requests r ON r.id=i.request_id
+            WHERE r.client_id=? AND i.item_type='accessory'
+              AND COALESCE(i.invoiced_qty,0) < COALESCE(i.quantity,0)
+        """, (client_id,)).fetchone()["c"]
+        pending_deliveries = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM customer_request_items i
+            JOIN customer_requests r ON r.id=i.request_id
+            WHERE r.client_id=? AND COALESCE(i.delivered_qty,0) < COALESCE(i.quantity,0)
+              AND lower(COALESCE(r.status, 'open')) NOT IN ('cancelled')
+        """, (client_id,)).fetchone()["c"]
+        pending_procurement = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM customer_request_items i
+            JOIN customer_requests r ON r.id=i.request_id
+            WHERE r.client_id=?
+              AND COALESCE(i.procurement_status,'') IN ('po_draft','po_sent','supplier_confirmed','partially_received','not_ordered')
+              AND COALESCE(i.shortage_qty,0) > 0
+        """, (client_id,)).fetchone()["c"]
+        unpaid_invoices = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM sales_case_documents
+            WHERE client_id=? AND doc_type='invoice'
+              AND lower(COALESCE(status, 'issued')) NOT IN ('paid', 'cancelled')
+        """, (client_id,)).fetchone()["c"]
+        urgent_issues = conn.execute("""
+            SELECT COUNT(*) AS c FROM cases
+            WHERE client_id=? AND lower(COALESCE(priority, 'normal')) IN ('urgent', 'high', 'critical')
+              AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        """, (client_id,)).fetchone()["c"]
+        contract_rows = [dict(r) for r in conn.execute("""
+            SELECT contract_end_date FROM pm_assets
+            WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+              AND COALESCE(contract_no, '') != ''
+        """, (client_id, name)).fetchall()]
+        if not contract_rows:
+            contract_status = "no contract"
+        elif any((parse_iso_date(r.get("contract_end_date")) and parse_iso_date(r.get("contract_end_date")) < today) for r in contract_rows):
+            contract_status = "expired"
+        elif any((parse_iso_date(r.get("contract_end_date")) and parse_iso_date(r.get("contract_end_date")) <= month_end) for r in contract_rows):
+            contract_status = "expiring soon"
+        else:
+            contract_status = "active"
+        rows.append({
+            **client,
+            **metrics,
+            "open_sales_orders": int(sales_orders or 0),
+            "open_spare_parts_orders": int(spare_parts or 0),
+            "open_accessories_orders": int(accessories or 0),
+            "open_service_orders": metrics["open_service_calls"],
+            "pm_due": metrics["upcoming_pms"],
+            "maintenance_contract_status": contract_status,
+            "machines_under_warranty": metrics["under_warranty"],
+            "unpaid_invoices": int(unpaid_invoices or 0),
+            "pending_deliveries": int(pending_deliveries or 0),
+            "pending_procurement": int(pending_procurement or 0),
+            "urgent_open_issues": int(urgent_issues or 0),
+        })
+    return rows
 
 def stock_status_for(requested_qty: int, available_qty: int, reserved_qty: int = 0, delivered_qty: int = 0, invoiced_qty: int = 0) -> str:
     if invoiced_qty >= requested_qty and requested_qty > 0:
@@ -2737,6 +3056,14 @@ def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer
     conn.close()
     return result
 
+@app.get("/api/hospitals")
+def hospitals_dashboard():
+    conn = db()
+    rows = hospital_dashboard_rows(conn)
+    conn.commit()
+    conn.close()
+    return rows
+
 @app.post("/api/crm/clients")
 def create_crm_client(client: CRMClient, request: Request):
     role = current_role(request)
@@ -2771,11 +3098,41 @@ def crm_client_detail(client_id: int, request: Request):
     return {**client, **metrics, "role": current_role(request), "can_edit": can_edit_crm(current_role(request))}
 
 @app.get("/api/crm/client/{client_id}/dashboard")
-def crm_client_dashboard(client_id: int):
+def crm_client_dashboard(client_id: int, department_id: int | None = None):
     conn = db()
-    data = crm_client_dashboard_data(conn, client_id)
+    data = crm_client_dashboard_data(conn, client_id, department_id)
     conn.close()
     return data
+
+@app.get("/api/crm/client/{client_id}/departments")
+def crm_client_departments(client_id: int):
+    conn = db()
+    crm_client_row(conn, client_id)
+    rows = [dict(r) for r in conn.execute("SELECT * FROM client_departments WHERE client_id=? ORDER BY department_name", (client_id,)).fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/crm/client/{client_id}/departments")
+def create_crm_client_department(client_id: int, payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="CRM edit permission required")
+    conn = db()
+    crm_client_row(conn, client_id)
+    department_id = ensure_department(
+        conn,
+        client_id,
+        payload.get("department_name", ""),
+        floor_location=payload.get("floor_location", ""),
+        main_contact_name=payload.get("main_contact_name", ""),
+        phone=payload.get("phone", ""),
+        email=payload.get("email", ""),
+        notes=payload.get("notes", ""),
+    )
+    conn.commit()
+    row = dict(conn.execute("SELECT * FROM client_departments WHERE id=?", (department_id,)).fetchone())
+    conn.close()
+    return row
 
 @app.get("/api/after-sales/dashboard")
 def after_sales_dashboard():
@@ -2932,6 +3289,83 @@ def case_workflow_definitions():
         "case_type_workflows": CASE_TYPE_WORKFLOW,
     }
 
+@app.get("/api/traceability/{reference}")
+def get_traceability(reference: str):
+    conn = db()
+    data = traceability_data(conn, reference)
+    conn.commit()
+    conn.close()
+    return data
+
+@app.get("/api/search")
+def global_search(q: str):
+    text = str(q or "").strip()
+    if not text:
+        return {"query": text, "results": []}
+    like = f"%{text}%"
+    conn = db()
+    results = []
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, case_no AS label, 'case' AS type, client_id, id AS case_id
+        FROM cases
+        WHERE parent_case_reference LIKE ? OR case_no LIKE ? OR notes LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, quotation_no AS label, 'quotation' AS type, client_id, NULL AS case_id
+        FROM quotations
+        WHERE quotation_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, doc_no AS label, doc_type AS type, client_id, parent_case_id AS case_id
+        FROM sales_case_documents
+        WHERE doc_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ?
+        LIMIT 30
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, client_order_no AS label, 'client_order' AS type, client_id, parent_case_id AS case_id
+        FROM client_orders
+        WHERE client_order_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR client_name LIKE ?
+        LIMIT 20
+    """, (like, like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, po_no AS label, 'purchase_order' AS type, client_id, parent_case_id AS case_id
+        FROM purchase_orders
+        WHERE po_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR supplier LIKE ?
+        LIMIT 20
+    """, (like, like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT a.parent_case_reference AS reference, a.asset_tag || ' / ' || a.serial_number AS label,
+               'equipment' AS type, a.client_id, a.parent_case_id AS case_id
+        FROM pm_assets a
+        WHERE a.asset_tag LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.hospital LIKE ?
+        LIMIT 30
+    """, (like, like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT '' AS reference, name AS label, 'client' AS type, id AS client_id, NULL AS case_id
+        FROM clients
+        WHERE name LIKE ? OR city LIKE ? OR main_contact LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    seen = set()
+    unique = []
+    for item in results:
+        key = (item.get("type"), item.get("label"), item.get("reference"), item.get("client_id"))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    conn.close()
+    return {"query": text, "results": unique[:80]}
+
 @app.post("/api/cases")
 def create_case(case: CaseCreate):
     conn = db()
@@ -3080,7 +3514,7 @@ def get_case_summary(case_id: int):
 @app.post("/api/cases/{case_id}/auto-procure-shortages")
 def auto_create_po_for_shortages(case_id: int):
     conn = db()
-    case_row = conn.execute("SELECT request_id FROM cases WHERE id = ?", (case_id,)).fetchone()
+    case_row = conn.execute("SELECT request_id, client_id, department_id, parent_case_reference FROM cases WHERE id = ?", (case_id,)).fetchone()
     if not case_row or not case_row["request_id"]:
         conn.close()
         raise HTTPException(status_code=400, detail="Case has no customer request")
@@ -3097,9 +3531,11 @@ def auto_create_po_for_shortages(case_id: int):
 
     po_no = f"PO-{int(datetime.now().timestamp())}"
     po_cur = conn.execute("""
-        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (po_no, "To be assigned", "draft", add_days_iso(date.today().isoformat(), 7), f"Auto-generated for case {case_id}", now(), now(), request_id))
+        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, client_id, case_id,
+                                     parent_case_reference, parent_case_id, document_reference, department_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (po_no, "To be assigned", "draft", add_days_iso(date.today().isoformat(), 7), f"Auto-generated for case {case_id}", now(), now(), request_id, case_row["client_id"], case_id,
+          case_row["parent_case_reference"], case_id, document_reference_for(case_row["parent_case_reference"], "purchase_order"), case_row["department_id"]))
     po_id = po_cur.lastrowid
 
     for line in shortage_lines:
@@ -3135,6 +3571,7 @@ def complete_case_workflow(case_id: int, final_status: str = "completed"):
         INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
         VALUES (?, ?, ?, ?, ?)
     """, (case_id, "completed", now(), "system", f"Case marked as {final_status}"))
+    case_timeline(conn, case_row["parent_case_reference"], case_id, "workflow_state", "Case completed", final_status, "system", f"Case marked as {final_status}", "cases", case_id)
 
     conn.commit()
     conn.close()
@@ -3455,13 +3892,18 @@ def create_po_for_missing_items(request_id: int):
     req = conn.execute("SELECT * FROM customer_requests WHERE id=?", (request_id,)).fetchone()
     if not req:
         raise HTTPException(status_code=404, detail="Customer request not found")
-    case_row = conn.execute("SELECT id FROM cases WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    case_row = conn.execute("SELECT id, parent_case_reference, department_id FROM cases WHERE request_id=? ORDER BY id DESC LIMIT 1", (request_id,)).fetchone()
+    parent_ref = case_row["parent_case_reference"] if case_row else req["parent_case_reference"]
+    parent_case_id = case_row["id"] if case_row else req["parent_case_id"]
+    department_id = case_row["department_id"] if case_row else req["department_id"]
     po_no = make_doc_no("PO", request_id)
     conn.execute("""
-        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, client_id, case_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(po_no) DO UPDATE SET updated_at=excluded.updated_at, request_id=excluded.request_id, client_id=excluded.client_id, case_id=excluded.case_id
-    """, (po_no, "", "DRAFT", "", f"Missing items for {req['case_no']}", now(), now(), request_id, req["client_id"], case_row["id"] if case_row else None))
+        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at, request_id, client_id, case_id,
+                                     parent_case_reference, parent_case_id, document_reference, department_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(po_no) DO UPDATE SET updated_at=excluded.updated_at, request_id=excluded.request_id, client_id=excluded.client_id, case_id=excluded.case_id,
+            parent_case_reference=excluded.parent_case_reference, parent_case_id=excluded.parent_case_id, document_reference=excluded.document_reference, department_id=excluded.department_id
+    """, (po_no, "", "DRAFT", "", f"Missing items for {req['case_no']}", now(), now(), request_id, req["client_id"], parent_case_id, parent_ref, parent_case_id, document_reference_for(parent_ref, "purchase_order"), department_id))
     po_row = conn.execute("SELECT id FROM purchase_orders WHERE po_no=?", (po_no,)).fetchone()
     for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (request_id,)).fetchall():
         data = sync_case_line_stock(conn, line["id"]) or dict(line)
@@ -3598,9 +4040,11 @@ def remove_customer_request_from_stock(request_id: int, selection: DeliverySelec
         """, (inv["id"], inv["pn"], inv["barcode"], "OUT", qty, old_qty, new_qty, "", "", req["client_hospital"], f"Delivered for {req['case_no']} via {doc['doc_no']}", now()))
         conn.execute("""
             INSERT INTO stock_movements
-            (movement_type, item_id, pn, qty, old_qty, new_qty, request_id, request_item_id, delivery_note_id, document_no, client_name, notes, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("OUT", inv["id"], inv["pn"], qty, old_qty, new_qty, request_id, line["id"], doc["id"], doc["doc_no"], req["client_hospital"], "Delivery note stock removal", now()))
+            (movement_type, item_id, pn, qty, old_qty, new_qty, request_id, request_item_id, delivery_note_id, document_no, client_name, notes, created_at,
+             parent_case_reference, parent_case_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, ("OUT", inv["id"], inv["pn"], qty, old_qty, new_qty, request_id, line["id"], doc["id"], doc["doc_no"], req["client_hospital"], "Delivery note stock removal", now(),
+              doc["parent_case_reference"], doc["parent_case_id"]))
         if doc.get("client_order_id"):
             conn.execute("""
                 UPDATE client_order_items
@@ -3608,6 +4052,7 @@ def remove_customer_request_from_stock(request_id: int, selection: DeliverySelec
                 WHERE client_order_id=? AND request_item_id=?
             """, (qty, qty, now(), doc["client_order_id"], line["id"]))
         audit(conn, inv["id"], "DELIVERY_STOCK_OUT", old_qty, new_qty, f"{req['case_no']} {doc['doc_no']}")
+        case_timeline(conn, doc["parent_case_reference"], doc["parent_case_id"], "stock_action", "Delivery stock removed", "completed", "system", f"{qty} x {inv['pn']} via {doc['doc_no']}", "stock_movements", line["id"])
         sync_case_line_stock(conn, line["id"])
     conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("completed", now(), doc["id"]))
     advance_case_for_request(conn, request_id, "physical_delivery", f"Stock removed for {doc['doc_no']}")
@@ -5333,10 +5778,20 @@ def dashboard():
     po_count = conn.execute("SELECT COUNT(*) AS c FROM purchase_orders").fetchone()["c"]
     client_order_count = conn.execute("SELECT COUNT(*) AS c FROM client_orders").fetchone()["c"]
     audit_count = conn.execute("SELECT COUNT(*) AS c FROM audit_log").fetchone()["c"]
+    hospitals = hospital_dashboard_rows(conn)
+    conn.commit()
     conn.close()
     df = pd.DataFrame(rows)
     if df.empty:
-        return {}
+        return {
+            "hospitals": hospitals,
+            "total_hospitals": len(hospitals),
+            "transactions": tx_count,
+            "purchase_orders": po_count,
+            "client_orders": client_order_count,
+            "audit_events": audit_count,
+            "excel_path": str(EXCEL_PATH),
+        }
     multi = df.groupby("pn")["location"].nunique()
     return {
         "total_records": len(df),
@@ -5354,6 +5809,8 @@ def dashboard():
         "client_orders": client_order_count,
         "audit_events": audit_count,
         "excel_path": str(EXCEL_PATH),
+        "hospitals": hospitals,
+        "total_hospitals": len(hospitals),
     }
 
 @app.get("/api/report/{report_name}")
