@@ -7,30 +7,35 @@
   <title>CMM Dashboard</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .toolbar{display:flex;gap:10px;margin:14px 0}.toolbar input{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px;width:min(420px,100%)}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:7px 9px;text-decoration:none}.actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar input{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px;width:min(430px,100%)}.toolbar a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:9px 11px;text-decoration:none}.toolbar a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.table tbody tr{cursor:pointer}.table tbody tr:hover{background:#f8fbfd}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;margin:1px 0;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.mini{color:var(--muted);display:block;font-size:12px;margin-top:3px}.search-results{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.08);display:none;max-height:260px;overflow:auto;position:absolute;width:min(520px,calc(100vw - 44px));z-index:10}.search-box{position:relative}.search-results a{border:0;border-bottom:1px solid var(--line);border-radius:0;color:var(--ink);display:block;font-weight:700;padding:10px;text-decoration:none}.search-results a:hover{background:var(--soft)}.actions{display:flex;gap:7px;flex-wrap:wrap}.actions a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:7px 9px;text-decoration:none}.actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand"><h1>Hospital Dashboard</h1><p>Client-first biomedical operations view</p></div>
+      <div class="brand"><h1>Hospital Dashboard</h1><p>Client-first biomedical operations</p></div>
       <nav class="top-actions" aria-label="Dashboard navigation">
-        <a href="/portal">Portal</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a>
+        <a href="/portal">Portal</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/imports">Imports</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
   <main class="container">
-    <section class="page-intro">
-      <h2>Hospitals / Clients</h2>
-      <p>Open a hospital dashboard to manage departments, cases, equipment, service, PM, contracts, and financial activity.</p>
-    </section>
     <section class="card">
-      <div class="toolbar"><input id="search" placeholder="Search hospital, status, financials"></div>
+      <div class="toolbar">
+        <input id="filter" placeholder="Filter hospitals">
+        <div class="search-box">
+          <input id="globalSearch" placeholder="Global search">
+          <div id="searchResults" class="search-results"></div>
+        </div>
+        <a class="primary" href="/crm">New Hospital</a>
+        <a href="/imports">Import Offers</a>
+        <a href="/api/exports/hospital-dashboard-summary">Export</a>
+      </div>
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr>
-              <th>Hospital / Client</th><th>Status</th><th>Orders</th><th>Service / PM</th><th>Contracts / Warranty</th><th>Financials</th><th>Blocked Work</th><th>Actions</th>
+              <th>Hospital / Client</th><th>Financial</th><th>Cases</th><th>Sales</th><th>Parts / Accessories</th><th>Service</th><th>PM</th><th>Contracts / Warranty</th><th>Deliveries</th><th>Blocked / Urgent</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
@@ -39,26 +44,34 @@
     </section>
   </main>
   <script>
-    const rowsEl=document.getElementById("rows"), searchEl=document.getElementById("search");
+    const rowsEl=document.getElementById("rows"), filterEl=document.getElementById("filter"), globalSearch=document.getElementById("globalSearch"), searchResults=document.getElementById("searchResults");
     let hospitals=[];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const badge=v=>{const t=String(v||"");const l=t.toLowerCase();const cls=l.includes("expired")||l.includes("urgent")||l.includes("blocked")||l.includes("overdue")?"bad":l.includes("active")||l.includes("good")?"good":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
+    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("expired")||l.includes("urgent")||l.includes("blocked")||l.includes("overdue")||l.includes("bad")?"bad":l.includes("active")||l.includes("good")||l==="0"?"good":l.includes("pending")||l.includes("soon")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
+    const cell=(label,value)=>`<span class="mini">${esc(label)}</span>${esc(value??0)}`;
     async function load(){const res=await fetch("/api/hospitals");hospitals=await res.json();render()}
     function render(){
-      const q=searchEl.value.toLowerCase();
+      const q=filterEl.value.toLowerCase();
       const data=hospitals.filter(h=>[h.name,h.status,h.financial_status,h.maintenance_contract_status].join(" ").toLowerCase().includes(q));
-      rowsEl.innerHTML=data.map(h=>`<tr>
-        <td><b>${esc(h.name)}</b><br>${esc(h.city||h.address||"")}</td>
-        <td>${badge(h.status)}<br>${badge(h.financial_status)}</td>
-        <td>Sales: ${esc(h.open_sales_orders)}<br>Parts: ${esc(h.open_spare_parts_orders)}<br>Accessories: ${esc(h.open_accessories_orders)}</td>
-        <td>Service: ${esc(h.open_service_orders)}<br>PM due: ${esc(h.pm_due)}</td>
-        <td>${badge(h.maintenance_contract_status)}<br>Warranty machines: ${esc(h.machines_under_warranty)}</td>
-        <td>Unpaid invoices: ${esc(h.unpaid_invoices)}</td>
-        <td>Deliveries: ${esc(h.pending_deliveries)}<br>Procurement: ${esc(h.pending_procurement)}<br>Urgent: ${esc(h.urgent_open_issues)}</td>
-        <td><div class="actions"><a class="primary" href="/crm/client/${esc(h.id)}">Open Hospital</a><a href="/sales">New Request</a><a href="/pm">PM</a></div></td>
-      </tr>`).join("")||`<tr><td colspan="8">No hospitals found.</td></tr>`;
+      rowsEl.innerHTML=data.map(h=>`<tr data-href="/crm/client/${esc(h.id)}">
+        <td><b>${esc(h.name)}</b><span class="mini">${esc(h.city||h.address||"")}</span>${badge(h.status)}</td>
+        <td>${badge(h.financial_status)}<br>${cell("Unpaid invoices",h.unpaid_invoices)}</td>
+        <td>${cell("Open cases",h.open_cases)}<br>${cell("Pending calls",h.pending_calls)}</td>
+        <td>${cell("Pending offers",h.pending_offers)}<br>${cell("Sales orders",h.open_sales_orders)}</td>
+        <td>${cell("Parts",h.open_spare_parts_orders)}<br>${cell("Accessories",h.open_accessories_orders)}</td>
+        <td>${cell("Service orders",h.open_service_orders)}</td>
+        <td>${cell("Due",h.pm_due)}<br>${cell("Overdue",h.pm_overdue)}</td>
+        <td>${badge(h.active_maintenance_contract?"active":"none")}<br>${cell("Warranty equipment",h.warranty_equipment_count)}</td>
+        <td>${cell("Install/delivery",h.pending_installations_deliveries)}<br>${cell("Procurement",h.pending_procurement)}</td>
+        <td>${badge(`Blocked ${h.blocked_items_count}`)}<br>${badge(`Urgent ${h.urgent_items_count}`)}</td>
+        <td><div class="actions"><a class="primary" href="/crm/client/${esc(h.id)}">Open</a><a href="/sales">Request</a><a href="/pm">PM</a></div></td>
+      </tr>`).join("")||`<tr><td colspan="11">No hospitals found.</td></tr>`;
+      rowsEl.querySelectorAll("tr[data-href]").forEach(tr=>tr.addEventListener("click",e=>{if(e.target.closest("a"))return;location.href=tr.dataset.href}));
     }
-    searchEl.addEventListener("input",render);
+    let searchTimer=null;
+    globalSearch.addEventListener("input",()=>{clearTimeout(searchTimer);const q=globalSearch.value.trim();if(!q){searchResults.style.display="none";return}searchTimer=setTimeout(async()=>{const res=await fetch(`/api/search?q=${encodeURIComponent(q)}`);const data=await res.json();searchResults.innerHTML=(data.results||[]).map(r=>`<a href="${esc(r.url||"/dashboard")}"><b>${esc(r.label)}</b><span class="mini">${esc(r.type)} ${r.reference?`· ${r.reference}`:""}</span></a>`).join("")||`<a>No results</a>`;searchResults.style.display="block"},220)});
+    document.addEventListener("click",e=>{if(!e.target.closest(".search-box"))searchResults.style.display="none"});
+    filterEl.addEventListener("input",render);
     load();
   </script>
 </body>

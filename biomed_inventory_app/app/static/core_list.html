@@ -6,7 +6,7 @@
   <title>CMM Core List</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.toolbar a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:8px 10px;text-decoration:none}.toolbar a.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.toolbar{align-items:center;display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.toolbar a,.toolbar button,.drawer button{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font:inherit;font-weight:800;padding:8px 10px;text-decoration:none}.toolbar a.primary,.toolbar button.primary,.drawer button.primary{background:var(--primary);border-color:var(--primary);color:#fff}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.drawer{background:#fff;border-left:1px solid var(--line);box-shadow:-18px 0 40px rgba(15,23,42,.12);display:none;height:100vh;max-width:360px;padding:18px;position:fixed;right:0;top:0;width:92vw;z-index:20}.drawer.active{display:block}.drawer label{display:block;font-size:13px;font-weight:800;margin-top:10px}.drawer input,.drawer select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.muted{color:var(--muted);font-size:12px}
   </style>
 </head>
 <body>
@@ -18,19 +18,37 @@
   </header>
   <main class="container">
     <section class="page-intro"><h2 id="heading">Records</h2><p id="description"></p></section>
-    <div class="toolbar"><a class="primary" href="/crm">Clients</a><a href="/departments">Departments</a><a href="/equipment">Equipment</a><a href="/cases">Cases</a></div>
+    <div class="toolbar"><a class="primary" href="/crm">Clients</a><a href="/departments">Departments</a><a href="/equipment">Equipment</a><a href="/cases">Cases</a><button id="bulkOpen">Bulk Edit (0)</button><button id="exportSelected">Export Selected</button></div>
     <section class="card table-wrap"><table class="table"><thead id="thead"></thead><tbody id="tbody"></tbody></table></section>
   </main>
+  <aside class="drawer" id="bulkDrawer">
+    <h3>Bulk Edit</h3>
+    <p id="bulkCount" class="muted">0 selected</p>
+    <label>Status</label><input id="bulkStatus">
+    <label>Department ID</label><input id="bulkDepartment" type="number">
+    <label>Responsible / Engineer</label><input id="bulkEngineer">
+    <label>Blocked Reason</label><select id="bulkBlocked"><option value="">No change</option><option>none</option><option>finance</option><option>procurement</option><option>service_engineer</option><option>customer_availability</option><option>supplier</option><option>stock_shortage</option><option>technical_issue</option><option>management_approval</option><option>waiting_payment</option><option>waiting_client_approval</option><option>missing_document</option></select>
+    <label>Due Date</label><input id="bulkDue" type="date">
+    <label><input id="bulkInformed" type="checkbox" style="width:auto"> Client informed</label>
+    <div class="toolbar"><button class="primary" id="bulkSave">Apply</button><button id="bulkClose">Close</button></div>
+    <p id="bulkMessage" class="muted"></p>
+  </aside>
   <script>
     const configs={
-      "/departments":{title:"Departments",description:"Hospital departments linked to clients.",api:"/api/departments",cols:["id","client_id","department_name","floor_location","main_contact_name","phone","email"]},
-      "/equipment":{title:"Equipment",description:"Installed equipment linked to clients and departments.",api:"/api/equipment",cols:["id","client_name","department_name","asset_tag","serial_number","manufacturer","model","status","warranty_status"]},
-      "/cases":{title:"Cases",description:"Central operational cases with parent references.",api:"/api/cases",cols:["id","parent_case_reference","case_no","case_type","client_id","workflow_state","status","priority","updated_at"]}
+      "/departments":{title:"Departments",description:"Hospital departments linked to clients.",api:"/api/departments",target:"departments",cols:["id","client_id","department_name","floor_location","main_contact_name","phone","email"]},
+      "/equipment":{title:"Equipment",description:"Installed equipment linked to clients and departments.",api:"/api/equipment",target:"equipment",cols:["id","client_name","department_name","equipment_name","asset_tag","serial_number","manufacturer","model","status","warranty_status","risk_classification","calibration_due_date"]},
+      "/cases":{title:"Cases",description:"Central operational cases with parent references.",api:"/api/cases",target:"cases",cols:["id","parent_case_reference","external_reference","case_no","case_type","client_name","department_name","workflow_state","status","priority","blocked_reason","updated_at"]}
     };
-    const cfg=configs[location.pathname]||configs["/cases"];
+    const cfg=configs[location.pathname]||configs["/cases"];let records=[];let selected=new Set();
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("blocked")||l.includes("overdue")||l.includes("expired")?"bad":l.includes("active")||l==="none"?"good":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
     title.textContent=cfg.title;heading.textContent=cfg.title;description.textContent=cfg.description;document.title=`CMM ${cfg.title}`;
-    async function load(){const res=await fetch(cfg.api);const rows=await res.json();thead.innerHTML=`<tr>${cfg.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=rows.map(r=>`<tr>${cfg.cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td colspan="${cfg.cols.length}">No records yet.</td></tr>`}
+    function render(){thead.innerHTML=`<tr><th><input id="pickAll" type="checkbox"></th>${cfg.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=records.map(r=>`<tr><td><input class="pick" type="checkbox" data-id="${r.id}" ${selected.has(Number(r.id))?"checked":""}></td>${cfg.cols.map(c=>`<td>${["status","blocked_reason","warranty_status","risk_classification"].includes(c)?badge(r[c]):esc(r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td colspan="${cfg.cols.length+1}">No records yet.</td></tr>`;document.querySelectorAll(".pick").forEach(p=>p.addEventListener("change",()=>{const id=Number(p.dataset.id);p.checked?selected.add(id):selected.delete(id);bulkOpen.textContent=`Bulk Edit (${selected.size})`;bulkCount.textContent=`${selected.size} selected`}));const all=document.getElementById("pickAll");if(all)all.addEventListener("change",()=>{records.forEach(r=>all.checked?selected.add(Number(r.id)):selected.delete(Number(r.id)));render()})}
+    async function load(){const res=await fetch(cfg.api);records=await res.json();render()}
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
+    bulkOpen.addEventListener("click",()=>bulkDrawer.classList.add("active"));bulkClose.addEventListener("click",()=>bulkDrawer.classList.remove("active"));
+    bulkSave.addEventListener("click",async()=>{const updates={};if(bulkStatus.value)updates.status=bulkStatus.value;if(bulkDepartment.value)updates.department_id=Number(bulkDepartment.value);if(bulkEngineer.value)updates.responsible_person=bulkEngineer.value;if(bulkBlocked.value)updates.blocked_reason=bulkBlocked.value;if(bulkDue.value)updates.due_date=bulkDue.value;if(bulkInformed.checked)updates.client_informed=true;const data=await api("/api/bulk-edit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target:cfg.target,ids:[...selected],updates})});bulkMessage.textContent=`Updated ${data.updated} rows`;selected.clear();await load()});
+    exportSelected.addEventListener("click",async()=>{if(!selected.size)return;const res=await fetch("/api/bulk-export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target:cfg.target,ids:[...selected],format:"excel"})});const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${cfg.target}_selected.xlsx`;a.click()});
     load();
   </script>
 </body>

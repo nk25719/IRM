@@ -50,7 +50,7 @@ class CoreFoundationSmokeTest(unittest.TestCase):
 
         self.assertEqual(department["department_name"], "ICU")
         self.assertEqual(equipment["asset_tag"], "EQ-1")
-        self.assertRegex(request["parent_case_reference"], r"^AS-\d{4}-\d{4}$")
+        self.assertRegex(request["parent_case_reference"], r"^AS-\d{4}-\d{5}$")
         self.assertEqual(quoted["documents"][0]["document_reference"], f"OF-{request['parent_case_reference']}")
 
         conn = m.db()
@@ -64,6 +64,46 @@ class CoreFoundationSmokeTest(unittest.TestCase):
         self.assertEqual(len(dashboard["departments"]), 1)
         self.assertEqual(len(dashboard["equipment"]), 1)
         self.assertEqual(len(dashboard["parent_timelines"]), 1)
+
+    def test_pending_offer_import_department_progress_search_and_bulk_edit(self):
+        m = self.main
+        df = m.pd.DataFrame(
+            [
+                {"Hospital": "Hospital A", "Offer Ref": "OFF-2026-001", "Status": "Pending", "Requirement": "2 ECG cables", "Department": "ICU"},
+                {"Hospital": "Hospital A", "Offer Ref": "OFF-2026-002", "Status": "Blocked", "Requirement": "Ventilator PM", "Department": "ICU", "Blocked By": "customer_availability"},
+                {"Hospital": "Hospital B", "Offer Ref": "OFF-2026-003", "Status": "In Progress", "Requirement": "Monitor installation", "Department": "ER"},
+            ]
+        )
+        rows = m.parse_pending_offer_dataframe(df)
+        conn = m.db()
+        try:
+            results = m.commit_pending_offer_rows(conn, rows, user="admin")
+            conn.commit()
+            hospital_a = conn.execute("SELECT * FROM clients WHERE name='Hospital A'").fetchone()
+            hospital_b = conn.execute("SELECT * FROM clients WHERE name='Hospital B'").fetchone()
+            icu = conn.execute("SELECT * FROM departments WHERE client_id=? AND department_name='ICU'", (hospital_a["id"],)).fetchone()
+            er = conn.execute("SELECT * FROM departments WHERE client_id=? AND department_name='ER'", (hospital_b["id"],)).fetchone()
+            cases = [dict(r) for r in conn.execute("SELECT * FROM cases ORDER BY external_reference").fetchall()]
+            dashboard_a = m.crm_client_dashboard_data(conn, hospital_a["id"])
+            progress_a = m.department_progress_rows(conn, hospital_a["id"])
+        finally:
+            conn.close()
+
+        self.assertEqual(len([r for r in results if r["status"] == "imported"]), 3)
+        self.assertIsNotNone(icu)
+        self.assertIsNotNone(er)
+        self.assertEqual(cases[0]["external_reference"], "OFF-2026-001")
+        self.assertRegex(cases[0]["parent_case_reference"], r"^AS-\d{4}-\d{5}$")
+        self.assertEqual(cases[1]["blocked_reason"], "customer_availability")
+        self.assertGreaterEqual(dashboard_a["counts"]["blocked_items"], 1)
+        self.assertEqual(progress_a[0]["department_name"], "ICU")
+        self.assertGreaterEqual(progress_a[0]["blocked_items"], 1)
+
+        search = m.global_search("OFF-2026-001")
+        self.assertTrue(any(item["label"] == "OFF-2026-001" for item in search["results"]))
+
+        edit = m.bulk_edit({"target": "cases", "ids": [cases[0]["id"]], "updates": {"priority": "urgent"}}, self.request)
+        self.assertEqual(edit["requested"], 1)
 
 
 if __name__ == "__main__":

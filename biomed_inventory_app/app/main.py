@@ -1321,6 +1321,42 @@ def init_db():
             created_at TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS import_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            import_type TEXT,
+            filename TEXT,
+            status TEXT DEFAULT 'preview',
+            total_rows INTEGER DEFAULT 0,
+            valid_rows INTEGER DEFAULT 0,
+            error_rows INTEGER DEFAULT 0,
+            created_by TEXT,
+            created_at TEXT,
+            committed_at TEXT,
+            rolled_back_at TEXT,
+            notes TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS import_batch_rows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER,
+            row_no INTEGER,
+            raw_data TEXT,
+            mapped_data TEXT,
+            validation_status TEXT,
+            error_message TEXT,
+            action TEXT,
+            client_id INTEGER,
+            department_id INTEGER,
+            case_id INTEGER,
+            request_id INTEGER,
+            quotation_id INTEGER,
+            parent_case_reference TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
     for table_name in ["delivery_notes", "invoices", "service_reports", "pm_reports", "calibration_reports", "contracts"]:
         conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
@@ -1420,9 +1456,11 @@ def init_db():
                 "client_id", "warranty_start", "warranty_end", "warranty_status", "vendor", "warranty_notes",
                 "risk_level", "life_support", "criticality_level", "department_risk_level", "total_uptime_hours",
                 "total_downtime_hours", "outage_frequency", "operational_percentage", "mtbf_hours",
-                "failure_categories", "recurring_issue_flag"]:
+                "failure_categories", "recurring_issue_flag", "equipment_name", "equipment_family",
+                "installation_date", "calibration_required", "calibration_due_date", "last_service_date",
+                "lifecycle_status", "eol_date", "eosl_date"]:
         if col not in pm_asset_cols:
-            col_type = "REAL DEFAULT 0" if col in {"total_uptime_hours", "total_downtime_hours", "operational_percentage", "mtbf_hours"} else "INTEGER DEFAULT 0" if col in {"life_support", "outage_frequency", "recurring_issue_flag"} else "TEXT"
+            col_type = "REAL DEFAULT 0" if col in {"total_uptime_hours", "total_downtime_hours", "operational_percentage", "mtbf_hours"} else "INTEGER DEFAULT 0" if col in {"life_support", "outage_frequency", "recurring_issue_flag", "calibration_required"} else "TEXT"
             conn.execute(f"ALTER TABLE pm_assets ADD COLUMN {col} {col_type}")
 
     doc_cols = [r["name"] for r in conn.execute("PRAGMA table_info(sales_case_documents)").fetchall()]
@@ -1483,6 +1521,18 @@ def init_db():
             "contact_id": "INTEGER",
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "priority": "TEXT DEFAULT 'normal'",
+            "due_date": "TEXT",
         },
         "cases": {
             "department": "TEXT",
@@ -1490,39 +1540,116 @@ def init_db():
             "request_source": "TEXT",
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
         },
         "quotations": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "document_reference": "TEXT",
             "department_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
         },
         "client_orders": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "document_reference": "TEXT",
             "department_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
         },
         "purchase_orders": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "document_reference": "TEXT",
             "department_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
         },
         "sales_case_documents": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "document_reference": "TEXT",
             "department_id": "INTEGER",
+            "external_reference": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
         },
         "stock_movements": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
         },
+        "customer_request_items": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "responsible_person": "TEXT",
+            "due_date": "TEXT",
+        },
+        "inventory": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+        },
+        "inventory_items": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+        },
         "pm_assets": {
             "department_id": "INTEGER",
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
         },
         "service_calls": {
             "parent_case_reference": "TEXT",
@@ -1532,6 +1659,15 @@ def init_db():
             "response_time_hours": "REAL DEFAULT 0",
             "progress_state": "TEXT",
             "invoice_required": "INTEGER DEFAULT 0",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
         },
         "pm_tasks": {
             "parent_case_reference": "TEXT",
@@ -1539,6 +1675,16 @@ def init_db():
             "department_id": "INTEGER",
             "report_status": "TEXT",
             "checklist_status": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "priority": "TEXT DEFAULT 'normal'",
+            "equipment_id": "INTEGER",
         },
         "pm_history": {
             "parent_case_reference": "TEXT",
@@ -1549,12 +1695,28 @@ def init_db():
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "department_id": "INTEGER",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
         },
         "equipment_calibrations": {
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "department_id": "INTEGER",
             "result": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
         },
         "equipment_uptime_events": {
             "outage_reason": "TEXT",
@@ -1566,6 +1728,111 @@ def init_db():
             "parent_case_id": "INTEGER",
             "department_id": "INTEGER",
             "affected_model": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+        },
+        "fmi_notices": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+        },
+        "delivery_notes": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "invoices": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "service_reports": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "pm_reports": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "calibration_reports": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "installation_reports": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "contracts": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+            "due_date": "TEXT",
+        },
+        "warranties": {
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "blocked_notes": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
         },
         "equipment_compatibility": {
             "equipment_model": "TEXT",
@@ -1618,6 +1885,362 @@ def find_col(df, possible):
         if c.lower() in lower:
             return lower[c.lower()]
     return None
+
+def clean_excel_value(value) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value).strip()
+
+def normalize_import_status(status: str = "") -> str:
+    text = str(status or "pending").strip().lower().replace("-", " ")
+    return IMPORT_STATUS_MAP.get(text, text.replace(" ", "_") or "pending")
+
+def normalize_blocked_reason(reason: str = "") -> str:
+    text = str(reason or "none").strip().lower().replace(" ", "_").replace("-", "_")
+    return text if text in BLOCKED_REASONS else "none"
+
+def import_line_quantity(requirement: str = "") -> tuple[int, str]:
+    text = str(requirement or "").strip()
+    if not text:
+        return 1, ""
+    first = text.split(maxsplit=1)[0]
+    if first.isdigit():
+        qty = max(1, int(first))
+        return qty, text.split(maxsplit=1)[1] if len(text.split(maxsplit=1)) > 1 else text
+    return 1, text
+
+def infer_case_type_from_requirement(requirement: str = "") -> str:
+    text = str(requirement or "").lower()
+    if any(token in text for token in ["recall", "fmi", "field modification"]):
+        return "recall_fmi"
+    if "calibration" in text or "calibrate" in text:
+        return "calibration"
+    if "pm" in text or "preventive" in text or "maintenance contract" in text:
+        return "preventive_maintenance"
+    if "install" in text or "delivery" in text:
+        return "installation"
+    if "accessor" in text:
+        return "accessories_sale"
+    if any(token in text for token in ["service", "repair", "corrective", "labor"]):
+        return "corrective_maintenance"
+    return "spare_parts_sale"
+
+def infer_item_type_from_requirement(requirement: str = "") -> str:
+    text = str(requirement or "").lower()
+    if "accessor" in text:
+        return "accessory"
+    if any(token in text for token in ["pm", "service", "repair", "install", "calibration", "labor", "maintenance"]):
+        return "service"
+    if any(token in text for token in ["equipment", "machine", "monitor", "ventilator"]):
+        return "new_equipment"
+    return "spare_part"
+
+def workflow_state_for_import_status(case_type: str, status: str) -> str:
+    states = workflow_states_for_case_type(case_type)
+    status = normalize_import_status(status)
+    index_map = {
+        "pending": 0,
+        "in_progress": min(2, len(states) - 1),
+        "approved": min(5, len(states) - 1),
+        "ordered": min(6, len(states) - 1),
+        "delivered": min(len(states) - 2, len(states) - 1),
+        "invoiced": len(states) - 1,
+        "closed": len(states) - 1,
+        "blocked": min(2, len(states) - 1),
+        "cancelled": 0,
+        "rejected": 0,
+    }
+    return states[index_map.get(status, 0)]
+
+def default_pending_offer_field_map(df) -> dict:
+    return {
+        "hospital": find_col(df, ["hospital", "Hospital", "client", "Client", "customer", "Customer", "hospital/client name"]),
+        "offer_reference": find_col(df, ["offer reference", "Offer Ref", "offer_ref", "Offer Reference", "reference", "Ref", "quotation", "Quotation"]),
+        "status": find_col(df, ["status", "Status"]),
+        "requirement": find_col(df, ["requirement", "Requirement", "description", "Description", "item", "Item", "request", "Request"]),
+        "department": find_col(df, ["department", "Department", "dept", "Dept"]),
+        "equipment": find_col(df, ["equipment", "Equipment", "machine", "Machine", "asset", "Asset"]),
+        "notes": find_col(df, ["notes", "Notes", "comment", "Comment"]),
+        "responsible_person": find_col(df, ["responsible person", "Responsible Person", "responsible", "Owner", "engineer", "Engineer"]),
+        "date": find_col(df, ["date", "Date", "created", "Created", "request date", "Offer Date"]),
+        "blocked_reason": find_col(df, ["blocked by", "Blocked By", "blocked_reason", "Blocked Reason", "blocker"]),
+    }
+
+def read_import_dataframe(contents: bytes, filename: str = ""):
+    suffix = Path(filename or "").suffix.lower()
+    if suffix in {".csv", ".txt"}:
+        return pd.read_csv(io.BytesIO(contents))
+    return pd.read_excel(io.BytesIO(contents))
+
+def parse_pending_offer_dataframe(df, field_map: dict | None = None) -> list[dict]:
+    field_map = {**default_pending_offer_field_map(df), **(field_map or {})}
+    rows = []
+    for idx, raw in df.fillna("").iterrows():
+        mapped = {}
+        raw_data = {str(col): clean_excel_value(raw.get(col, "")) for col in df.columns}
+        for field, column in field_map.items():
+            mapped[field] = clean_excel_value(raw.get(column, "")) if column else ""
+        mapped["status"] = normalize_import_status(mapped.get("status"))
+        mapped["blocked_reason"] = normalize_blocked_reason(mapped.get("blocked_reason") if mapped.get("status") == "blocked" else mapped.get("blocked_reason"))
+        if mapped["status"] == "blocked" and mapped["blocked_reason"] == "none":
+            mapped["blocked_reason"] = "missing_document"
+        errors = []
+        if not mapped.get("hospital"):
+            errors.append("hospital/client name is required")
+        if not mapped.get("offer_reference"):
+            errors.append("offer reference is required")
+        if not mapped.get("requirement"):
+            errors.append("requirement is required")
+        mapped["row_no"] = int(idx) + 2
+        mapped["raw_data"] = raw_data
+        mapped["validation_status"] = "error" if errors else "valid"
+        mapped["errors"] = errors
+        rows.append(mapped)
+    return rows
+
+def find_case_by_reference(conn, reference: str = ""):
+    ref = str(reference or "").strip()
+    if not ref:
+        return None
+    case = conn.execute("""
+        SELECT * FROM cases
+        WHERE parent_case_reference=? OR external_reference=? OR case_no=?
+        ORDER BY id DESC LIMIT 1
+    """, (ref, ref, ref)).fetchone()
+    if case:
+        return case
+    linked = conn.execute("""
+        SELECT parent_case_reference FROM quotations
+        WHERE quotation_no=? OR document_reference=? OR parent_case_reference=? OR external_reference=?
+        UNION SELECT parent_case_reference FROM sales_case_documents
+        WHERE doc_no=? OR document_reference=? OR parent_case_reference=? OR external_reference=?
+        LIMIT 1
+    """, (ref, ref, ref, ref, ref, ref, ref, ref)).fetchone()
+    if linked and linked["parent_case_reference"]:
+        return conn.execute("SELECT * FROM cases WHERE parent_case_reference=? ORDER BY id DESC LIMIT 1", (linked["parent_case_reference"],)).fetchone()
+    return None
+
+def upsert_import_quote_document(conn, request_id: int, client_id: int, department_id: int | None, case_id: int,
+                                 parent_ref: str, offer_ref: str, status: str, requirement: str,
+                                 responsible_person: str = "", blocked_reason: str = "none"):
+    existing_quote = conn.execute("""
+        SELECT * FROM quotations
+        WHERE quotation_no=? OR external_reference=? OR parent_case_reference=?
+        ORDER BY id DESC LIMIT 1
+    """, (offer_ref, offer_ref, parent_ref)).fetchone()
+    if existing_quote:
+        quotation_id = existing_quote["id"]
+        conn.execute("""
+            UPDATE quotations
+            SET status=?, notes=COALESCE(NULLIF(?, ''), notes), request_id=COALESCE(request_id, ?),
+                client_id=COALESCE(client_id, ?), department_id=COALESCE(department_id, ?),
+                parent_case_reference=?, parent_case_id=?, document_reference=?,
+                external_reference=?, responsible_person=?, blocked_reason=?, updated_at=?
+            WHERE id=?
+        """, (status, requirement, request_id, client_id, department_id, parent_ref, case_id,
+              document_reference_for(parent_ref, "quotation"), offer_ref, responsible_person, blocked_reason, now(), quotation_id))
+    else:
+        cur = conn.execute("""
+            INSERT INTO quotations
+            (client_id, equipment_id, service_call_id, quotation_no, quote_date, status, amount, notes, created_at, updated_at,
+             request_id, contact_person, parent_case_reference, parent_case_id, document_reference, department_id,
+             external_reference, responsible_person, blocked_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (client_id, None, None, offer_ref, date.today().isoformat(), status, 0, requirement, now(), now(),
+              request_id, responsible_person, parent_ref, case_id, document_reference_for(parent_ref, "quotation"), department_id,
+              offer_ref, responsible_person, blocked_reason))
+        quotation_id = cur.lastrowid
+    existing_doc = conn.execute("""
+        SELECT * FROM sales_case_documents
+        WHERE request_id=? AND doc_type='quotation' AND (doc_no=? OR external_reference=? OR parent_case_reference=?)
+        ORDER BY id DESC LIMIT 1
+    """, (request_id, offer_ref, offer_ref, parent_ref)).fetchone()
+    if existing_doc:
+        conn.execute("""
+            UPDATE sales_case_documents
+            SET status=?, notes=COALESCE(NULLIF(?, ''), notes), parent_case_reference=?, parent_case_id=?,
+                document_reference=?, department_id=COALESCE(department_id, ?), quotation_id=?,
+                external_reference=?, responsible_person=?, blocked_reason=?, updated_at=?
+            WHERE id=?
+        """, (status, requirement, parent_ref, case_id, document_reference_for(parent_ref, "quotation"),
+              department_id, quotation_id, offer_ref, responsible_person, blocked_reason, now(), existing_doc["id"]))
+        document_id = existing_doc["id"]
+    else:
+        cur = conn.execute("""
+            INSERT INTO sales_case_documents
+            (request_id, client_id, doc_type, doc_no, status, quotation_id, amount, notes, created_at, updated_at,
+             parent_case_reference, parent_case_id, document_reference, department_id, external_reference,
+             responsible_person, blocked_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (request_id, client_id, "quotation", offer_ref, status, quotation_id, 0, requirement, now(), now(),
+              parent_ref, case_id, document_reference_for(parent_ref, "quotation"), department_id, offer_ref,
+              responsible_person, blocked_reason))
+        document_id = cur.lastrowid
+    return quotation_id, document_id
+
+def commit_pending_offer_rows(conn, rows: list[dict], batch_id: int | None = None, user: str = "system", create_missing_hospitals: bool = True):
+    results = []
+    for mapped in rows:
+        errors = list(mapped.get("errors") or [])
+        if mapped.get("validation_status") == "error" and errors:
+            results.append({"row_no": mapped.get("row_no"), "status": "error", "errors": errors})
+            continue
+        hospital = str(mapped.get("hospital") or "").strip()
+        offer_ref = str(mapped.get("offer_reference") or "").strip()
+        requirement = str(mapped.get("requirement") or "").strip()
+        if not hospital or not offer_ref or not requirement:
+            errors = [msg for msg, ok in [
+                ("hospital/client name is required", bool(hospital)),
+                ("offer reference is required", bool(offer_ref)),
+                ("requirement is required", bool(requirement)),
+            ] if not ok]
+            results.append({"row_no": mapped.get("row_no"), "status": "error", "errors": errors})
+            continue
+        client_id = ensure_client(conn, hospital) if create_missing_hospitals else None
+        if not client_id:
+            results.append({"row_no": mapped.get("row_no"), "status": "error", "errors": ["hospital was not found and create_missing_hospitals is false"]})
+            continue
+        department_id = ensure_department(conn, client_id, mapped.get("department", ""), main_contact_name=mapped.get("responsible_person", "")) if mapped.get("department") else None
+        status = normalize_import_status(mapped.get("status"))
+        blocked_reason = normalize_blocked_reason(mapped.get("blocked_reason"))
+        case_type = infer_case_type_from_requirement(requirement)
+        workflow_state = workflow_state_for_import_status(case_type, status)
+        quantity, clean_requirement = import_line_quantity(requirement)
+        item_type = infer_item_type_from_requirement(requirement)
+        existing_case = find_case_by_reference(conn, offer_ref)
+        action = "updated" if existing_case else "created"
+        if existing_case:
+            case_id = existing_case["id"]
+            parent_ref = existing_case["parent_case_reference"] or (offer_ref if offer_ref.startswith("AS-") else generate_parent_case_reference(conn))
+            request_id = existing_case["request_id"]
+            if not request_id:
+                cur_req = conn.execute("""
+                    INSERT INTO customer_requests
+                    (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at,
+                     department, department_id, parent_case_reference, parent_case_id, external_reference, blocked_reason,
+                     blocked_notes, responsible_person, due_date, priority)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (existing_case["case_no"], client_id, hospital, mapped.get("responsible_person", ""), "email", status,
+                      mapped.get("notes", "") or requirement, now(), now(), mapped.get("department", ""), department_id,
+                      parent_ref, case_id, offer_ref, blocked_reason, mapped.get("notes", ""),
+                      mapped.get("responsible_person", ""), mapped.get("date", ""), existing_case["priority"] or "normal"))
+                request_id = cur_req.lastrowid
+            conn.execute("""
+                UPDATE cases
+                SET client_id=?, department_id=COALESCE(?, department_id), department=COALESCE(NULLIF(?, ''), department),
+                    status=?, workflow_state=?, priority=COALESCE(NULLIF(?, ''), priority),
+                    notes=COALESCE(NULLIF(?, ''), notes), external_reference=COALESCE(NULLIF(external_reference, ''), ?),
+                    blocked_reason=?, blocked_notes=COALESCE(NULLIF(?, ''), blocked_notes),
+                    responsible_person=COALESCE(NULLIF(?, ''), responsible_person),
+                    due_date=COALESCE(NULLIF(?, ''), due_date), parent_case_reference=?, parent_case_id=COALESCE(parent_case_id, ?),
+                    request_id=COALESCE(request_id, ?), updated_at=?
+                WHERE id=?
+            """, (client_id, department_id, mapped.get("department", ""), status, workflow_state, mapped.get("priority", ""),
+                  mapped.get("notes", "") or requirement, offer_ref, blocked_reason, mapped.get("notes", ""),
+                  mapped.get("responsible_person", ""), mapped.get("date", ""), parent_ref, case_id, request_id, now(), case_id))
+            if request_id:
+                conn.execute("""
+                    UPDATE customer_requests
+                    SET client_id=?, client_hospital=?, department_id=COALESCE(?, department_id),
+                        department=COALESCE(NULLIF(?, ''), department), status=?, notes=COALESCE(NULLIF(?, ''), notes),
+                        external_reference=COALESCE(NULLIF(external_reference, ''), ?), blocked_reason=?,
+                        blocked_notes=COALESCE(NULLIF(?, ''), blocked_notes), responsible_person=COALESCE(NULLIF(?, ''), responsible_person),
+                        due_date=COALESCE(NULLIF(?, ''), due_date), updated_at=?
+                    WHERE id=?
+                """, (client_id, hospital, department_id, mapped.get("department", ""), status, mapped.get("notes", "") or requirement,
+                      offer_ref, blocked_reason, mapped.get("notes", ""), mapped.get("responsible_person", ""),
+                      mapped.get("date", ""), now(), request_id))
+        else:
+            parent_ref = offer_ref if offer_ref.startswith("AS-") else generate_parent_case_reference(conn)
+            case_no = f"CASE-IMPORT-{datetime.now().strftime('%y%m%d%H%M%S%f')}"
+            cur_req = conn.execute("""
+                INSERT INTO customer_requests
+                (case_no, client_id, client_hospital, contact_person, request_source, status, notes, created_at, updated_at,
+                 department, department_id, parent_case_reference, external_reference, blocked_reason, blocked_notes,
+                 responsible_person, due_date, priority)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (case_no, client_id, hospital, mapped.get("responsible_person", ""), "email", status,
+                  mapped.get("notes", "") or requirement, now(), now(), mapped.get("department", ""), department_id,
+                  parent_ref, offer_ref, blocked_reason, mapped.get("notes", ""), mapped.get("responsible_person", ""),
+                  mapped.get("date", ""), "normal"))
+            request_id = cur_req.lastrowid
+            cur_case = conn.execute("""
+                INSERT INTO cases
+                (case_no, case_type, client_id, request_id, priority, status, workflow_state, created_at, updated_at,
+                 notes, department, department_id, request_source, parent_case_reference, external_reference,
+                 blocked_reason, blocked_notes, responsible_person, due_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (case_no, case_type, client_id, request_id, "normal", status, workflow_state, now(), now(),
+                  mapped.get("notes", "") or requirement, mapped.get("department", ""), department_id, "email",
+                  parent_ref, offer_ref, blocked_reason, mapped.get("notes", ""), mapped.get("responsible_person", ""),
+                  mapped.get("date", "")))
+            case_id = cur_case.lastrowid
+            conn.execute("UPDATE cases SET parent_case_id=? WHERE id=?", (case_id, case_id))
+            conn.execute("UPDATE customer_requests SET parent_case_id=? WHERE id=?", (case_id, request_id))
+            conn.execute("""
+                INSERT INTO case_workflow_states (case_id, state, timestamp, user, notes)
+                VALUES (?, ?, ?, ?, ?)
+            """, (case_id, workflow_state, now(), user, f"Imported from offer reference {offer_ref}"))
+        existing_line = conn.execute("""
+            SELECT id FROM customer_request_items
+            WHERE request_id=? AND lower(trim(requested_item))=lower(trim(?))
+            LIMIT 1
+        """, (request_id, clean_requirement or requirement)).fetchone()
+        if existing_line:
+            conn.execute("""
+                UPDATE customer_request_items
+                SET quantity=?, item_type=?, notes=COALESCE(NULLIF(?, ''), notes), blocked_reason=?, responsible_person=?, due_date=?, updated_at=?
+                WHERE id=?
+            """, (quantity, item_type, mapped.get("notes", ""), blocked_reason, mapped.get("responsible_person", ""),
+                  mapped.get("date", ""), now(), existing_line["id"]))
+        else:
+            conn.execute("""
+                INSERT INTO customer_request_items
+                (request_id, requested_item, item_type, quantity, unit_price, notes, related_equipment_serial,
+                 requested_qty, procurement_status, blocked_reason, responsible_person, due_date, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (request_id, clean_requirement or requirement, item_type, quantity, 0, mapped.get("notes", ""),
+                  mapped.get("equipment", ""), quantity, "not_ordered", blocked_reason, mapped.get("responsible_person", ""),
+                  mapped.get("date", ""), now(), now()))
+        quotation_id, document_id = upsert_import_quote_document(
+            conn, request_id, client_id, department_id, case_id, parent_ref, offer_ref, status, requirement,
+            mapped.get("responsible_person", ""), blocked_reason
+        )
+        conn.execute("""
+            UPDATE cases SET quotation_id=COALESCE(quotation_id, ?), updated_at=? WHERE id=?
+        """, (quotation_id, now(), case_id))
+        case_timeline(conn, parent_ref, case_id, "import", f"Pending offer import {action}", status, user, offer_ref, "import_batches", batch_id)
+        if status == "blocked":
+            case_timeline(conn, parent_ref, case_id, "blocked", "Case blocked", blocked_reason, user, mapped.get("notes", ""), "cases", case_id)
+        if batch_id:
+            conn.execute("""
+                UPDATE import_batch_rows
+                SET action=?, client_id=?, department_id=?, case_id=?, request_id=?, quotation_id=?,
+                    parent_case_reference=?, validation_status='imported', updated_at=?
+                WHERE batch_id=? AND row_no=?
+            """, (action, client_id, department_id, case_id, request_id, quotation_id, parent_ref, now(), batch_id, mapped.get("row_no")))
+        results.append({
+            "row_no": mapped.get("row_no"),
+            "status": "imported",
+            "action": action,
+            "client_id": client_id,
+            "department_id": department_id,
+            "case_id": case_id,
+            "request_id": request_id,
+            "quotation_id": quotation_id,
+            "parent_case_reference": parent_ref,
+            "offer_reference": offer_ref,
+        })
+    return results
 
 def import_excel(path: Path, mode: str = "append_merge"):
     if mode not in {"append_merge", "replace_all"}:
@@ -2224,9 +2847,15 @@ def progress_for_case(case_row: dict, docs: list[dict], lines: list[dict]) -> di
             ("paid", any(str(d.get("status", "")).lower() == "paid" for d in docs if d.get("doc_type") == "invoice")),
         ]
     done = sum(1 for _, ok in stages if ok)
+    current_stage = next((label for label, ok in reversed(stages) if ok), stages[0][0] if stages else "")
+    next_action = next((label for label, ok in stages if not ok), "complete")
     return {
         "stages": [{"label": label, "done": bool(ok)} for label, ok in stages],
         "percent": round((done / len(stages)) * 100) if stages else 0,
+        "current_stage": current_stage,
+        "next_action": next_action,
+        "stage_count": len(stages),
+        "completed_stages": done,
     }
 
 def parent_reference_groups(conn, client_id: int | None = None, department_id: int | None = None):
@@ -2274,6 +2903,12 @@ def parent_reference_groups(conn, client_id: int | None = None, department_id: i
             "status": case_row.get("status"),
             "workflow_state": case_row.get("workflow_state"),
             "priority": case_row.get("priority"),
+            "blocked_reason": case_row.get("blocked_reason") or "none",
+            "blocked_notes": case_row.get("blocked_notes") or "",
+            "responsible_person": case_row.get("responsible_person") or "",
+            "due_date": case_row.get("due_date") or "",
+            "external_reference": case_row.get("external_reference") or "",
+            "last_update": case_row.get("updated_at") or "",
             "request_id": request_id,
             "department_id": case_row.get("department_id"),
             "documents": docs,
@@ -2282,6 +2917,178 @@ def parent_reference_groups(conn, client_id: int | None = None, department_id: i
             "progress": progress_for_case(case_row, docs, lines),
         })
     return groups
+
+def case_progress_items(conn, client_id: int, department_id: int | None = None):
+    items = []
+    for group in parent_reference_groups(conn, client_id, department_id):
+        progress = group.get("progress") or {}
+        items.append({
+            "parent_case_reference": group.get("parent_case_reference"),
+            "external_reference": group.get("external_reference"),
+            "case_id": group.get("case_id"),
+            "case_no": group.get("case_no"),
+            "case_type": group.get("case_type"),
+            "status": group.get("status"),
+            "workflow_state": group.get("workflow_state"),
+            "department_id": group.get("department_id"),
+            "percent": progress.get("percent", 0),
+            "current_stage": progress.get("current_stage", ""),
+            "next_action": progress.get("next_action", ""),
+            "blocked_reason": group.get("blocked_reason") or "none",
+            "responsible_person": group.get("responsible_person") or "",
+            "due_date": group.get("due_date") or "",
+            "last_update": group.get("last_update") or "",
+        })
+    return items
+
+def blocked_item_rows(conn, client_id: int | None = None, department_id: int | None = None, limit: int = 200):
+    sources = []
+    filters = []
+    params = []
+    if client_id:
+        filters.append("client_id=?")
+        params.append(client_id)
+    if department_id:
+        filters.append("department_id=?")
+        params.append(department_id)
+    where = " AND ".join(filters)
+    if where:
+        where = " AND " + where
+    queries = [
+        ("case", "cases", "case_no", "notes", "updated_at"),
+        ("request", "customer_requests", "case_no", "notes", "updated_at"),
+        ("quotation", "quotations", "quotation_no", "notes", "updated_at"),
+        ("client_order", "client_orders", "client_order_no", "notes", "updated_at"),
+        ("purchase_order", "purchase_orders", "po_no", "notes", "updated_at"),
+        ("service_call", "service_calls", "call_no", "issue", "updated_at"),
+        ("pm_task", "pm_tasks", "task_name", "notes", "updated_at"),
+        ("equipment", "pm_assets", "asset_tag", "notes", "updated_at"),
+        ("delivery", "delivery_notes", "doc_no", "notes", "updated_at"),
+        ("invoice", "invoices", "doc_no", "notes", "updated_at"),
+    ]
+    for item_type, table, label_col, notes_col, date_col in queries:
+        table_cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if not {"blocked_reason", label_col}.issubset(table_cols):
+            continue
+        local_filters = []
+        local_params = []
+        if client_id and "client_id" in table_cols:
+            local_filters.append("client_id=?")
+            local_params.append(client_id)
+        if department_id and "department_id" in table_cols:
+            local_filters.append("department_id=?")
+            local_params.append(department_id)
+        local_where = (" AND " + " AND ".join(local_filters)) if local_filters else ""
+        parent_expr = "COALESCE(parent_case_reference, '')" if "parent_case_reference" in table_cols else "''"
+        client_expr = "COALESCE(client_id, '')" if "client_id" in table_cols else "''"
+        department_expr = "COALESCE(department_id, '')" if "department_id" in table_cols else "''"
+        notes_expr = f"COALESCE({notes_col}, '')" if notes_col in table_cols else "''"
+        updated_expr = f"COALESCE({date_col}, created_at)" if date_col in table_cols and "created_at" in table_cols else (date_col if date_col in table_cols else "''")
+        rows = conn.execute(f"""
+            SELECT id, {label_col} AS label,
+                   {parent_expr} AS parent_case_reference,
+                   {client_expr} AS client_id,
+                   {department_expr} AS department_id,
+                   COALESCE(blocked_reason, 'none') AS blocked_reason,
+                   COALESCE(blocked_notes, '') AS blocked_notes,
+                   {notes_expr} AS notes,
+                   {updated_expr} AS updated_at
+            FROM {table}
+            WHERE COALESCE(blocked_reason, 'none') NOT IN ('', 'none') {local_where}
+            ORDER BY updated_at DESC
+            LIMIT ?
+        """, [*local_params, limit]).fetchall()
+        for row in rows:
+            sources.append({"type": item_type, **dict(row)})
+    sources.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
+    return sources[:limit]
+
+def department_progress_rows(conn, client_id: int):
+    client = crm_client_row(conn, client_id)
+    departments = [dict(r) for r in conn.execute("SELECT * FROM departments WHERE client_id=? ORDER BY department_name", (client_id,)).fetchall()]
+    rows = []
+    today = date.today()
+    for dept in departments:
+        dept_id = dept["id"]
+        equipment = [dict(r) for r in conn.execute("""
+            SELECT * FROM pm_assets
+            WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?))) AND department_id=?
+        """, (client_id, client["name"], dept_id)).fetchall()]
+        equipment_ids = [e["id"] for e in equipment]
+        placeholders = ",".join("?" for _ in equipment_ids) or "NULL"
+        pm_tasks = [dict(r) for r in conn.execute(f"""
+            SELECT * FROM pm_tasks
+            WHERE department_id=? OR asset_id IN ({placeholders})
+        """, [dept_id, *equipment_ids]).fetchall()]
+        service_calls = [dict(r) for r in conn.execute(f"""
+            SELECT * FROM service_calls
+            WHERE client_id=? AND (department_id=? OR equipment_id IN ({placeholders}))
+        """, [client_id, dept_id, *equipment_ids]).fetchall()]
+        cases = [dict(r) for r in conn.execute("SELECT * FROM cases WHERE client_id=? AND department_id=?", (client_id, dept_id)).fetchall()]
+        pending_installations = sum(
+            1 for c in cases
+            if c.get("case_type") in {"installation", "equipment_delivery"}
+            and str(c.get("status", "")).lower() not in {"closed", "completed", "cancelled", "delivered"}
+        )
+        pm_due = sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) in {"due_today", "due_this_week"})
+        pm_overdue = sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) == "overdue")
+        pm_completed = sum(1 for t in pm_tasks if str(t.get("status", "")).lower() in {"completed", "closed"})
+        open_calls = sum(1 for s in service_calls if str(s.get("status", "")).lower() not in {"closed", "resolved", "cancelled"})
+        warranty_active = sum(1 for e in equipment if warranty_status(e.get("warranty_end", "")) in {"active", "expiring_soon"})
+        contract_active = sum(1 for e in equipment if e.get("contract_no") and (not parse_iso_date(e.get("contract_end_date")) or parse_iso_date(e.get("contract_end_date")) >= today))
+        blocked_items = len(blocked_item_rows(conn, client_id, dept_id, 500))
+        total_signals = len(equipment) + len(cases) + len(service_calls) + len(pm_tasks)
+        risk = pm_overdue + open_calls + pending_installations + blocked_items
+        percent = 100 if total_signals == 0 else max(0, min(100, round(((total_signals - risk) / max(total_signals, 1)) * 100)))
+        if blocked_items or pm_overdue:
+            progress_status = "blocked" if blocked_items else "overdue"
+        elif open_calls or pending_installations or pm_due:
+            progress_status = "in_progress"
+        else:
+            progress_status = "healthy"
+        rows.append({
+            **dept,
+            "equipment_count": len(equipment),
+            "pm_due": pm_due,
+            "pm_completed": pm_completed,
+            "pm_overdue": pm_overdue,
+            "open_service_calls": open_calls,
+            "pending_installations": pending_installations,
+            "active_warranty_equipment": warranty_active,
+            "active_contract_coverage": contract_active,
+            "blocked_items": blocked_items,
+            "overall_progress_percent": percent,
+            "overall_progress_status": progress_status,
+        })
+    return rows
+
+def equipment_detail_data(conn, equipment_id: int):
+    eq = conn.execute("""
+        SELECT e.*, a.*, c.name AS client_name, d.department_name,
+               w.warranty_start, w.warranty_end, w.status AS warranty_status
+        FROM equipment e
+        LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
+        LEFT JOIN clients c ON c.id=e.client_id
+        LEFT JOIN departments d ON d.id=e.department_id
+        LEFT JOIN warranties w ON w.equipment_id=e.id
+        WHERE e.id=?
+    """, (equipment_id,)).fetchone()
+    if not eq:
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    data = dict(eq)
+    pm_asset_id = data.get("pm_asset_id") or equipment_id
+    data["service_history"] = [dict(r) for r in conn.execute("""
+        SELECT * FROM service_calls
+        WHERE equipment_id=? OR equipment_id=?
+        ORDER BY COALESCE(opened_at, created_at) DESC
+    """, (equipment_id, pm_asset_id)).fetchall()]
+    data["pm_history"] = [dict(r) for r in conn.execute("SELECT * FROM pm_history WHERE asset_id=? ORDER BY created_at DESC", (pm_asset_id,)).fetchall()]
+    data["pm_tasks"] = [dict(r) for r in conn.execute("SELECT * FROM pm_tasks WHERE asset_id=? ORDER BY COALESCE(due_date, ''), id DESC", (pm_asset_id,)).fetchall()]
+    data["calibration_history"] = [dict(r) for r in conn.execute("SELECT * FROM equipment_calibrations WHERE equipment_id=? ORDER BY COALESCE(calibration_date, created_at) DESC", (pm_asset_id,)).fetchall()]
+    data["fmi_recall_notices"] = [dict(r) for r in conn.execute("SELECT * FROM equipment_recall_notices WHERE equipment_id=? ORDER BY updated_at DESC", (pm_asset_id,)).fetchall()]
+    data["installation_reports"] = [dict(r) for r in conn.execute("SELECT * FROM installation_reports WHERE equipment_id=? ORDER BY updated_at DESC", (pm_asset_id,)).fetchall()]
+    data["acceptance_testing_reports"] = [dict(r) for r in conn.execute("SELECT * FROM acceptance_testing_forms WHERE equipment_id=? ORDER BY updated_at DESC", (pm_asset_id,)).fetchall()]
+    return data
 
 def traceability_data(conn, reference: str):
     ref = str(reference or "").strip()
@@ -2509,13 +3316,30 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
             "open_service_calls": sum(1 for s in all_service_calls if s.get("department_id") == dept_id or s.get("equipment_id") in dept_equipment_ids),
             "pending_spare_parts": sum(1 for p in all_pending_items if p.get("request_id") in dept_request_ids and p.get("item_type") == "spare_part"),
         })
+    department_progress = department_progress_rows(conn, client_id)
+    if department_id:
+        department_progress = [d for d in department_progress if d.get("id") == department_id]
+    blocked_items = blocked_item_rows(conn, client_id, department_id, 200)
     parent_timelines = parent_reference_groups(conn, client_id, department_id)
+    progress_items = case_progress_items(conn, client_id, department_id)
+    sales_spare_parts = [p for p in pending_items if p.get("item_type") == "spare_part"]
+    sales_accessories = [p for p in pending_items if p.get("item_type") == "accessory"]
+    sales_new_equipment = [r for r in requests if any((line.get("item_type") == "new_equipment") for line in request_with_lines(conn, r["id"]).get("lines", []))] if requests else []
+    open_cases = [c for c in cases if str(c.get("status", "")).lower() not in {"completed", "closed", "cancelled"}]
+    active_contracts = [dict(c) for c in conn.execute("SELECT * FROM contracts WHERE client_id=? AND lower(COALESCE(status, 'active')) NOT IN ('expired', 'cancelled', 'closed') ORDER BY updated_at DESC", (client_id,)).fetchall()]
+    warranty_rows = [dict(r) for r in conn.execute("SELECT * FROM warranties WHERE client_id=? ORDER BY COALESCE(warranty_end, '') DESC", (client_id,)).fetchall()]
+    fmi_rows = [dict(r) for r in conn.execute("SELECT * FROM equipment_recall_notices WHERE client_id=? ORDER BY updated_at DESC", (client_id,)).fetchall()]
+    delivery_rows = [d for d in docs if d.get("doc_type") in {"delivery_note", "installation_report", "acceptance_test_report"}]
+    notes_rows = [dict(r) for r in conn.execute("SELECT * FROM crm_communications WHERE client_id=? ORDER BY created_at DESC LIMIT 50", (client_id,)).fetchall()]
     return {
         "client": {**client, **metrics},
         "departments": departments,
         "department_summaries": department_summaries,
+        "department_progress": department_progress,
         "active_department_id": department_id,
         "parent_timelines": parent_timelines,
+        "progress_items": progress_items,
+        "blocked_items": blocked_items,
         "contacts": contacts,
         "equipment": equipment,
         "offers": offers,
@@ -2529,6 +3353,38 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
         "equipment_history": equipment_history,
         "pending_items": pending_items,
         "financials": financials,
+        "sales": {
+            "spare_parts": sales_spare_parts,
+            "accessories": sales_accessories,
+            "prospects_leads": [r for r in requests if str(r.get("status", "")).lower() in {"open", "pending", "lead"}],
+            "new_equipment": sales_new_equipment,
+            "eol_eosl": [e for e in equipment if str(e.get("status", "")).lower() in {"eol", "eosl", "retired"} or str(e.get("lifecycle_status", "")).lower() in {"eol", "eosl", "retired"}],
+        },
+        "after_sales": {
+            "equipment": equipment,
+            "pm": [dict(r) for r in conn.execute("""
+                SELECT t.*, a.asset_tag, a.hospital, a.department, a.model, a.serial_number
+                FROM pm_tasks t LEFT JOIN pm_assets a ON a.id=t.asset_id
+                WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))
+                ORDER BY COALESCE(t.due_date, ''), t.status
+            """, (client_id, client["name"])).fetchall()],
+            "contracts": active_contracts,
+            "warranties": warranty_rows,
+            "fmi_recall": fmi_rows,
+            "installation_delivery": delivery_rows,
+            "service_calls_reports": service_calls,
+        },
+        "client_operations": {
+            "financial_status": financials,
+            "pending_payments": unpaid_invoices,
+            "invoices": invoices,
+            "client_communication": notes_rows,
+            "approval_status": [r for r in requests if str(r.get("status", "")).lower() in {"pending", "approved", "rejected", "waiting_client_approval"}],
+            "blocked_items": blocked_items,
+            "escalations": [c for c in open_cases if str(c.get("priority", "")).lower() in {"urgent", "high", "critical"} or (c.get("blocked_reason") or "none") != "none"],
+        },
+        "timeline": [event for group in parent_timelines for event in group.get("timeline", [])],
+        "notes": notes_rows,
         "counts": {
             "offers": offer_counts,
             "requests": request_counts,
@@ -2537,8 +3393,12 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
             "pending_procurement": sum(1 for p in purchase_orders if str(p.get("status", "")).lower() not in {"received", "closed", "cancelled"}),
             "service_open": sum(1 for c in service_calls if str(c.get("status", "")).lower() not in {"closed", "resolved", "cancelled"}),
             "pm_due": sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) in {"due_today", "due_this_week", "overdue"}),
+            "pm_overdue": sum(1 for e in equipment if pm_timing_status(e.get("next_pm_date", ""), e.get("status", "")) == "overdue"),
             "warranty_equipment": sum(1 for e in equipment if warranty_status(e.get("warranty_end", "")) in {"active", "expiring_soon"}),
             "contract_covered_equipment": sum(1 for e in equipment if e.get("contract_no")),
+            "blocked_items": len(blocked_items),
+            "urgent_items": sum(1 for c in open_cases if str(c.get("priority", "")).lower() in {"urgent", "high", "critical"}),
+            "pending_installations_deliveries": sum(1 for c in cases if c.get("case_type") in {"installation", "equipment_delivery"} and str(c.get("status", "")).lower() not in {"completed", "closed", "cancelled"}),
         },
     }
 
@@ -2742,6 +3602,18 @@ def hospital_dashboard_rows(conn):
         client_id = client["id"]
         name = client["name"]
         metrics = crm_client_metrics(conn, client)
+        open_cases = conn.execute("""
+            SELECT COUNT(*) AS c FROM cases
+            WHERE client_id=? AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        """, (client_id,)).fetchone()["c"]
+        pending_calls = conn.execute("""
+            SELECT COUNT(*) AS c FROM service_calls
+            WHERE client_id=? AND lower(COALESCE(status, 'open')) NOT IN ('closed', 'resolved', 'cancelled')
+        """, (client_id,)).fetchone()["c"]
+        pending_offers = conn.execute("""
+            SELECT COUNT(*) AS c FROM quotations
+            WHERE client_id=? AND lower(COALESCE(status, 'draft')) IN ('draft', 'pending', 'open', 'sent', 'in_progress', 'follow_up')
+        """, (client_id,)).fetchone()["c"]
         sales_orders = conn.execute("""
             SELECT COUNT(*) AS c FROM customer_requests
             WHERE client_id=? AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'invoiced', 'cancelled')
@@ -2786,9 +3658,21 @@ def hospital_dashboard_rows(conn):
             WHERE client_id=? AND lower(COALESCE(priority, 'normal')) IN ('urgent', 'high', 'critical')
               AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
         """, (client_id,)).fetchone()["c"]
+        blocked_items = len(blocked_item_rows(conn, client_id, None, 500))
+        pm_overdue = conn.execute("""
+            SELECT COUNT(*) AS c FROM pm_assets
+            WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?)))
+              AND COALESCE(next_pm_date, '') < ?
+              AND lower(COALESCE(status, '')) NOT IN ('completed', 'closed', 'retired')
+        """, (client_id, name, today.isoformat())).fetchone()["c"]
+        pending_installations = conn.execute("""
+            SELECT COUNT(*) AS c FROM cases
+            WHERE client_id=? AND case_type IN ('installation', 'equipment_delivery')
+              AND lower(COALESCE(status, 'open')) NOT IN ('completed', 'closed', 'cancelled', 'delivered')
+        """, (client_id,)).fetchone()["c"]
         contract_rows = [dict(r) for r in conn.execute("""
             SELECT contract_end_date FROM pm_assets
-            WHERE client_id=? OR lower(trim(hospital))=lower(trim(?))
+            WHERE (client_id=? OR lower(trim(hospital))=lower(trim(?)))
               AND COALESCE(contract_no, '') != ''
         """, (client_id, name)).fetchall()]
         if not contract_rows:
@@ -2802,17 +3686,27 @@ def hospital_dashboard_rows(conn):
         rows.append({
             **client,
             **metrics,
+            "open_cases": int(open_cases or 0),
+            "pending_calls": int(pending_calls or 0),
+            "pending_offers": int(pending_offers or 0),
             "open_sales_orders": int(sales_orders or 0),
             "open_spare_parts_orders": int(spare_parts or 0),
             "open_accessories_orders": int(accessories or 0),
+            "pending_spare_parts_accessories": int((spare_parts or 0) + (accessories or 0)),
             "open_service_orders": metrics["open_service_calls"],
             "pm_due": metrics["upcoming_pms"],
+            "pm_overdue": int(pm_overdue or 0),
             "maintenance_contract_status": contract_status,
+            "active_maintenance_contract": contract_status in {"active", "expiring soon"},
             "machines_under_warranty": metrics["under_warranty"],
+            "warranty_equipment_count": metrics["under_warranty"],
             "unpaid_invoices": int(unpaid_invoices or 0),
             "pending_deliveries": int(pending_deliveries or 0),
+            "pending_installations_deliveries": int((pending_installations or 0) + (pending_deliveries or 0)),
             "pending_procurement": int(pending_procurement or 0),
+            "blocked_items_count": int(blocked_items or 0),
             "urgent_open_issues": int(urgent_issues or 0),
+            "urgent_items_count": int(urgent_issues or 0),
         })
     return rows
 
@@ -3378,6 +4272,11 @@ def reports_page():
 def admin_page():
     return FileResponse(BASE_DIR / "static" / "module_page.html")
 
+@app.get("/imports")
+@app.get("/admin/imports")
+def imports_page():
+    return FileResponse(BASE_DIR / "static" / "imports.html")
+
 @app.get("/crm")
 def crm_page():
     return FileResponse(BASE_DIR / "static" / "crm.html")
@@ -3544,11 +4443,29 @@ def list_equipment(client_id: int | None = None, department_id: int | None = Non
         where.append("e.department_id=?")
         params.append(department_id)
     if q:
-        where.append("(e.asset_tag LIKE ? OR e.serial_number LIKE ? OR e.manufacturer LIKE ? OR e.model LIKE ?)")
-        params.extend([f"%{q}%"] * 4)
+        where.append("(e.asset_tag LIKE ? OR e.serial_number LIKE ? OR e.manufacturer LIKE ? OR e.model LIKE ? OR a.equipment_name LIKE ? OR a.equipment_family LIKE ?)")
+        params.extend([f"%{q}%"] * 6)
     sql = """
-        SELECT e.*, c.name AS client_name, d.department_name, w.warranty_start, w.warranty_end, w.status AS warranty_status
+        SELECT e.id, e.pm_asset_id, e.client_id, e.department_id, e.equipment_model_id,
+               COALESCE(a.equipment_name, e.asset_tag, e.model) AS equipment_name,
+               COALESCE(a.equipment_family, em.equipment_family, '') AS equipment_family,
+               e.asset_tag, e.serial_number, e.manufacturer, e.model,
+               COALESCE(a.status, e.status) AS status,
+               COALESCE(a.lifecycle_status, '') AS lifecycle_status,
+               a.location, a.installation_date,
+               a.contract_no, a.contract_start_date, a.contract_end_date,
+               a.frequency_days AS pm_frequency_days, a.last_pm_date, a.next_pm_date,
+               a.last_service_date, a.calibration_required, a.calibration_due_date,
+               a.risk_level AS risk_classification, a.life_support, a.criticality_level, a.department_risk_level,
+               a.total_uptime_hours, a.total_downtime_hours, a.operational_percentage, a.mtbf_hours,
+               a.blocked_reason, a.client_informed,
+               c.name AS client_name, d.department_name,
+               COALESCE(w.warranty_start, a.warranty_start) AS warranty_start,
+               COALESCE(w.warranty_end, a.warranty_end) AS warranty_end,
+               COALESCE(w.status, a.warranty_status) AS warranty_status
         FROM equipment e
+        LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
+        LEFT JOIN equipment_models em ON em.id=e.equipment_model_id
         LEFT JOIN clients c ON c.id=e.client_id
         LEFT JOIN departments d ON d.id=e.department_id
         LEFT JOIN warranties w ON w.equipment_id=e.id
@@ -3564,11 +4481,11 @@ def list_equipment(client_id: int | None = None, department_id: int | None = Non
 @app.get("/api/equipment/{equipment_id}")
 def get_equipment(equipment_id: int):
     conn = db()
-    row = conn.execute("SELECT * FROM equipment WHERE id=?", (equipment_id,)).fetchone()
+    sync_core_reference_tables(conn)
+    row = equipment_detail_data(conn, equipment_id)
+    conn.commit()
     conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="Equipment not found")
-    return dict(row)
+    return row
 
 @app.post("/api/equipment")
 def create_equipment(payload: dict, request: Request):
@@ -3594,8 +4511,10 @@ def create_equipment(payload: dict, request: Request):
             INSERT INTO pm_assets
             (asset_tag, serial_number, manufacturer, model, department, hospital, location, engineer, contact_email,
              contract_no, contract_start_date, contract_end_date, frequency_days, next_pm_date, last_pm_date, status,
-             notes, linked_inventory_pn, barcode, created_at, updated_at, client_id, department_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             notes, linked_inventory_pn, barcode, created_at, updated_at, client_id, department_id,
+             equipment_name, equipment_family, installation_date, warranty_start, warranty_end, calibration_required,
+             calibration_due_date, risk_level, life_support, lifecycle_status, last_service_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             asset_tag, payload.get("serial_number", ""), payload.get("manufacturer", ""), payload.get("model", ""),
             department, hospital, payload.get("location", ""), payload.get("engineer", ""), payload.get("contact_email", ""),
@@ -3603,6 +4522,13 @@ def create_equipment(payload: dict, request: Request):
             int(payload.get("frequency_days") or 180), payload.get("next_pm_date", ""), payload.get("last_pm_date", ""),
             payload.get("status", "Installed"), payload.get("notes", ""), payload.get("linked_inventory_pn", ""),
             payload.get("barcode", ""), now(), now(), client_id, department_id,
+            payload.get("equipment_name", ""), payload.get("equipment_family", ""), payload.get("installation_date", ""),
+            payload.get("warranty_start_date", payload.get("warranty_start", "")),
+            payload.get("warranty_end_date", payload.get("warranty_end", "")),
+            int(bool(payload.get("calibration_required", False))), payload.get("calibration_due_date", ""),
+            payload.get("risk_classification", payload.get("risk_level", "medium")),
+            int(bool(payload.get("life_support", False))), payload.get("lifecycle_status", payload.get("status", "active")),
+            payload.get("last_service_date", ""),
         ))
     except sqlite3.IntegrityError:
         conn.close()
@@ -3633,13 +4559,26 @@ def update_equipment(equipment_id: int, payload: dict, request: Request):
             hospital=COALESCE(?, hospital), location=COALESCE(?, location),
             engineer=COALESCE(?, engineer), status=COALESCE(?, status),
             notes=COALESCE(?, notes), client_id=COALESCE(?, client_id),
-            department_id=COALESCE(?, department_id), updated_at=?
+            department_id=COALESCE(?, department_id),
+            equipment_name=COALESCE(?, equipment_name), equipment_family=COALESCE(?, equipment_family),
+            installation_date=COALESCE(?, installation_date), warranty_start=COALESCE(?, warranty_start),
+            warranty_end=COALESCE(?, warranty_end), calibration_required=COALESCE(?, calibration_required),
+            calibration_due_date=COALESCE(?, calibration_due_date), risk_level=COALESCE(?, risk_level),
+            life_support=COALESCE(?, life_support), lifecycle_status=COALESCE(?, lifecycle_status),
+            last_service_date=COALESCE(?, last_service_date), updated_at=?
         WHERE id=?
     """, (
         payload.get("serial_number"), payload.get("manufacturer"), payload.get("model"),
         payload.get("department"), payload.get("hospital"), payload.get("location"),
         payload.get("engineer"), payload.get("status"), payload.get("notes"),
-        payload.get("client_id"), payload.get("department_id"), now(), pm_asset_id,
+        payload.get("client_id"), payload.get("department_id"),
+        payload.get("equipment_name"), payload.get("equipment_family"), payload.get("installation_date"),
+        payload.get("warranty_start_date", payload.get("warranty_start")),
+        payload.get("warranty_end_date", payload.get("warranty_end")),
+        int(bool(payload.get("calibration_required"))) if "calibration_required" in payload else None,
+        payload.get("calibration_due_date"), payload.get("risk_classification", payload.get("risk_level")),
+        int(bool(payload.get("life_support"))) if "life_support" in payload else None,
+        payload.get("lifecycle_status"), payload.get("last_service_date"), now(), pm_asset_id,
     ))
     conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
                  (pm_asset_id, "ASSET_UPDATED", "Equipment updated from core API", payload.get("engineer", ""), now()))
@@ -4031,23 +4970,23 @@ def global_search(q: str):
     for row in conn.execute("""
         SELECT parent_case_reference AS reference, case_no AS label, 'case' AS type, client_id, id AS case_id
         FROM cases
-        WHERE parent_case_reference LIKE ? OR case_no LIKE ? OR notes LIKE ?
-        LIMIT 20
-    """, (like, like, like)).fetchall():
+        WHERE parent_case_reference LIKE ? OR external_reference LIKE ? OR case_no LIKE ? OR notes LIKE ?
+        LIMIT 30
+    """, (like, like, like, like)).fetchall():
         results.append(dict(row))
     for row in conn.execute("""
         SELECT parent_case_reference AS reference, quotation_no AS label, 'quotation' AS type, client_id, NULL AS case_id
         FROM quotations
-        WHERE quotation_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ?
+        WHERE quotation_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR external_reference LIKE ?
         LIMIT 20
-    """, (like, like, like)).fetchall():
+    """, (like, like, like, like)).fetchall():
         results.append(dict(row))
     for row in conn.execute("""
         SELECT parent_case_reference AS reference, doc_no AS label, doc_type AS type, client_id, parent_case_id AS case_id
         FROM sales_case_documents
-        WHERE doc_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ?
+        WHERE doc_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR external_reference LIKE ?
         LIMIT 30
-    """, (like, like, like)).fetchall():
+    """, (like, like, like, like)).fetchall():
         results.append(dict(row))
     for row in conn.execute("""
         SELECT parent_case_reference AS reference, client_order_no AS label, 'client_order' AS type, client_id, parent_case_id AS case_id
@@ -4059,22 +4998,43 @@ def global_search(q: str):
     for row in conn.execute("""
         SELECT parent_case_reference AS reference, po_no AS label, 'purchase_order' AS type, client_id, parent_case_id AS case_id
         FROM purchase_orders
-        WHERE po_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR supplier LIKE ?
+        WHERE po_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ? OR supplier LIKE ? OR external_reference LIKE ?
         LIMIT 20
-    """, (like, like, like, like)).fetchall():
+    """, (like, like, like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, call_no AS label, 'service_call' AS type, client_id, parent_case_id AS case_id
+        FROM service_calls
+        WHERE call_no LIKE ? OR parent_case_reference LIKE ? OR issue LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT parent_case_reference AS reference, doc_no AS label, 'invoice' AS type, client_id, parent_case_id AS case_id
+        FROM invoices
+        WHERE doc_no LIKE ? OR document_reference LIKE ? OR parent_case_reference LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
         results.append(dict(row))
     for row in conn.execute("""
         SELECT a.parent_case_reference AS reference, a.asset_tag || ' / ' || a.serial_number AS label,
                'equipment' AS type, a.client_id, a.parent_case_id AS case_id
         FROM pm_assets a
-        WHERE a.asset_tag LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.hospital LIKE ?
+        WHERE a.asset_tag LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.hospital LIKE ? OR a.manufacturer LIKE ?
         LIMIT 30
-    """, (like, like, like, like)).fetchall():
+    """, (like, like, like, like, like)).fetchall():
         results.append(dict(row))
     for row in conn.execute("""
         SELECT '' AS reference, name AS label, 'client' AS type, id AS client_id, NULL AS case_id
         FROM clients
         WHERE name LIKE ? OR city LIKE ? OR main_contact LIKE ?
+        LIMIT 20
+    """, (like, like, like)).fetchall():
+        results.append(dict(row))
+    for row in conn.execute("""
+        SELECT '' AS reference, department_name AS label, 'department' AS type, client_id, NULL AS case_id
+        FROM departments
+        WHERE department_name LIKE ? OR floor_location LIKE ? OR main_contact_name LIKE ?
         LIMIT 20
     """, (like, like, like)).fetchall():
         results.append(dict(row))
@@ -4085,9 +5045,303 @@ def global_search(q: str):
         if key in seen:
             continue
         seen.add(key)
+        item["url"] = f"/crm/client/{item.get('client_id')}" if item.get("client_id") else "/dashboard"
+        if item.get("reference"):
+            item["traceability_url"] = f"/api/traceability/{urllib.parse.quote(str(item.get('reference')))}"
         unique.append(item)
     conn.close()
     return {"query": text, "results": unique[:80]}
+
+@app.get("/api/imports")
+def list_import_batches(limit: int = 50):
+    conn = db()
+    rows = [dict(r) for r in conn.execute("SELECT * FROM import_batches ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()]
+    conn.close()
+    return rows
+
+@app.get("/api/imports/{batch_id}/rows")
+def list_import_batch_rows(batch_id: int):
+    conn = db()
+    rows = []
+    for row in conn.execute("SELECT * FROM import_batch_rows WHERE batch_id=? ORDER BY row_no", (batch_id,)).fetchall():
+        item = dict(row)
+        item["raw_data"] = json.loads(item.get("raw_data") or "{}")
+        item["mapped_data"] = json.loads(item.get("mapped_data") or "{}")
+        rows.append(item)
+    conn.close()
+    return rows
+
+@app.post("/api/imports/pending-offers/preview")
+async def preview_pending_offers_import(request: Request, file: UploadFile = File(...)):
+    contents = await file.read()
+    try:
+        imported_df = read_import_dataframe(contents, file.filename or "")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read pending offers import file: {exc}")
+    rows = parse_pending_offer_dataframe(imported_df)
+    conn = db()
+    cur = conn.execute("""
+        INSERT INTO import_batches (import_type, filename, status, total_rows, valid_rows, error_rows, created_by, created_at, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        "pending_offers", file.filename or "upload", "preview", len(rows),
+        sum(1 for row in rows if row["validation_status"] == "valid"),
+        sum(1 for row in rows if row["validation_status"] == "error"),
+        request.session.get("username", "system"), now(), "Pending calls/offers preview",
+    ))
+    batch_id = cur.lastrowid
+    for row in rows:
+        client = conn.execute("SELECT id FROM clients WHERE lower(trim(name))=lower(trim(?))", (row.get("hospital", ""),)).fetchone()
+        existing_case = find_case_by_reference(conn, row.get("offer_reference", ""))
+        row["existing_client_id"] = client["id"] if client else None
+        row["existing_case_id"] = existing_case["id"] if existing_case else None
+        row["planned_action"] = "update" if existing_case else "create"
+        conn.execute("""
+            INSERT INTO import_batch_rows
+            (batch_id, row_no, raw_data, mapped_data, validation_status, error_message, action, client_id, case_id,
+             parent_case_reference, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            batch_id, row["row_no"], json.dumps(row["raw_data"]), json.dumps(row),
+            row["validation_status"], "; ".join(row.get("errors") or []), row["planned_action"],
+            row["existing_client_id"], row["existing_case_id"],
+            existing_case["parent_case_reference"] if existing_case else "", now(), now(),
+        ))
+    conn.commit()
+    conn.close()
+    return {
+        "batch_id": batch_id,
+        "columns": [str(col) for col in imported_df.columns],
+        "field_map": default_pending_offer_field_map(imported_df),
+        "rows": rows,
+        "summary": {
+            "total_rows": len(rows),
+            "valid_rows": sum(1 for row in rows if row["validation_status"] == "valid"),
+            "error_rows": sum(1 for row in rows if row["validation_status"] == "error"),
+            "create_rows": sum(1 for row in rows if row.get("planned_action") == "create"),
+            "update_rows": sum(1 for row in rows if row.get("planned_action") == "update"),
+        },
+    }
+
+@app.post("/api/imports/pending-offers/commit")
+def commit_pending_offers_import(payload: dict, request: Request):
+    batch_id = payload.get("batch_id")
+    create_missing = bool(payload.get("create_missing_hospitals", True))
+    conn = db()
+    rows = payload.get("rows")
+    if batch_id and not rows:
+        rows = []
+        for row in conn.execute("SELECT * FROM import_batch_rows WHERE batch_id=? ORDER BY row_no", (batch_id,)).fetchall():
+            mapped = json.loads(row["mapped_data"] or "{}")
+            rows.append(mapped)
+    if not isinstance(rows, list) or not rows:
+        conn.close()
+        raise HTTPException(status_code=400, detail="No import rows provided")
+    results = commit_pending_offer_rows(conn, rows, int(batch_id) if batch_id else None, request.session.get("username", "system"), create_missing)
+    imported = sum(1 for item in results if item.get("status") == "imported")
+    errors = sum(1 for item in results if item.get("status") == "error")
+    if batch_id:
+        conn.execute("""
+            UPDATE import_batches
+            SET status=?, valid_rows=?, error_rows=?, committed_at=?, notes=?
+            WHERE id=?
+        """, ("committed_with_errors" if errors else "committed", imported, errors, now(), f"Imported {imported}; errors {errors}", batch_id))
+    conn.commit()
+    conn.close()
+    return {"batch_id": batch_id, "imported": imported, "errors": errors, "results": results}
+
+@app.post("/api/imports/{batch_id}/rollback")
+def rollback_import_batch(batch_id: int, request: Request):
+    conn = db()
+    batch = conn.execute("SELECT * FROM import_batches WHERE id=?", (batch_id,)).fetchone()
+    if not batch:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Import batch not found")
+    rows = [dict(r) for r in conn.execute("SELECT * FROM import_batch_rows WHERE batch_id=?", (batch_id,)).fetchall()]
+    touched = 0
+    for row in rows:
+        if row.get("action") != "created":
+            continue
+        case_id = row.get("case_id")
+        request_id = row.get("request_id")
+        parent_ref = row.get("parent_case_reference")
+        if case_id:
+            conn.execute("UPDATE cases SET status='cancelled', blocked_reason='none', updated_at=? WHERE id=?", (now(), case_id))
+            case_timeline(conn, parent_ref, case_id, "import_rollback", "Import row rolled back", "cancelled", request.session.get("username", "system"), f"Batch {batch_id}", "import_batches", batch_id)
+            touched += 1
+        if request_id:
+            conn.execute("UPDATE customer_requests SET status='cancelled', updated_at=? WHERE id=?", (now(), request_id))
+        conn.execute("UPDATE quotations SET status='cancelled', updated_at=? WHERE parent_case_reference=?", (now(), parent_ref))
+        conn.execute("UPDATE sales_case_documents SET status='cancelled', updated_at=? WHERE parent_case_reference=?", (now(), parent_ref))
+    conn.execute("UPDATE import_batches SET status='rolled_back', rolled_back_at=?, notes=? WHERE id=?", (now(), f"Soft-rolled back {touched} created cases", batch_id))
+    conn.commit()
+    conn.close()
+    return {"batch_id": batch_id, "rolled_back_cases": touched, "message": "Created rows were soft-cancelled, not destructively deleted."}
+
+def bulk_target_table(target: str):
+    table = BULK_TARGETS.get(str(target or "").strip())
+    if not table:
+        raise HTTPException(status_code=400, detail=f"Unsupported bulk target: {target}")
+    return table
+
+def bulk_field_column(table_cols: set[str], field: str):
+    aliases = {
+        "responsible_person": ["responsible_person", "engineer", "assigned_to"],
+        "engineer": ["engineer", "assigned_to", "responsible_person"],
+        "assigned_to": ["assigned_to", "engineer", "responsible_person"],
+        "equipment_id": ["equipment_id", "asset_id"],
+        "contract_id": ["contract_id", "contract_no"],
+        "due_date": ["due_date", "expected_date", "next_pm_date"],
+        "blocked_by": ["blocked_reason"],
+        "client_id": ["client_id"],
+        "department_id": ["department_id"],
+        "status": ["status"],
+        "priority": ["priority"],
+        "blocked_reason": ["blocked_reason"],
+        "blocked_notes": ["blocked_notes"],
+        "client_informed": ["client_informed"],
+        "date_informed": ["date_informed"],
+        "informed_by": ["informed_by"],
+        "communication_method": ["communication_method"],
+        "informed_notes": ["informed_notes"],
+        "notes": ["notes"],
+    }
+    for candidate in aliases.get(field, [field]):
+        if candidate in table_cols:
+            return candidate
+    return None
+
+@app.post("/api/bulk-edit")
+def bulk_edit(payload: dict, request: Request):
+    role = current_role(request)
+    if not can_edit_crm(role):
+        raise HTTPException(status_code=403, detail="Edit permission required")
+    target = payload.get("target")
+    ids = payload.get("ids") or []
+    updates = payload.get("updates") or {}
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(status_code=400, detail="ids must be a non-empty list")
+    if not isinstance(updates, dict) or not updates:
+        raise HTTPException(status_code=400, detail="updates must be provided")
+    table = bulk_target_table(target)
+    conn = db()
+    table_cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    set_parts = []
+    values = []
+    skipped_fields = []
+    for field, value in updates.items():
+        if field == "delete":
+            continue
+        column = bulk_field_column(table_cols, field)
+        if not column:
+            skipped_fields.append(field)
+            continue
+        if column == "blocked_reason":
+            value = normalize_blocked_reason(value)
+        if column == "client_informed":
+            value = 1 if bool(value) else 0
+            if value and "date_informed" in table_cols and "date_informed" not in updates:
+                set_parts.append("date_informed=?")
+                values.append(now())
+        set_parts.append(f"{column}=?")
+        values.append(value)
+    if "updated_at" in table_cols:
+        set_parts.append("updated_at=?")
+        values.append(now())
+    if not set_parts:
+        conn.close()
+        raise HTTPException(status_code=400, detail="No supported fields for this target")
+    placeholders = ",".join("?" for _ in ids)
+    conn.execute(f"UPDATE {table} SET {', '.join(set_parts)} WHERE id IN ({placeholders})", [*values, *ids])
+    updated = conn.total_changes
+    if table == "pm_assets" and "department_id" in updates:
+        dept = conn.execute("SELECT department_name FROM departments WHERE id=?", (updates["department_id"],)).fetchone()
+        if dept:
+            conn.execute(f"UPDATE pm_assets SET department=? WHERE id IN ({placeholders})", [dept["department_name"], *ids])
+    if table in {"cases", "customer_requests"}:
+        for row in conn.execute(f"SELECT id, parent_case_reference, parent_case_id, status, blocked_reason FROM {table} WHERE id IN ({placeholders})", ids).fetchall():
+            case_timeline(conn, row["parent_case_reference"], row["parent_case_id"] or row["id"], "bulk_edit", "Bulk edit applied", row["status"], request.session.get("username", "system"), json.dumps(updates), table, row["id"])
+    conn.commit()
+    conn.close()
+    return {"target": target, "table": table, "requested": len(ids), "updated": updated, "skipped_fields": skipped_fields}
+
+@app.post("/api/bulk-export")
+def bulk_export(payload: dict):
+    target = payload.get("target")
+    ids = payload.get("ids") or []
+    fmt = payload.get("format", "excel")
+    if not ids:
+        raise HTTPException(status_code=400, detail="ids must be provided")
+    table = bulk_target_table(target)
+    conn = db()
+    placeholders = ",".join("?" for _ in ids)
+    rows = [dict(r) for r in conn.execute(f"SELECT * FROM {table} WHERE id IN ({placeholders})", ids).fetchall()]
+    conn.close()
+    return export_rows_response(f"{target}_selected_export", rows, fmt, f"Selected {target} rows")
+
+@app.get("/api/exports/{report_name}")
+def export_operational_report(report_name: str, format: str = "excel", client_id: int | None = None, batch_id: int | None = None):
+    conn = db()
+    report_key = report_name.replace("-", "_")
+    if report_key in {"hospital_dashboard_summary", "hospitals"}:
+        rows = hospital_dashboard_rows(conn)
+        title = "hospital_dashboard_summary"
+    elif report_key == "department_progress":
+        if client_id:
+            rows = department_progress_rows(conn, client_id)
+        else:
+            rows = []
+            for client in conn.execute("SELECT id FROM clients ORDER BY name").fetchall():
+                rows.extend(department_progress_rows(conn, client["id"]))
+        title = "department_progress"
+    elif report_key in {"pending_calls", "service_calls"}:
+        rows = [dict(r) for r in conn.execute("""
+            SELECT s.*, c.name AS client_name, d.department_name
+            FROM service_calls s
+            LEFT JOIN clients c ON c.id=s.client_id
+            LEFT JOIN departments d ON d.id=s.department_id
+            WHERE (? IS NULL OR s.client_id=?)
+              AND lower(COALESCE(s.status, 'open')) NOT IN ('closed', 'resolved', 'cancelled')
+            ORDER BY COALESCE(s.opened_at, s.created_at) DESC
+        """, (client_id, client_id)).fetchall()]
+        title = "pending_calls"
+    elif report_key == "import_validation":
+        if not batch_id:
+            rows = [dict(r) for r in conn.execute("SELECT * FROM import_batches ORDER BY created_at DESC LIMIT 100").fetchall()]
+        else:
+            rows = [dict(r) for r in conn.execute("SELECT * FROM import_batch_rows WHERE batch_id=? ORDER BY row_no", (batch_id,)).fetchall()]
+        title = "import_validation"
+    elif report_key == "equipment_database":
+        sync_core_reference_tables(conn)
+        rows = list_equipment(client_id=client_id)
+        title = "equipment_database"
+    elif report_key == "pm_schedule":
+        rows = [dict(r) for r in conn.execute("""
+            SELECT t.*, a.asset_tag, a.hospital, a.department, a.model, a.serial_number
+            FROM pm_tasks t LEFT JOIN pm_assets a ON a.id=t.asset_id
+            WHERE (? IS NULL OR a.client_id=?)
+            ORDER BY COALESCE(t.due_date, ''), t.status
+        """, (client_id, client_id)).fetchall()]
+        title = "pm_schedule"
+    elif report_key == "blocked_items":
+        rows = blocked_item_rows(conn, client_id, None, 1000)
+        title = "blocked_items"
+    elif report_key == "pending_procurement":
+        rows = [dict(r) for r in conn.execute("""
+            SELECT i.*, r.case_no, r.client_hospital, r.parent_case_reference, r.department_id
+            FROM customer_request_items i
+            JOIN customer_requests r ON r.id=i.request_id
+            WHERE (? IS NULL OR r.client_id=?)
+              AND (COALESCE(i.shortage_qty,0) > 0
+                   OR COALESCE(i.procurement_status,'not_ordered') IN ('not_ordered','po_draft','po_sent','supplier_confirmed','partially_received'))
+            ORDER BY i.updated_at DESC
+        """, (client_id, client_id)).fetchall()]
+        title = "pending_procurement"
+    else:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Unknown export report")
+    conn.close()
+    return export_rows_response(title, rows, format, report_name.replace("_", " ").title())
 
 @app.post("/api/cases")
 def create_case(case: CaseCreate):
@@ -4123,14 +5377,22 @@ def list_cases(case_type: str = "", client_id: int | None = None):
     where = "WHERE 1=1"
     params = []
     if case_type:
-        where += " AND case_type = ?"
+        where += " AND cases.case_type = ?"
         params.append(case_type)
     if client_id:
-        where += " AND client_id = ?"
+        where += " AND cases.client_id = ?"
         params.append(client_id)
     rows = conn.execute(f"""
-        SELECT id, case_no, case_type, client_id, workflow_state, status, priority, created_at, updated_at
-        FROM cases {where} ORDER BY created_at DESC
+        SELECT cases.id, cases.case_no, cases.case_type, cases.client_id, clients.name AS client_name,
+               cases.department_id, departments.department_name,
+               cases.parent_case_reference, cases.external_reference,
+               cases.workflow_state, cases.status, cases.priority,
+               cases.blocked_reason, cases.responsible_person, cases.due_date,
+               cases.created_at, cases.updated_at
+        FROM cases
+        LEFT JOIN clients ON clients.id=cases.client_id
+        LEFT JOIN departments ON departments.id=cases.department_id
+        {where} ORDER BY cases.created_at DESC
     """, params).fetchall()
     result = [dict(r) for r in rows]
     conn.close()
@@ -5346,10 +6608,13 @@ def create_pm_task(task: PMTask):
         raise HTTPException(status_code=404, detail="PM asset not found")
     cur = conn.execute("""
         INSERT INTO pm_tasks
-        (asset_id, task_name, description, checklist, status, assigned_to, due_date, completed_date, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (asset_id, task_name, description, checklist, status, assigned_to, due_date, completed_date, notes, created_at, updated_at,
+         department_id, equipment_id, checklist_status, report_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (task.asset_id, task.task_name, task.description, task.checklist, task.status, task.assigned_to,
-          task.due_date, task.completed_date, task.notes, now(), now()))
+          task.due_date, task.completed_date, task.notes, now(), now(),
+          asset["department_id"] if "department_id" in asset.keys() else None, task.asset_id,
+          "prepared" if task.checklist else "pending", "pending"))
     conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
                  (task.asset_id, "TASK_CREATED", task.task_name, task.assigned_to, now()))
     conn.commit()
@@ -5363,15 +6628,22 @@ def update_pm_task(task_id: int, task: PMTask):
     if not existing:
         conn.close()
         raise HTTPException(status_code=404, detail="PM task not found")
+    asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (task.asset_id,)).fetchone()
+    if not asset:
+        conn.close()
+        raise HTTPException(status_code=404, detail="PM asset not found")
     conn.execute("""
         UPDATE pm_tasks
         SET asset_id=?, task_name=?, description=?, checklist=?, status=?, assigned_to=?, due_date=?,
-            completed_date=?, notes=?, updated_at=?
+            completed_date=?, notes=?, department_id=?, equipment_id=?, checklist_status=COALESCE(checklist_status, ?),
+            report_status=COALESCE(report_status, ?), updated_at=?
         WHERE id=?
     """, (task.asset_id, task.task_name, task.description, task.checklist, task.status, task.assigned_to,
-          task.due_date, task.completed_date, task.notes, now(), task_id))
+          task.due_date, task.completed_date, task.notes,
+          asset["department_id"] if asset and "department_id" in asset.keys() else None, task.asset_id,
+          "prepared" if task.checklist else "pending", "signed" if task.status.lower() == "completed" else "pending",
+          now(), task_id))
     if task.status.lower() == "completed":
-        asset = conn.execute("SELECT * FROM pm_assets WHERE id=?", (task.asset_id,)).fetchone()
         completed = task.completed_date or date.today().isoformat()
         next_pm = add_days_iso(completed, int(asset["frequency_days"] or 180)) if asset else ""
         conn.execute("UPDATE pm_assets SET last_pm_date=?, next_pm_date=?, status=?, updated_at=? WHERE id=?",
