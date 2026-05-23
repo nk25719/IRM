@@ -4248,7 +4248,7 @@ def inventory_page():
 
 @app.get("/procurement")
 def procurement_page():
-    return FileResponse(BASE_DIR / "static" / "module_page.html")
+    return FileResponse(BASE_DIR / "static" / "procurement.html")
 
 @app.get("/sales")
 @app.get("/sales/{section:path}")
@@ -4319,7 +4319,7 @@ def pm_page(path: str = ""):
 
 
 @app.get("/api/crm/clients")
-def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer: str = "", status: str = ""):
+def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer: str = "", status: str = "", financial_status: str = "", active_contract: str = "", warranty_equipment: str = ""):
     conn = db()
     ensure_clients_from_existing_data(conn)
     conn.commit()
@@ -4340,6 +4340,20 @@ def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer
             matches = False
         if status and row.get("status") != status:
             matches = False
+        if financial_status and str(row.get("financial_status", "")).lower() != financial_status.lower():
+            matches = False
+        if active_contract:
+            has_active_contract = int(row.get("active_contracts", 0)) > 0
+            if str(active_contract).lower() in {"yes", "true", "1"} and not has_active_contract:
+                matches = False
+            if str(active_contract).lower() in {"no", "false", "0"} and has_active_contract:
+                matches = False
+        if warranty_equipment:
+            has_warranty_equipment = int(row.get("under_warranty", 0)) > 0
+            if str(warranty_equipment).lower() in {"yes", "true", "1"} and not has_warranty_equipment:
+                matches = False
+            if str(warranty_equipment).lower() in {"no", "false", "0"} and has_warranty_equipment:
+                matches = False
         if matches:
             result.append(row)
     conn.close()
@@ -4750,6 +4764,56 @@ def create_crm_client(client: CRMClient, request: Request):
     conn.close()
     return {"id": client_id, "message": "client saved"}
 
+
+
+@app.get("/api/procurement/dashboard")
+def procurement_dashboard(category: str = ""):
+    conn = db()
+    cat_filter = ""
+    params = []
+    if category:
+        cat_filter = " AND COALESCE(cri.item_type,'') = ?"
+        params.append(category)
+    minimum_stock_alerts = [dict(r) for r in conn.execute("""
+        SELECT pn, description, COALESCE(physical_qty,0) AS current_qty,
+               COALESCE(min_qty,0) AS minimum_qty,
+               MAX(COALESCE(min_qty,0)-COALESCE(physical_qty,0),0) AS suggested_reorder_qty,
+               COALESCE(vendor,'') AS supplier
+        FROM inventory
+        WHERE COALESCE(physical_qty,0) < COALESCE(min_qty,0)
+        ORDER BY suggested_reorder_qty DESC, updated_at DESC
+        LIMIT 400
+    """).fetchall()]
+    sales_shortages = [dict(r) for r in conn.execute(f"""
+        SELECT COALESCE(cl.name, cr.client_hospital, '') AS client_name,
+               cr.case_no, COALESCE(cr.parent_case_reference,'') AS parent_case_reference,
+               cri.requested_item, COALESCE(cri.quantity,0) AS requested_qty,
+               COALESCE(cri.shortage_qty,0) AS shortage_qty,
+               COALESCE(cri.procurement_status,'not_ordered') AS procurement_status
+        FROM customer_request_items cri
+        JOIN customer_requests cr ON cr.id = cri.request_id
+        LEFT JOIN clients cl ON cl.id = cr.client_id
+        WHERE COALESCE(cri.shortage_qty,0) > 0 {cat_filter}
+        ORDER BY cr.updated_at DESC
+        LIMIT 600
+    """, tuple(params)).fetchall()]
+    incoming_ordered_items = [dict(r) for r in conn.execute("""
+        SELECT po.po_no, COALESCE(po.vendor,'') AS supplier, COALESCE(po.expected_delivery_date,'') AS expected_delivery_date,
+               COALESCE(poi.description, poi.pn, '') AS description,
+               COALESCE(poi.qty,0) AS qty, COALESCE(poi.received_qty,0) AS received_qty,
+               MAX(COALESCE(poi.qty,0)-COALESCE(poi.received_qty,0),0) AS pending_qty
+        FROM purchase_order_items poi
+        LEFT JOIN purchase_orders po ON po.po_no = poi.po_no
+        WHERE COALESCE(po.status,'OPEN') IN ('OPEN','PARTIAL','RECEIVED','SENT','DRAFT')
+        ORDER BY poi.updated_at DESC
+        LIMIT 600
+    """).fetchall()]
+    conn.close()
+    return {
+        "minimum_stock_alerts": minimum_stock_alerts,
+        "sales_shortages": sales_shortages,
+        "incoming_ordered_items": incoming_ordered_items,
+    }
 @app.get("/api/crm/client/{client_id}")
 def crm_client_detail(client_id: int, request: Request):
     conn = db()
@@ -5072,13 +5136,21 @@ def list_import_batch_rows(batch_id: int):
     return rows
 
 @app.post("/api/imports/pending-offers/preview")
-async def preview_pending_offers_import(request: Request, file: UploadFile = File(...)):
+async def preview_pending_offers_import(request: Request, file: UploadFile = File(...), field_map_json: str = Form("")):
     contents = await file.read()
     try:
         imported_df = read_import_dataframe(contents, file.filename or "")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not read pending offers import file: {exc}")
-    rows = parse_pending_offer_dataframe(imported_df)
+    field_map = {}
+    if field_map_json:
+        try:
+            loaded_map = json.loads(field_map_json)
+            if isinstance(loaded_map, dict):
+                field_map = {str(k): str(v) for k, v in loaded_map.items() if v is not None}
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid field_map_json: {exc}")
+    rows = parse_pending_offer_dataframe(imported_df, field_map if field_map else None)
     conn = db()
     cur = conn.execute("""
         INSERT INTO import_batches (import_type, filename, status, total_rows, valid_rows, error_rows, created_by, created_at, notes)

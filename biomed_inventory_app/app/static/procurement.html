@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><link rel='stylesheet' href='/static/theme.css'><title>Procurement</title></head><body>
+<header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Alerts, shortages, and incoming orders</p></div><nav class='top-actions'><a href='/dashboard'>Dashboard</a><a href='/crm'>CRM / Clients</a><a href='/sales'>Sales</a><a href='/inventory'>Inventory</a><a href='/logout'>Logout</a></nav></div></header>
+<main class='container'><section class='card'><div class='toolbar'><select id='cat'><option value=''>All categories</option><option value='spare_part'>Spare parts</option><option value='accessory'>Accessories</option><option value='new_equipment'>Equipment</option></select><button class='btn' id='refresh'>Refresh</button></div></section>
+<section class='card'><h3>Minimum Stock Alerts</h3><div id='min'></div></section>
+<section class='card'><h3>Sales Requested but Out of Stock</h3><div id='short'></div></section>
+<section class='card'><h3>Incoming / Ordered Items</h3><div id='incoming'></div></section></main>
+<script>
+const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+const t=(h,rows)=>`<div class='table-wrap'><table class='crm-table'><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan='${h.length}'>No rows</td></tr>`}</tbody></table></div>`;
+const row=a=>`<tr>${a.map(x=>`<td>${x}</td>`).join('')}</tr>`;
+async function load(){const q=new URLSearchParams({category:cat.value});const d=await (await fetch('/api/procurement/dashboard?'+q)).json();
+min.innerHTML=t(['PN','Description','Current','Minimum','Suggested','Supplier'],d.minimum_stock_alerts.map(i=>row([esc(i.pn),esc(i.description),esc(i.current_qty),esc(i.minimum_qty),esc(i.suggested_reorder_qty),esc(i.supplier)])).join(''));
+short.innerHTML=t(['Client','Case','Offer Ref','Item','Requested','Shortage','Procurement'],d.sales_shortages.map(i=>row([esc(i.client_name),esc(i.case_no),esc(i.parent_case_reference),esc(i.requested_item),esc(i.requested_qty),esc(i.shortage_qty),esc(i.procurement_status)])).join(''));
+incoming.innerHTML=t(['PO','Supplier','Expected','Description','Qty','Received','Pending'],d.incoming_ordered_items.map(i=>row([esc(i.po_no),esc(i.supplier),esc(i.expected_delivery_date),esc(i.description),esc(i.qty),esc(i.received_qty),esc(i.pending_qty)])).join(''));
+}
+refresh.onclick=load;cat.onchange=load;load();
+</script></body></html>

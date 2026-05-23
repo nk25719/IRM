@@ -40,6 +40,9 @@
         <input id="city" placeholder="City">
         <select id="contractStatus"><option value="">All contract status</option><option value="active">Active contracts</option><option value="needs_review">Needs review</option></select>
         <input id="engineer" placeholder="Engineer">
+        <select id="financialStatus"><option value="">All financial status</option><option value="healthy">Healthy</option><option value="watch">Watch</option><option value="critical">Critical</option></select>
+        <select id="activeContract"><option value="">Any contract coverage</option><option value="yes">Active contract: Yes</option><option value="no">Active contract: No</option></select>
+        <select id="warrantyEquipment"><option value="">Any warranty equipment</option><option value="yes">Warranty equipment: Yes</option><option value="no">Warranty equipment: No</option></select>
         <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="under review">Under review</option></select>
         <button class="btn" onclick="loadClients()">Search</button>
       </div>
@@ -48,12 +51,12 @@
   </main>
 
   <script>
-    const searchEl=document.getElementById("search"),cityEl=document.getElementById("city"),contractStatusEl=document.getElementById("contractStatus"),engineerEl=document.getElementById("engineer"),statusEl=document.getElementById("status"),clientGridEl=document.getElementById("clientGrid");
+    const searchEl=document.getElementById("search"),cityEl=document.getElementById("city"),contractStatusEl=document.getElementById("contractStatus"),engineerEl=document.getElementById("engineer"),financialStatusEl=document.getElementById("financialStatus"),activeContractEl=document.getElementById("activeContract"),warrantyEquipmentEl=document.getElementById("warrantyEquipment"),statusEl=document.getElementById("status"),clientGridEl=document.getElementById("clientGrid");
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
     function metric(label,value){return `<div class="mini-metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`}
     async function loadClients(){
-      const params=new URLSearchParams({q:searchEl.value,city:cityEl.value,contract_status:contractStatusEl.value,engineer:engineerEl.value,status:statusEl.value});
+      const params=new URLSearchParams({q:searchEl.value,city:cityEl.value,contract_status:contractStatusEl.value,engineer:engineerEl.value,status:statusEl.value,financial_status:financialStatusEl.value,active_contract:activeContractEl.value,warranty_equipment:warrantyEquipmentEl.value});
       const rows=await api(`/api/crm/clients?${params.toString()}`);
       clientGridEl.innerHTML=rows.length?rows.map(c=>`
         <article class="card client-card">
@@ -77,7 +80,7 @@
           </div>
         </article>`).join(""):`<div class="empty">No clients found yet. Clients are created automatically from PM assets, client orders, and transaction client names.</div>`;
     }
-    [searchEl,cityEl,contractStatusEl,engineerEl,statusEl].forEach(el=>el.addEventListener("change",loadClients));
+    [searchEl,cityEl,contractStatusEl,engineerEl,financialStatusEl,activeContractEl,warrantyEquipmentEl,statusEl].forEach(el=>el.addEventListener("change",loadClients));
     loadClients();
   </script>
 </body>
