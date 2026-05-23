@@ -7,7 +7,7 @@
   <title>ERP Imports</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .content{padding:22px 18px 44px}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.toolbar input,.toolbar button{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px}.toolbar button{background:var(--primary);border-color:var(--primary);color:#fff;cursor:pointer;font-weight:800}.toolbar button.secondary{background:#fff;color:var(--primary-dark)}.summary{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:22px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:9px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.muted{color:var(--muted);font-size:12px}.error{color:#b42318}
+    .content{padding:22px 18px 44px}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.toolbar input,.toolbar button,.map-grid select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px}.toolbar button{background:var(--primary);border-color:var(--primary);color:#fff;cursor:pointer;font-weight:800}.toolbar button.secondary{background:#fff;color:var(--primary-dark)}.map-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:12px 0}.map-field{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}.map-field label{color:var(--muted);display:block;font-size:12px;font-weight:800;margin-bottom:6px}.summary{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:22px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:9px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.muted{color:var(--muted);font-size:12px}.error{color:#b42318}
   </style>
 </head>
 <body>
@@ -22,13 +22,15 @@
       <div class="toolbar">
         <input id="file" type="file" accept=".xlsx,.xls,.csv">
         <button id="preview">Preview</button>
+        <button id="remap" class="secondary" disabled>Re-preview With Mapping</button>
         <button id="commit" class="secondary" disabled>Commit Import</button>
         <a id="exportValidation" class="button-like" href="#">Export Validation</a>
       </div>
+      <div id="mapping" class="map-grid"></div>
       <div id="summary" class="summary"></div>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>Row</th><th>Hospital</th><th>Department</th><th>Offer Ref</th><th>Status</th><th>Requirement</th><th>Blocked</th><th>Action</th><th>Validation</th></tr></thead>
+          <thead><tr><th>Row</th><th>Hospital</th><th>Location</th><th>Department</th><th>Offer Ref</th><th>Status</th><th>Requirement</th><th>Category</th><th>Blocked</th><th>Action</th><th>Validation</th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -39,14 +41,19 @@
     </section>
   </main>
   <script>
-    let currentBatch=null;let currentRows=[];
+    let currentBatch=null;let currentRows=[];let currentColumns=[];let currentFieldMap={};
+    const importFields=["hospital","location","department","offer_reference","status","requirement","category","equipment","notes","responsible_person","date","blocked_reason"];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("error")||l.includes("blocked")||l.includes("rolled")?"bad":l.includes("valid")||l.includes("committed")||l.includes("imported")?"good":l.includes("preview")||l.includes("pending")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
     const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;
     async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function renderRows(){rows.innerHTML=currentRows.map(r=>`<tr><td>${esc(r.row_no)}</td><td>${esc(r.hospital)}</td><td>${esc(r.department)}</td><td>${esc(r.offer_reference)}</td><td>${badge(r.status)}</td><td>${esc(r.requirement)}</td><td>${badge(r.blocked_reason)}</td><td>${esc(r.planned_action||r.action||"")}</td><td>${r.errors?.length?`<span class="error">${esc(r.errors.join("; "))}</span>`:badge(r.validation_status)}</td></tr>`).join("")||`<tr><td colspan="9">No preview loaded.</td></tr>`}
+    function renderMapping(){mapping.innerHTML=importFields.map(field=>`<div class="map-field"><label>${esc(field.replaceAll("_"," "))}</label><select data-field="${esc(field)}"><option value="">Not mapped</option>${currentColumns.map(c=>`<option value="${esc(c)}" ${currentFieldMap[field]===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>`).join("");mapping.querySelectorAll("select").forEach(s=>s.addEventListener("change",()=>{currentFieldMap[s.dataset.field]=s.value}))}
+    function selectedFieldMap(){const out={};mapping.querySelectorAll("select").forEach(s=>{if(s.value)out[s.dataset.field]=s.value});return out}
+    function renderRows(){rows.innerHTML=currentRows.map(r=>`<tr><td>${esc(r.row_no)}</td><td>${esc(r.hospital)}</td><td>${esc(r.location)}</td><td>${esc(r.department)}</td><td>${esc(r.offer_reference)}</td><td>${badge(r.status)}</td><td>${esc(r.requirement)}</td><td>${esc(r.category)}</td><td>${badge(r.blocked_reason)}</td><td>${esc(r.planned_action||r.action||"")}</td><td>${r.errors?.length?`<span class="error">${esc(r.errors.join("; "))}</span>`:badge(r.validation_status)}</td></tr>`).join("")||`<tr><td colspan="11">No preview loaded.</td></tr>`}
     async function loadHistory(){const data=await api("/api/imports");history.innerHTML=data.map(b=>`<tr><td>${b.id}</td><td>${esc(b.filename)}</td><td>${badge(b.status)}</td><td>${b.total_rows}</td><td>${b.valid_rows}</td><td>${b.error_rows}</td><td>${esc(b.created_at)}</td><td><a href="/api/exports/import-validation?batch_id=${b.id}">Export</a> <button data-rollback="${b.id}">Rollback</button></td></tr>`).join("")||`<tr><td colspan="8">No imports yet.</td></tr>`;history.querySelectorAll("button[data-rollback]").forEach(btn=>btn.addEventListener("click",async()=>{await api(`/api/imports/${btn.dataset.rollback}/rollback`,{method:"POST"});await loadHistory()}))}
-    preview.addEventListener("click",async()=>{if(!file.files[0])return;const form=new FormData();form.append("file",file.files[0]);const data=await api("/api/imports/pending-offers/preview",{method:"POST",body:form});currentBatch=data.batch_id;currentRows=data.rows;summary.innerHTML=metric("Rows",data.summary.total_rows)+metric("Valid",data.summary.valid_rows)+metric("Errors",data.summary.error_rows)+metric("Create",data.summary.create_rows)+metric("Update",data.summary.update_rows);exportValidation.href=`/api/exports/import-validation?batch_id=${currentBatch}`;commit.disabled=data.summary.valid_rows===0;renderRows();await loadHistory()});
+    async function runPreview(useMapping=false){if(!file.files[0])return;const form=new FormData();form.append("file",file.files[0]);if(useMapping)form.append("field_map_json",JSON.stringify(selectedFieldMap()));const data=await api("/api/imports/pending-offers/preview",{method:"POST",body:form});currentBatch=data.batch_id;currentRows=data.rows;currentColumns=data.columns||[];currentFieldMap=data.field_map||{};summary.innerHTML=metric("Rows",data.summary.total_rows)+metric("Valid",data.summary.valid_rows)+metric("Errors",data.summary.error_rows)+metric("Create",data.summary.create_rows)+metric("Update",data.summary.update_rows);exportValidation.href=`/api/exports/import-validation?batch_id=${currentBatch}`;commit.disabled=data.summary.valid_rows===0;remap.disabled=false;renderMapping();renderRows();await loadHistory()}
+    preview.addEventListener("click",()=>runPreview(false));
+    remap.addEventListener("click",()=>runPreview(true));
     commit.addEventListener("click",async()=>{if(!currentBatch)return;const data=await api("/api/imports/pending-offers/commit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({batch_id:currentBatch,create_missing_hospitals:true})});currentRows=data.results;summary.innerHTML=metric("Imported",data.imported)+metric("Errors",data.errors);commit.disabled=true;renderRows();await loadHistory()});
     renderRows();loadHistory();
   </script>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>CMM Procurement</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar select,.toolbar input{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px}.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:24px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;margin:12px 0 22px;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.warn{background:#fff4cc;color:#854d0e}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions a,.actions button{background:#fff;border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Minimum stock, sales shortages, incoming orders, and supplier PO alerts</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a></nav></div></header>
+  <main class="container">
+    <section class="card">
+      <div class="toolbar">
+        <select id="category"><option value="">All categories</option><option value="spare_parts">Spare parts</option><option value="accessories">Accessories</option><option value="equipment">Equipment</option></select>
+        <input id="filter" placeholder="Filter supplier, PN, client, reference">
+        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/purchase-orders">PO API</a><a href="/api/exports/procurement">Export</a></div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+    <section class="card" id="tables"></section>
+  </main>
+  <script>
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("not_ordered")||l.includes("cancel")?"bad":l.includes("draft")||l.includes("partial")||l.includes("sent")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
+    const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;
+    const table=(title,headers,rows)=>`<h2>${esc(title)}</h2><div class="table-wrap"><table class="table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">No rows</td></tr>`}</tbody></table></div>`;
+    const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
+    async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function matches(row){const q=filter.value.toLowerCase();return !q||Object.values(row).join(" ").toLowerCase().includes(q)}
+    async function load(){
+      const data=await api(`/api/procurement/dashboard?category=${encodeURIComponent(category.value)}`);
+      const min=data.minimum_stock_alerts.filter(matches), shortages=data.requested_shortages.filter(matches), incoming=data.incoming_ordered_items.filter(matches);
+      stats.innerHTML=metric("Minimum stock alerts",min.length)+metric("Sales shortages",shortages.length)+metric("Incoming ordered items",incoming.length)+metric("Statuses",data.procurement_statuses.length);
+      tables.innerHTML=table("A. Minimum Stock Alerts",["PN","Description","Current","Minimum","Suggested reorder","Supplier"],min.map(x=>row([esc(x.pn),esc(x.description),esc(x.current_quantity),esc(x.minimum_quantity),esc(x.suggested_reorder_quantity),esc(x.supplier||"")])).join(""))+
+        table("B. Sales Requested but Out of Stock",["Client","Sales request","Offer","Item","Requested","Shortage","Status"],shortages.map(x=>row([esc(x.client_name),esc(x.parent_case_reference),esc(x.offer_reference),esc(x.requested_item),esc(x.requested_qty),esc(x.shortage_qty),badge(x.procurement_status)])).join(""))+
+        table("C. Incoming / Ordered Items",["PO","Supplier","Expected","Item","Received","Pending","Status"],incoming.map(x=>row([esc(x.po_no),esc(x.supplier),esc(x.expected_delivery_date),esc(x.description||x.pn),esc(x.received_quantity),esc(x.pending_quantity),badge(x.po_status)])).join(""));
+    }
+    category.addEventListener("change",load);filter.addEventListener("input",load);load();
+  </script>
+</body>
+</html>

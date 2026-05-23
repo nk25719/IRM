@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f4e78">
+  <title>Equipment Database</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar input,.toolbar select{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:9px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.detail{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:14px}.info-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.info-card h3{color:var(--primary-dark);margin:0 0 8px}.mini{color:var(--muted);display:block;font-size:12px}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions a,.actions button{background:#fff;border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Equipment Database</h1><p>Hospital machines, service history, PM, warranty, calibration, FMI/recall, installation, and acceptance records</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/after-sales">After Sales</a><a href="/pm">PM</a><a href="/logout">Logout</a></nav></div></header>
+  <main class="container">
+    <section class="card">
+      <div class="toolbar">
+        <input id="q" placeholder="Search model, serial, asset tag, hospital">
+        <select id="risk"><option value="">All risk</option><option>low</option><option>medium</option><option>high</option></select>
+        <select id="status"><option value="">All status</option><option>active</option><option>out_of_service</option><option>under_repair</option><option>retired</option><option>EOL</option><option>EOSL</option></select>
+        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/exports/equipment-database">Export</a></div>
+      </div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Hospital</th><th>Department</th><th>Equipment</th><th>Family</th><th>Manufacturer</th><th>Model</th><th>Serial</th><th>Asset Tag</th><th>Installed</th><th>Warranty</th><th>Contract</th><th>PM</th><th>Service</th><th>Calibration</th><th>Risk</th><th>Life Support</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>
+    <section class="card">
+      <h2 id="detailTitle">Equipment Detail</h2>
+      <div id="detail" class="detail"></div>
+    </section>
+  </main>
+  <script>
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("expired")||l.includes("high")||l.includes("out")||l.includes("repair")||l.includes("eol")?"bad":l.includes("active")||l.includes("low")?"good":l.includes("soon")||l.includes("medium")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
+    const card=(title,rows)=>`<div class="info-card"><h3>${esc(title)}</h3>${rows.length?rows.map(r=>`<p><b>${esc(r.label)}</b><span class="mini">${esc(r.value)}</span></p>`).join(""):"<p>No records</p>"}</div>`;
+    async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function matches(e){const text=Object.values(e).join(" ").toLowerCase();if(q.value&& !text.includes(q.value.toLowerCase()))return false;if(risk.value&&String(e.risk_classification||e.risk_level).toLowerCase()!==risk.value.toLowerCase())return false;if(status.value&&String(e.lifecycle_status||e.status).toLowerCase()!==status.value.toLowerCase())return false;return true}
+    async function showDetail(id){const d=await api(`/api/equipment/${id}`);detailTitle.textContent=d.equipment_name||d.asset_tag||"Equipment Detail";detail.innerHTML=card("Service History",(d.service_history||[]).map(x=>({label:x.call_no||x.status,value:`${x.opened_at||x.created_at||""} ${x.issue||""}`})))+card("PM History",(d.pm_history||[]).map(x=>({label:x.action,value:`${x.created_at||""} ${x.engineer||""} ${x.notes||""}`})))+card("Warranty / Contract",[{label:"Warranty",value:`${d.warranty_start||""} to ${d.warranty_end||""} ${d.warranty_status||""}`},{label:"Contract",value:d.contract_no||""}])+card("Calibration",(d.calibration_history||[]).map(x=>({label:x.calibration_date||x.next_due_date,value:`${x.calibration_result||x.result||""} ${x.calibrated_by||""}`})))+card("FMI / Recall",(d.fmi_recall_notices||[]).map(x=>({label:x.notice_no||x.notice_type,value:`${x.completion_status||""} ${x.corrective_actions||x.corrective_action||""}`})))+card("Installation / Acceptance",(d.installation_reports||[]).concat(d.acceptance_testing_reports||[]).map(x=>({label:x.doc_no||x.status,value:x.created_at||x.updated_at||""})))}
+    async function load(){const data=await api('/api/equipment');const filtered=data.filter(matches);rows.innerHTML=filtered.map(e=>`<tr onclick="showDetail(${e.id})"><td>${esc(e.client_name)}</td><td>${esc(e.department_name)}</td><td><b>${esc(e.equipment_name)}</b></td><td>${esc(e.equipment_family)}</td><td>${esc(e.manufacturer)}</td><td>${esc(e.model)}</td><td>${esc(e.serial_number)}</td><td>${esc(e.asset_tag)}</td><td>${esc(e.installation_date)}</td><td>${badge(e.warranty_status)}<span class="mini">${esc(e.warranty_start)} - ${esc(e.warranty_end)}</span></td><td>${esc(e.contract_no)}</td><td>${esc(e.last_pm_date)}<span class="mini">next ${esc(e.next_pm_date)} / ${esc(e.pm_frequency_days)}d</span></td><td>${esc(e.last_service_date)}</td><td>${e.calibration_required?badge("yes"):badge("no")}<span class="mini">${esc(e.calibration_due_date)}</span></td><td>${badge(e.risk_classification)}</td><td>${e.life_support?badge("yes"):badge("no")}</td><td>${badge(e.lifecycle_status||e.status)}</td></tr>`).join("")||'<tr><td colspan="17">No equipment found.</td></tr>';if(filtered[0])showDetail(filtered[0].id)}
+    [q,risk,status].forEach(el=>el.addEventListener("input",load));load();
+  </script>
+</body>
+</html>

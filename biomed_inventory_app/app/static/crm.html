@@ -24,7 +24,7 @@
     <div class="topbar-inner">
       <div class="brand"><h1>CRM / Clients</h1><p>Client-centric biomedical ERP workspaces</p></div>
       <nav class="top-actions" aria-label="CRM top navigation">
-        <a href="/portal">Portal</a><a href="/after-sales">After Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a>
+        <a href="/dashboard">Dashboard</a><a href="/sales">Sales</a><a href="/procurement">Procurement</a><a href="/after-sales">After Sales</a><a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
@@ -36,10 +36,11 @@
     </section>
     <section class="card">
       <div class="filters">
-        <input id="search" placeholder="Search hospital, city, contact, engineer">
-        <input id="city" placeholder="City">
-        <select id="contractStatus"><option value="">All contract status</option><option value="active">Active contracts</option><option value="needs_review">Needs review</option></select>
-        <input id="engineer" placeholder="Engineer">
+        <input id="search" placeholder="Name, contact, engineer">
+        <input id="location" placeholder="Location">
+        <select id="financialStatus"><option value="">All financial status</option><option value="good standing">Good standing</option><option value="pending payment">Pending payment</option><option value="blocked">Blocked</option><option value="under review">Under review</option></select>
+        <select id="activeContract"><option value="">Contract yes/no</option><option value="yes">Active contract: yes</option><option value="no">Active contract: no</option></select>
+        <select id="warrantyEquipment"><option value="">Warranty yes/no</option><option value="yes">Warranty equipment: yes</option><option value="no">Warranty equipment: no</option></select>
         <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="under review">Under review</option></select>
         <button class="btn" onclick="loadClients()">Search</button>
       </div>
@@ -48,12 +49,12 @@
   </main>
 
   <script>
-    const searchEl=document.getElementById("search"),cityEl=document.getElementById("city"),contractStatusEl=document.getElementById("contractStatus"),engineerEl=document.getElementById("engineer"),statusEl=document.getElementById("status"),clientGridEl=document.getElementById("clientGrid");
+    const searchEl=document.getElementById("search"),locationEl=document.getElementById("location"),financialStatusEl=document.getElementById("financialStatus"),activeContractEl=document.getElementById("activeContract"),warrantyEquipmentEl=document.getElementById("warrantyEquipment"),statusEl=document.getElementById("status"),clientGridEl=document.getElementById("clientGrid");
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
     function metric(label,value){return `<div class="mini-metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`}
     async function loadClients(){
-      const params=new URLSearchParams({q:searchEl.value,city:cityEl.value,contract_status:contractStatusEl.value,engineer:engineerEl.value,status:statusEl.value});
+      const params=new URLSearchParams({q:searchEl.value,location:locationEl.value,financial_status:financialStatusEl.value,active_contract:activeContractEl.value,warranty_equipment:warrantyEquipmentEl.value,status:statusEl.value});
       const rows=await api(`/api/crm/clients?${params.toString()}`);
       clientGridEl.innerHTML=rows.length?rows.map(c=>`
         <article class="card client-card">
@@ -71,13 +72,13 @@
           </div>
           <p><b>Main contact:</b> ${esc(c.main_contact||c.contact_email||"Not set")}</p>
           <div class="actions">
-            <a class="primary" href="/crm/client/${c.id}">Open CRM</a>
-            <a href="/crm/client/${c.id}/requests">Requests</a>
-            <a href="/crm/client/${c.id}/financials">Financials</a>
+            <a class="primary" href="/crm/client/${c.id}">Open Profile</a>
+            <a href="/crm/client/${c.id}#operations">Timeline</a>
+            <a href="/crm/client/${c.id}#sales">Sales</a>
           </div>
         </article>`).join(""):`<div class="empty">No clients found yet. Clients are created automatically from PM assets, client orders, and transaction client names.</div>`;
     }
-    [searchEl,cityEl,contractStatusEl,engineerEl,statusEl].forEach(el=>el.addEventListener("change",loadClients));
+    [searchEl,locationEl,financialStatusEl,activeContractEl,warrantyEquipmentEl,statusEl].forEach(el=>el.addEventListener("change",loadClients));
     loadClients();
   </script>
 </body>

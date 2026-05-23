@@ -354,8 +354,12 @@ BLOCKED_REASONS = {
 }
 BULK_TARGETS = {
     "cases": "cases",
+    "crm_clients": "clients",
+    "clients": "clients",
+    "client_activities": "client_activities",
     "pending_calls": "cases",
     "customer_requests": "customer_requests",
+    "sales_requests": "sales_requests",
     "offers": "quotations",
     "quotations": "quotations",
     "service_calls": "service_calls",
@@ -364,6 +368,7 @@ BULK_TARGETS = {
     "inventory_items": "inventory",
     "inventory": "inventory",
     "procurement_items": "customer_request_items",
+    "procurement_requests": "procurement_requests",
     "purchase_orders": "purchase_orders",
     "departments": "departments",
 }
@@ -607,6 +612,22 @@ def case_timeline(conn, parent_case_reference: str = "", parent_case_id: int | N
         (parent_case_reference, parent_case_id, event_type, title, status, user, notes, related_table, related_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (parent_case_reference, parent_case_id, event_type, title, status, user, notes, related_table, related_id, now()))
+    client_id = None
+    department_id = None
+    if parent_case_id:
+        case_row = conn.execute("SELECT client_id, department_id FROM cases WHERE id=?", (parent_case_id,)).fetchone()
+        if case_row:
+            client_id = case_row["client_id"]
+            department_id = case_row["department_id"] if "department_id" in case_row.keys() else None
+    if client_id:
+        activity_type = "sales" if related_table in {"customer_requests", "quotations", "sales_case_documents", "client_orders"} else "after_sales" if related_table in {"service_calls", "pm_tasks", "pm_assets", "equipment", "warranties", "fmi_notices", "equipment_recall_notices"} else "client_operations"
+        conn.execute("""
+            INSERT INTO client_activities
+            (client_id, department_id, case_id, parent_case_reference, activity_type, source_table, source_id,
+             title, status, responsible_person, activity_date, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (client_id, department_id, parent_case_id, parent_case_reference, activity_type, related_table,
+              related_id, title or event_type, status, user, now(), notes, now(), now()))
 
 def init_db():
     conn = db()
@@ -893,6 +914,31 @@ def init_db():
             user TEXT,
             note TEXT,
             created_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS client_activities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_id INTEGER,
+            case_id INTEGER,
+            parent_case_reference TEXT,
+            activity_type TEXT,
+            source_table TEXT,
+            source_id INTEGER,
+            reference TEXT,
+            title TEXT,
+            status TEXT,
+            responsible_person TEXT,
+            priority TEXT DEFAULT 'normal',
+            due_date TEXT,
+            blocked_reason TEXT DEFAULT 'none',
+            client_informed INTEGER DEFAULT 0,
+            activity_date TEXT,
+            department TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
         )
     """)
     conn.execute("""
@@ -1191,6 +1237,27 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS fmi_recalls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipment_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            notice_type TEXT,
+            manufacturer TEXT,
+            affected_model TEXT,
+            affected_serial_numbers TEXT,
+            corrective_action TEXT,
+            completion_status TEXT DEFAULT 'open',
+            parent_case_reference TEXT,
+            parent_case_id INTEGER,
+            blocked_reason TEXT DEFAULT 'none',
+            client_informed INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS equipment_compatibility (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             equipment_id INTEGER,
@@ -1296,6 +1363,81 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS sales_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_request_id INTEGER UNIQUE,
+            case_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            equipment_id INTEGER,
+            parent_case_reference TEXT,
+            offer_reference TEXT,
+            category TEXT,
+            status TEXT DEFAULT 'request',
+            stock_status TEXT DEFAULT 'unchecked',
+            procurement_status TEXT DEFAULT 'not_ordered',
+            blocked_reason TEXT DEFAULT 'none',
+            responsible_person TEXT,
+            next_action TEXT,
+            progress_stage TEXT DEFAULT 'request',
+            progress_percent INTEGER DEFAULT 0,
+            priority TEXT DEFAULT 'normal',
+            due_date TEXT,
+            client_informed INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sales_request_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sales_request_id INTEGER,
+            customer_request_item_id INTEGER UNIQUE,
+            inventory_item_id INTEGER,
+            requested_item TEXT,
+            category TEXT,
+            quantity INTEGER DEFAULT 1,
+            available_qty INTEGER DEFAULT 0,
+            reserved_qty INTEGER DEFAULT 0,
+            shortage_qty INTEGER DEFAULT 0,
+            stock_status TEXT DEFAULT 'unchecked',
+            procurement_status TEXT DEFAULT 'not_ordered',
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS procurement_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sales_request_item_id INTEGER,
+            customer_request_item_id INTEGER UNIQUE,
+            inventory_item_id INTEGER,
+            client_id INTEGER,
+            department_id INTEGER,
+            sales_request_id INTEGER,
+            purchase_order_id INTEGER,
+            category TEXT,
+            requested_item TEXT,
+            requested_qty INTEGER DEFAULT 0,
+            shortage_qty INTEGER DEFAULT 0,
+            procurement_status TEXT DEFAULT 'not_ordered',
+            supplier TEXT,
+            expected_delivery_date TEXT,
+            received_qty INTEGER DEFAULT 0,
+            pending_qty INTEGER DEFAULT 0,
+            responsible_person TEXT,
+            blocked_reason TEXT DEFAULT 'none',
+            priority TEXT DEFAULT 'normal',
+            due_date TEXT,
+            client_informed INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS case_workflow_states (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             case_id INTEGER,
@@ -1390,6 +1532,49 @@ def init_db():
             request_id INTEGER,
             equipment_id INTEGER,
             status TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            invoice_id INTEGER,
+            amount REAL DEFAULT 0,
+            payment_date TEXT,
+            status TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS communications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_id INTEGER,
+            case_id INTEGER,
+            communication_type TEXT,
+            responsible_person TEXT,
+            status TEXT,
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS escalations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            department_id INTEGER,
+            case_id INTEGER,
+            priority TEXT DEFAULT 'high',
+            status TEXT DEFAULT 'open',
+            blocked_reason TEXT DEFAULT 'none',
+            responsible_person TEXT,
+            due_date TEXT,
             notes TEXT,
             created_at TEXT,
             updated_at TEXT
@@ -1533,6 +1718,15 @@ def init_db():
             "responsible_person": "TEXT",
             "priority": "TEXT DEFAULT 'normal'",
             "due_date": "TEXT",
+        },
+        "client_activities": {
+            "blocked_notes": "TEXT",
+        },
+        "sales_requests": {
+            "blocked_notes": "TEXT",
+        },
+        "procurement_requests": {
+            "blocked_notes": "TEXT",
         },
         "cases": {
             "department": "TEXT",
@@ -1747,6 +1941,14 @@ def init_db():
             "informed_notes": "TEXT",
             "informed_attachment": "TEXT",
         },
+        "fmi_recalls": {
+            "blocked_notes": "TEXT",
+            "date_informed": "TEXT",
+            "informed_by": "TEXT",
+            "communication_method": "TEXT",
+            "informed_notes": "TEXT",
+            "informed_attachment": "TEXT",
+        },
         "delivery_notes": {
             "blocked_reason": "TEXT DEFAULT 'none'",
             "blocked_notes": "TEXT",
@@ -1944,6 +2146,30 @@ def infer_item_type_from_requirement(requirement: str = "") -> str:
         return "new_equipment"
     return "spare_part"
 
+def infer_case_type_from_category(category: str = "", requirement: str = "") -> str:
+    text = str(category or "").strip().lower().replace("-", " ").replace("_", " ")
+    if "accessor" in text:
+        return "accessories_sale"
+    if "equipment" in text:
+        return "equipment_delivery"
+    if text in {"pm", "preventive maintenance"} or "maintenance" in text:
+        return "preventive_maintenance"
+    if "service" in text:
+        return "corrective_maintenance"
+    return infer_case_type_from_requirement(requirement)
+
+def infer_item_type_from_category(category: str = "", requirement: str = "") -> str:
+    text = str(category or "").strip().lower().replace("-", " ").replace("_", " ")
+    if "accessor" in text:
+        return "accessory"
+    if "equipment" in text:
+        return "new_equipment"
+    if text in {"pm", "preventive maintenance"}:
+        return "maintenance_contract"
+    if "service" in text:
+        return "service"
+    return infer_item_type_from_requirement(requirement)
+
 def workflow_state_for_import_status(case_type: str, status: str) -> str:
     states = workflow_states_for_case_type(case_type)
     status = normalize_import_status(status)
@@ -1964,9 +2190,11 @@ def workflow_state_for_import_status(case_type: str, status: str) -> str:
 def default_pending_offer_field_map(df) -> dict:
     return {
         "hospital": find_col(df, ["hospital", "Hospital", "client", "Client", "customer", "Customer", "hospital/client name"]),
+        "location": find_col(df, ["location", "Location", "city", "City", "area", "Area"]),
         "offer_reference": find_col(df, ["offer reference", "Offer Ref", "offer_ref", "Offer Reference", "reference", "Ref", "quotation", "Quotation"]),
         "status": find_col(df, ["status", "Status"]),
         "requirement": find_col(df, ["requirement", "Requirement", "description", "Description", "item", "Item", "request", "Request"]),
+        "category": find_col(df, ["category", "Category", "type", "Type", "request category"]),
         "department": find_col(df, ["department", "Department", "dept", "Dept"]),
         "equipment": find_col(df, ["equipment", "Equipment", "machine", "Machine", "asset", "Asset"]),
         "notes": find_col(df, ["notes", "Notes", "comment", "Comment"]),
@@ -2105,17 +2333,25 @@ def commit_pending_offer_rows(conn, rows: list[dict], batch_id: int | None = Non
             ] if not ok]
             results.append({"row_no": mapped.get("row_no"), "status": "error", "errors": errors})
             continue
-        client_id = ensure_client(conn, hospital) if create_missing_hospitals else None
+        client_id = ensure_client(conn, hospital, city=mapped.get("location", ""), address=mapped.get("location", "")) if create_missing_hospitals else None
         if not client_id:
             results.append({"row_no": mapped.get("row_no"), "status": "error", "errors": ["hospital was not found and create_missing_hospitals is false"]})
             continue
+        if mapped.get("location"):
+            conn.execute("""
+                UPDATE clients
+                SET city=COALESCE(NULLIF(city, ''), ?),
+                    address=COALESCE(NULLIF(address, ''), ?),
+                    updated_at=?
+                WHERE id=?
+            """, (mapped.get("location", ""), mapped.get("location", ""), now(), client_id))
         department_id = ensure_department(conn, client_id, mapped.get("department", ""), main_contact_name=mapped.get("responsible_person", "")) if mapped.get("department") else None
         status = normalize_import_status(mapped.get("status"))
         blocked_reason = normalize_blocked_reason(mapped.get("blocked_reason"))
-        case_type = infer_case_type_from_requirement(requirement)
+        case_type = infer_case_type_from_category(mapped.get("category", ""), requirement)
         workflow_state = workflow_state_for_import_status(case_type, status)
         quantity, clean_requirement = import_line_quantity(requirement)
-        item_type = infer_item_type_from_requirement(requirement)
+        item_type = infer_item_type_from_category(mapped.get("category", ""), requirement)
         existing_case = find_case_by_reference(conn, offer_ref)
         action = "updated" if existing_case else "created"
         if existing_case:
@@ -2691,6 +2927,21 @@ def sync_core_reference_tables(conn):
             (id, equipment_id, client_id, notice_type, manufacturer, affected_model, affected_serial_numbers, corrective_action, completion_status, parent_case_reference, parent_case_id, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (row["id"], row["equipment_id"], row["client_id"], row["notice_type"], row["manufacturer"], row["affected_model"] if "affected_model" in row.keys() else "", row["affected_serial_numbers"], row["corrective_actions"], row["completion_status"], row["parent_case_reference"] if "parent_case_reference" in row.keys() else "", row["parent_case_id"] if "parent_case_id" in row.keys() else None, row["created_at"], row["updated_at"]))
+    for row in conn.execute("SELECT * FROM fmi_notices").fetchall():
+        conn.execute("""
+            INSERT OR IGNORE INTO fmi_recalls
+            (id, equipment_id, client_id, department_id, notice_type, manufacturer, affected_model,
+             affected_serial_numbers, corrective_action, completion_status, parent_case_reference,
+             parent_case_id, blocked_reason, client_informed, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            row["id"], row["equipment_id"], row["client_id"], row["department_id"], row["notice_type"],
+            row["manufacturer"], row["affected_model"], row["affected_serial_numbers"], row["corrective_action"],
+            row["completion_status"], row["parent_case_reference"], row["parent_case_id"],
+            row["blocked_reason"] if "blocked_reason" in row.keys() else "none",
+            row["client_informed"] if "client_informed" in row.keys() else 0,
+            row["created_at"], row["updated_at"],
+        ))
     for row in conn.execute("""
         SELECT i.*, c.id AS case_id, c.parent_case_reference
         FROM customer_request_items i
@@ -2706,6 +2957,99 @@ def sync_core_reference_tables(conn):
             row["quantity"], row["reserved_qty"], row["shortage_qty"], row["procurement_status"],
             row["parent_case_reference"], row["created_at"], row["updated_at"]
         ))
+    for req in conn.execute("""
+        SELECT r.*, c.id AS case_id, c.case_type, c.workflow_state, c.priority,
+               c.responsible_person AS case_responsible, c.due_date AS case_due_date,
+               q.quotation_no AS offer_reference
+        FROM customer_requests r
+        LEFT JOIN cases c ON c.request_id=r.id
+        LEFT JOIN quotations q ON q.request_id=r.id
+    """).fetchall():
+        lines = [dict(line) for line in conn.execute("SELECT * FROM customer_request_items WHERE request_id=?", (req["id"],)).fetchall()]
+        category = sales_category_for_lines(lines, req["case_type"] if "case_type" in req.keys() else "")
+        stock_statuses = {line.get("stock_status") for line in lines}
+        procurement_statuses = {line.get("procurement_status") for line in lines}
+        stock_status = "available" if stock_statuses and stock_statuses <= {"available", "reserved", "invoiced"} else "partial" if any(s in {"available", "reserved", "partially_available", "partially_reserved"} for s in stock_statuses) else "unavailable" if lines else "unchecked"
+        procurement_status = "received" if procurement_statuses and procurement_statuses <= {"received"} else next((s for s in ["partially_received", "supplier_confirmed", "po_sent", "po_draft", "not_ordered"] if s in procurement_statuses), "not_ordered")
+        progress = progress_for_case(dict(req), [dict(d) for d in conn.execute("SELECT * FROM sales_case_documents WHERE request_id=?", (req["id"],)).fetchall()], lines) if req["case_id"] else {"current_stage": "request", "percent": 0, "next_action": "quotation"}
+        conn.execute("""
+            INSERT INTO sales_requests
+            (customer_request_id, case_id, client_id, department_id, parent_case_reference, offer_reference,
+             category, status, stock_status, procurement_status, blocked_reason, responsible_person, next_action,
+             progress_stage, progress_percent, priority, due_date, client_informed, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(customer_request_id) DO UPDATE SET case_id=excluded.case_id, client_id=excluded.client_id,
+                department_id=excluded.department_id, parent_case_reference=excluded.parent_case_reference,
+                offer_reference=excluded.offer_reference, category=excluded.category, status=excluded.status,
+                stock_status=excluded.stock_status, procurement_status=excluded.procurement_status,
+                blocked_reason=excluded.blocked_reason, responsible_person=excluded.responsible_person,
+                next_action=excluded.next_action, progress_stage=excluded.progress_stage,
+                progress_percent=excluded.progress_percent, priority=excluded.priority, due_date=excluded.due_date,
+                client_informed=excluded.client_informed, notes=excluded.notes, updated_at=excluded.updated_at
+        """, (
+            req["id"], req["case_id"], req["client_id"], req["department_id"] if "department_id" in req.keys() else None,
+            req["parent_case_reference"], req["offer_reference"] or req["external_reference"] if "external_reference" in req.keys() else "",
+            category, req["status"], stock_status, procurement_status,
+            req["blocked_reason"] if "blocked_reason" in req.keys() else "none",
+            req["responsible_person"] if "responsible_person" in req.keys() and req["responsible_person"] else req["case_responsible"],
+            progress["next_action"], progress["current_stage"], progress["percent"], req["priority"] if "priority" in req.keys() else req["priority"],
+            req["due_date"] if "due_date" in req.keys() and req["due_date"] else req["case_due_date"],
+            req["client_informed"] if "client_informed" in req.keys() else 0,
+            req["notes"], req["created_at"], now(),
+        ))
+        sales_request_id = conn.execute("SELECT id FROM sales_requests WHERE customer_request_id=?", (req["id"],)).fetchone()["id"]
+        for line in lines:
+            line_category = normalize_sales_category(line.get("item_type") or category)
+            conn.execute("""
+                INSERT INTO sales_request_items
+                (sales_request_id, customer_request_item_id, inventory_item_id, requested_item, category, quantity,
+                 available_qty, reserved_qty, shortage_qty, stock_status, procurement_status, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(customer_request_item_id) DO UPDATE SET sales_request_id=excluded.sales_request_id,
+                    inventory_item_id=excluded.inventory_item_id, requested_item=excluded.requested_item,
+                    category=excluded.category, quantity=excluded.quantity, available_qty=excluded.available_qty,
+                    reserved_qty=excluded.reserved_qty, shortage_qty=excluded.shortage_qty,
+                    stock_status=excluded.stock_status, procurement_status=excluded.procurement_status,
+                    notes=excluded.notes, updated_at=excluded.updated_at
+            """, (
+                sales_request_id, line["id"], line.get("inventory_item_id"), line.get("requested_item", ""),
+                line_category, int(line.get("quantity") or 0), int(line.get("available_qty") or 0),
+                int(line.get("reserved_qty") or 0), int(line.get("shortage_qty") or 0),
+                line.get("stock_status") or "unchecked", line.get("procurement_status") or "not_ordered",
+                line.get("notes") or "", line.get("created_at") or now(), now(),
+            ))
+            shortage = int(line.get("shortage_qty") or 0)
+            if shortage > 0 or line.get("procurement_status") in PROCUREMENT_STATUSES - {"received", "cancelled"}:
+                sri = conn.execute("SELECT id FROM sales_request_items WHERE customer_request_item_id=?", (line["id"],)).fetchone()
+                conn.execute("""
+                    INSERT INTO procurement_requests
+                    (sales_request_item_id, customer_request_item_id, inventory_item_id, client_id, department_id,
+                     sales_request_id, category, requested_item, requested_qty, shortage_qty, procurement_status,
+                     received_qty, pending_qty, responsible_person, blocked_reason, priority, due_date, client_informed,
+                     notes, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(customer_request_item_id) DO UPDATE SET sales_request_item_id=excluded.sales_request_item_id,
+                        inventory_item_id=excluded.inventory_item_id, client_id=excluded.client_id,
+                        department_id=excluded.department_id, sales_request_id=excluded.sales_request_id,
+                        category=excluded.category, requested_item=excluded.requested_item,
+                        requested_qty=excluded.requested_qty, shortage_qty=excluded.shortage_qty,
+                        procurement_status=excluded.procurement_status, received_qty=excluded.received_qty,
+                        pending_qty=excluded.pending_qty, responsible_person=excluded.responsible_person,
+                        blocked_reason=excluded.blocked_reason, priority=excluded.priority,
+                        due_date=excluded.due_date, client_informed=excluded.client_informed,
+                        notes=excluded.notes, updated_at=excluded.updated_at
+                """, (
+                    sri["id"] if sri else None, line["id"], line.get("inventory_item_id"), req["client_id"],
+                    req["department_id"] if "department_id" in req.keys() else None, sales_request_id, line_category,
+                    line.get("requested_item", ""), int(line.get("quantity") or 0), shortage,
+                    line.get("procurement_status") or "not_ordered", int(line.get("delivered_qty") or 0),
+                    max(0, shortage - int(line.get("delivered_qty") or 0)),
+                    line.get("responsible_person") or (req["responsible_person"] if "responsible_person" in req.keys() else ""),
+                    line.get("blocked_reason") or "none", req["priority"] if "priority" in req.keys() else "normal",
+                    line.get("due_date") or (req["due_date"] if "due_date" in req.keys() else ""),
+                    req["client_informed"] if "client_informed" in req.keys() else 0,
+                    line.get("notes") or "", line.get("created_at") or now(), now(),
+                ))
     engineer_names = set()
     for row in conn.execute("SELECT engineer FROM pm_assets WHERE COALESCE(engineer, '') != ''").fetchall():
         engineer_names.add(row["engineer"].strip())
@@ -2793,6 +3137,26 @@ def classify_order_status(status: str) -> str:
     if "partial" in text:
         return "partially_fulfilled"
     return "open"
+
+def normalize_sales_category(value: str = "") -> str:
+    text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if text in {"accessory", "accessories"}:
+        return "accessories"
+    if text in {"new_equipment", "equipment", "machine", "machines"}:
+        return "equipment"
+    if text in {"service", "labor", "pm", "preventive_maintenance", "maintenance_contract", "calibration"}:
+        return "service"
+    return "spare_parts"
+
+def sales_category_for_lines(lines: list[dict], case_type: str = "") -> str:
+    types = {normalize_sales_category(line.get("item_type", "")) for line in lines}
+    if "equipment" in types or case_type in {"equipment_delivery", "installation"}:
+        return "equipment"
+    if "accessories" in types or case_type == "accessories_sale":
+        return "accessories"
+    if "service" in types or case_type in {"corrective_maintenance", "preventive_maintenance", "maintenance_contract", "calibration"}:
+        return "service"
+    return "spare_parts"
 
 def progress_for_case(case_row: dict, docs: list[dict], lines: list[dict]) -> dict:
     doc_types = {d.get("doc_type") for d in docs}
@@ -3379,9 +3743,11 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
             "pending_payments": unpaid_invoices,
             "invoices": invoices,
             "client_communication": notes_rows,
+            "client_availability": [b for b in blocked_items if "customer" in str(b.get("blocked_reason", "")).lower() or "availability" in str(b.get("blocked_reason", "")).lower()],
             "approval_status": [r for r in requests if str(r.get("status", "")).lower() in {"pending", "approved", "rejected", "waiting_client_approval"}],
             "blocked_items": blocked_items,
             "escalations": [c for c in open_cases if str(c.get("priority", "")).lower() in {"urgent", "high", "critical"} or (c.get("blocked_reason") or "none") != "none"],
+            "satisfaction": [n for n in notes_rows if "satisfaction" in str(n.get("type", "")).lower() or "satisfaction" in str(n.get("note", "")).lower()],
         },
         "timeline": [event for group in parent_timelines for event in group.get("timeline", [])],
         "notes": notes_rows,
@@ -3709,6 +4075,92 @@ def hospital_dashboard_rows(conn):
             "urgent_items_count": int(urgent_issues or 0),
         })
     return rows
+
+def sales_dashboard_data(conn, category: str = ""):
+    sync_core_reference_tables(conn)
+    selected = normalize_sales_category(category) if category else ""
+    where = "WHERE sr.category=?" if selected else ""
+    params = [selected] if selected else []
+    requests = [dict(r) for r in conn.execute(f"""
+        SELECT sr.*, c.name AS client_name, d.department_name, e.asset_tag, e.serial_number
+        FROM sales_requests sr
+        LEFT JOIN clients c ON c.id=sr.client_id
+        LEFT JOIN departments d ON d.id=sr.department_id
+        LEFT JOIN equipment e ON e.id=sr.equipment_id
+        {where}
+        ORDER BY sr.updated_at DESC, sr.id DESC
+    """, params).fetchall()]
+    items = [dict(r) for r in conn.execute("""
+        SELECT sri.*, sr.customer_request_id, sr.parent_case_reference, sr.offer_reference,
+               c.name AS client_name, d.department_name
+        FROM sales_request_items sri
+        JOIN sales_requests sr ON sr.id=sri.sales_request_id
+        LEFT JOIN clients c ON c.id=sr.client_id
+        LEFT JOIN departments d ON d.id=sr.department_id
+        WHERE (? = '' OR sri.category=?)
+        ORDER BY sri.updated_at DESC, sri.id DESC
+    """, (selected, selected)).fetchall()]
+    return {
+        "sections": {
+            "spare_parts": [r for r in requests if r.get("category") == "spare_parts"],
+            "accessories": [r for r in requests if r.get("category") == "accessories"],
+            "equipment": [r for r in requests if r.get("category") == "equipment"],
+        },
+        "requests": requests,
+        "items": items,
+        "progress_stages": ["request", "quotation", "approval", "client_order", "stock/procurement", "delivery", "invoice", "paid/closed"],
+        "bulk_targets": ["sales_requests", "procurement_requests"],
+    }
+
+def procurement_dashboard_data(conn, category: str = ""):
+    sync_core_reference_tables(conn)
+    selected = normalize_sales_category(category) if category else ""
+    minimum_stock_alerts = [dict(r) for r in conn.execute("""
+        SELECT i.id, i.pn, i.description, COALESCE(i.location, '') AS location,
+               COALESCE(i.physical_qty, 0) - COALESCE(i.reserved_qty, 0) AS current_quantity,
+               CASE WHEN COALESCE(i.system_qty, 0) > 0 THEN i.system_qty ELSE 1 END AS minimum_quantity,
+               MAX((CASE WHEN COALESCE(i.system_qty, 0) > 0 THEN i.system_qty ELSE 1 END) - (COALESCE(i.physical_qty, 0) - COALESCE(i.reserved_qty, 0)), 1) AS suggested_reorder_quantity,
+               COALESCE(i.device_family, '') AS category,
+               '' AS supplier
+        FROM inventory i
+        WHERE (COALESCE(i.physical_qty, 0) - COALESCE(i.reserved_qty, 0)) < (CASE WHEN COALESCE(i.system_qty, 0) > 0 THEN i.system_qty ELSE 1 END)
+        ORDER BY suggested_reorder_quantity DESC, i.pn
+        LIMIT 200
+    """).fetchall()]
+    requested_shortages = [dict(r) for r in conn.execute("""
+        SELECT pr.*, c.name AS client_name, d.department_name, sr.offer_reference,
+               sr.parent_case_reference, sr.customer_request_id
+        FROM procurement_requests pr
+        LEFT JOIN sales_requests sr ON sr.id=pr.sales_request_id
+        LEFT JOIN clients c ON c.id=pr.client_id
+        LEFT JOIN departments d ON d.id=pr.department_id
+        WHERE COALESCE(pr.shortage_qty, 0) > 0
+          AND (? = '' OR pr.category=?)
+        ORDER BY pr.updated_at DESC, pr.id DESC
+    """, (selected, selected)).fetchall()]
+    incoming_ordered_items = [dict(r) for r in conn.execute("""
+        SELECT poi.*, po.id AS purchase_order_id, po.supplier, po.status AS po_status,
+               po.expected_date AS expected_delivery_date,
+               COALESCE(poi.received_qty, 0) AS received_quantity,
+               MAX(COALESCE(poi.qty, 0) - COALESCE(poi.received_qty, 0), 0) AS pending_quantity,
+               COALESCE(pr.category, CASE WHEN lower(COALESCE(poi.device_family, '')) LIKE '%accessor%' THEN 'accessories' ELSE 'spare_parts' END) AS category,
+               c.name AS client_name, sr.offer_reference, sr.parent_case_reference
+        FROM purchase_order_items poi
+        LEFT JOIN purchase_orders po ON po.po_no=poi.po_no
+        LEFT JOIN procurement_requests pr ON pr.customer_request_item_id=poi.request_item_id
+        LEFT JOIN sales_requests sr ON sr.id=pr.sales_request_id
+        LEFT JOIN clients c ON c.id=pr.client_id
+        WHERE lower(COALESCE(po.status, 'open')) NOT IN ('received', 'closed', 'cancelled')
+          AND (? = '' OR COALESCE(pr.category, CASE WHEN lower(COALESCE(poi.device_family, '')) LIKE '%accessor%' THEN 'accessories' ELSE 'spare_parts' END)=?)
+        ORDER BY COALESCE(po.expected_date, ''), poi.updated_at DESC
+    """, (selected, selected)).fetchall()]
+    return {
+        "minimum_stock_alerts": minimum_stock_alerts,
+        "requested_shortages": requested_shortages,
+        "incoming_ordered_items": incoming_ordered_items,
+        "categories": ["spare_parts", "accessories", "equipment"],
+        "procurement_statuses": sorted(PROCUREMENT_STATUSES),
+    }
 
 def stock_status_for(requested_qty: int, available_qty: int, reserved_qty: int = 0, delivered_qty: int = 0, invoiced_qty: int = 0) -> str:
     if invoiced_qty >= requested_qty and requested_qty > 0:
@@ -4248,7 +4700,7 @@ def inventory_page():
 
 @app.get("/procurement")
 def procurement_page():
-    return FileResponse(BASE_DIR / "static" / "module_page.html")
+    return FileResponse(BASE_DIR / "static" / "procurement.html")
 
 @app.get("/sales")
 @app.get("/sales/{section:path}")
@@ -4257,8 +4709,12 @@ def sales_page(section: str = ""):
 
 @app.get("/equipment-registry")
 @app.get("/equipment-registry/{section:path}")
+@app.get("/equipment-database")
+@app.get("/equipment-database/{section:path}")
 def equipment_registry_page(section: str = ""):
-    return FileResponse(BASE_DIR / "static" / "module_page.html")
+    if section or False:
+        return FileResponse(BASE_DIR / "static" / "equipment_database.html")
+    return FileResponse(BASE_DIR / "static" / "equipment_database.html")
 
 @app.get("/financials")
 def financials_page():
@@ -4319,7 +4775,9 @@ def pm_page(path: str = ""):
 
 
 @app.get("/api/crm/clients")
-def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer: str = "", status: str = ""):
+def crm_clients(q: str = "", city: str = "", location: str = "", contract_status: str = "",
+                active_contract: str = "", warranty_equipment: str = "", engineer: str = "",
+                status: str = "", financial_status: str = ""):
     conn = db()
     ensure_clients_from_existing_data(conn)
     conn.commit()
@@ -4334,11 +4792,23 @@ def crm_clients(q: str = "", city: str = "", contract_status: str = "", engineer
             matches = q.lower() in text
         if city and city.lower() not in str(row.get("city", "")).lower():
             matches = False
+        if location and location.lower() not in " ".join(str(row.get(k, "")) for k in ["city", "address"]).lower():
+            matches = False
         if contract_status and row.get("contract_status") != contract_status:
             matches = False
+        if active_contract:
+            wants = active_contract.lower() in {"yes", "true", "1", "active"}
+            if bool(row.get("active_contracts")) != wants:
+                matches = False
+        if warranty_equipment:
+            wants = warranty_equipment.lower() in {"yes", "true", "1", "active"}
+            if bool(row.get("under_warranty")) != wants:
+                matches = False
         if engineer and engineer.lower() not in str(row.get("primary_engineer", "")).lower():
             matches = False
         if status and row.get("status") != status:
+            matches = False
+        if financial_status and financial_status.lower() not in str(row.get("financial_status", "")).lower():
             matches = False
         if matches:
             result.append(row)
@@ -4352,6 +4822,22 @@ def hospitals_dashboard():
     conn.commit()
     conn.close()
     return rows
+
+@app.get("/api/sales/dashboard")
+def sales_dashboard(category: str = ""):
+    conn = db()
+    data = sales_dashboard_data(conn, category)
+    conn.commit()
+    conn.close()
+    return data
+
+@app.get("/api/procurement/dashboard")
+def procurement_dashboard(category: str = ""):
+    conn = db()
+    data = procurement_dashboard_data(conn, category)
+    conn.commit()
+    conn.close()
+    return data
 
 @app.get("/api/clients")
 def list_clients(q: str = "", status: str = ""):
@@ -4766,6 +5252,51 @@ def crm_client_dashboard(client_id: int, department_id: int | None = None):
     conn.close()
     return data
 
+@app.get("/api/crm/client/{client_id}/timeline")
+def crm_client_timeline(client_id: int, activity_type: str = "", status: str = "",
+                        responsible_person: str = "", department: str = "", sort: str = "desc"):
+    conn = db()
+    data = crm_client_dashboard_data(conn, client_id)
+    rows = list(data.get("timeline", []))
+    for note in data.get("notes", []):
+        rows.append({
+            "id": f"communication-{note.get('id')}",
+            "created_at": note.get("created_at"),
+            "parent_case_reference": "",
+            "event_type": "communication",
+            "activity_type": "client_operations",
+            "title": note.get("type") or "Communication",
+            "status": "",
+            "user": note.get("user") or "",
+            "responsible_person": note.get("user") or "",
+            "department": "",
+            "notes": note.get("note") or "",
+        })
+    rows.extend([dict(r) for r in conn.execute("SELECT * FROM client_activities WHERE client_id=?", (client_id,)).fetchall()])
+    def keep(row):
+        row_type = str(row.get("activity_type") or row.get("event_type") or "").lower()
+        if activity_type and activity_type != "all" and activity_type.lower() not in row_type:
+            return False
+        if status and status.lower() not in str(row.get("status", "")).lower():
+            return False
+        if responsible_person and responsible_person.lower() not in str(row.get("responsible_person") or row.get("user") or "").lower():
+            return False
+        if department and department.lower() not in str(row.get("department", "")).lower():
+            return False
+        return True
+    unique = []
+    seen = set()
+    for row in rows:
+        key = (row.get("created_at") or row.get("activity_date"), row.get("title"), row.get("source_table"), row.get("source_id"), row.get("notes"))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(row)
+    unique = [row for row in unique if keep(row)]
+    unique.sort(key=lambda row: row.get("activity_date") or row.get("created_at") or "", reverse=sort != "asc")
+    conn.close()
+    return unique
+
 @app.get("/api/crm/client/{client_id}/departments")
 def crm_client_departments(client_id: int):
     conn = db()
@@ -5072,13 +5603,20 @@ def list_import_batch_rows(batch_id: int):
     return rows
 
 @app.post("/api/imports/pending-offers/preview")
-async def preview_pending_offers_import(request: Request, file: UploadFile = File(...)):
+async def preview_pending_offers_import(request: Request, file: UploadFile = File(...), field_map_json: str = Form("")):
     contents = await file.read()
     try:
         imported_df = read_import_dataframe(contents, file.filename or "")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not read pending offers import file: {exc}")
-    rows = parse_pending_offer_dataframe(imported_df)
+    field_map = None
+    if field_map_json:
+        try:
+            raw_map = json.loads(field_map_json)
+            field_map = {k: v for k, v in raw_map.items() if v}
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid field_map_json: {exc}")
+    rows = parse_pending_offer_dataframe(imported_df, field_map)
     conn = db()
     cur = conn.execute("""
         INSERT INTO import_batches (import_type, filename, status, total_rows, valid_rows, error_rows, created_by, created_at, notes)
@@ -5112,7 +5650,7 @@ async def preview_pending_offers_import(request: Request, file: UploadFile = Fil
     return {
         "batch_id": batch_id,
         "columns": [str(col) for col in imported_df.columns],
-        "field_map": default_pending_offer_field_map(imported_df),
+        "field_map": {**default_pending_offer_field_map(imported_df), **(field_map or {})},
         "rows": rows,
         "summary": {
             "total_rows": len(rows),
@@ -5313,8 +5851,40 @@ def export_operational_report(report_name: str, format: str = "excel", client_id
         title = "import_validation"
     elif report_key == "equipment_database":
         sync_core_reference_tables(conn)
-        rows = list_equipment(client_id=client_id)
+        rows = [dict(r) for r in conn.execute("""
+            SELECT e.id, e.pm_asset_id, e.client_id, e.department_id,
+                   COALESCE(a.equipment_name, e.asset_tag, e.model) AS equipment_name,
+                   COALESCE(a.equipment_family, em.equipment_family, '') AS equipment_family,
+                   e.asset_tag, e.serial_number, e.manufacturer, e.model,
+                   COALESCE(a.status, e.status) AS status,
+                   COALESCE(a.lifecycle_status, '') AS lifecycle_status,
+                   a.location, a.installation_date, a.contract_no,
+                   a.contract_start_date, a.contract_end_date,
+                   a.frequency_days AS pm_frequency_days, a.last_pm_date, a.next_pm_date,
+                   a.last_service_date, a.calibration_required, a.calibration_due_date,
+                   a.risk_level AS risk_classification, a.life_support,
+                   c.name AS client_name, d.department_name,
+                   COALESCE(w.warranty_start, a.warranty_start) AS warranty_start,
+                   COALESCE(w.warranty_end, a.warranty_end) AS warranty_end,
+                   COALESCE(w.status, a.warranty_status) AS warranty_status
+            FROM equipment e
+            LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
+            LEFT JOIN equipment_models em ON em.id=e.equipment_model_id
+            LEFT JOIN clients c ON c.id=e.client_id
+            LEFT JOIN departments d ON d.id=e.department_id
+            LEFT JOIN warranties w ON w.equipment_id=e.id
+            WHERE (? IS NULL OR e.client_id=?)
+            ORDER BY c.name, d.department_name, e.asset_tag
+        """, (client_id, client_id)).fetchall()]
         title = "equipment_database"
+    elif report_key == "procurement":
+        sync_core_reference_tables(conn)
+        rows = procurement_dashboard_data(conn).get("requested_shortages", [])
+        title = "procurement_alerts"
+    elif report_key == "sales_requests":
+        sync_core_reference_tables(conn)
+        rows = sales_dashboard_data(conn).get("requests", [])
+        title = "sales_requests"
     elif report_key == "pm_schedule":
         rows = [dict(r) for r in conn.execute("""
             SELECT t.*, a.asset_tag, a.hospital, a.department, a.model, a.serial_number
