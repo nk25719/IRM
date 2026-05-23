@@ -3,6 +3,8 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, Red
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
+from app.erp_api import router as erp_router
+from app.schema_compat import ensure_sqlite_compat_columns, insert_or_ignore_dynamic
 from pathlib import Path
 import sqlite3, os, shutil, urllib.parse, io, base64, json
 import html as html_module
@@ -29,8 +31,9 @@ app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+app.include_router(erp_router)
 
-PUBLIC_PATHS = {"/login"}
+PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -2064,6 +2067,12 @@ def init_db():
             if col not in existing_cols:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
 
+    ensure_sqlite_compat_columns(conn)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_procurement_requests_customer_request_item_id
+        ON procurement_requests(customer_request_item_id)
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_sales_requests_offer_reference ON sales_requests(offer_reference)")
     ensure_clients_from_existing_data(conn)
     sync_core_reference_tables(conn)
     conn.commit()
@@ -2848,14 +2857,20 @@ def ensure_clients_from_existing_data(conn):
 
 def sync_core_reference_tables(conn):
     for row in conn.execute("SELECT * FROM client_departments").fetchall():
-        conn.execute("""
-            INSERT OR IGNORE INTO departments
-            (id, client_id, department_name, floor_location, main_contact_name, phone, email, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            row["id"], row["client_id"], row["department_name"], row["floor_location"], row["main_contact_name"],
-            row["phone"], row["email"], row["notes"], row["created_at"], row["updated_at"]
-        ))
+        insert_or_ignore_dynamic(conn, "departments", {
+            "id": row["id"],
+            "client_id": row["client_id"],
+            "name": row["department_name"],
+            "department_name": row["department_name"],
+            "floor_location": row["floor_location"],
+            "contact_name": row["main_contact_name"],
+            "main_contact_name": row["main_contact_name"],
+            "phone": row["phone"],
+            "email": row["email"],
+            "notes": row["notes"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        })
     for row in conn.execute("SELECT * FROM crm_contacts").fetchall():
         department_id = None
         if row["role"]:
@@ -2864,11 +2879,19 @@ def sync_core_reference_tables(conn):
                 WHERE client_id=? AND lower(trim(department_name))=lower(trim(?))
             """, (row["client_id"], row["role"])).fetchone()
             department_id = dept["id"] if dept else None
-        conn.execute("""
-            INSERT OR IGNORE INTO contacts
-            (id, client_id, department_id, name, role, email, phone, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (row["id"], row["client_id"], department_id, row["name"], row["role"], row["email"], row["phone"], row["notes"], row["created_at"], row["updated_at"]))
+        insert_or_ignore_dynamic(conn, "contacts", {
+            "id": row["id"],
+            "client_id": row["client_id"],
+            "department_id": department_id,
+            "name": row["name"],
+            "title": row["role"],
+            "role": row["role"],
+            "email": row["email"],
+            "phone": row["phone"],
+            "notes": row["notes"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        })
     for row in conn.execute("SELECT DISTINCT COALESCE(location, '') AS location FROM inventory WHERE COALESCE(location, '') != ''").fetchall():
         conn.execute("""
             INSERT OR IGNORE INTO stock_locations (location_name, notes, created_at, updated_at)
@@ -2876,26 +2899,58 @@ def sync_core_reference_tables(conn):
         """, (row["location"], "Discovered from inventory", now(), now()))
     for row in conn.execute("SELECT * FROM inventory").fetchall():
         loc = conn.execute("SELECT id FROM stock_locations WHERE location_name=?", (row["location"],)).fetchone()
-        conn.execute("""
-            INSERT OR IGNORE INTO inventory_items
-            (id, inventory_id, pn, description, device_family, barcode, default_location_id, active, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (row["id"], row["id"], row["pn"], row["description"], row["device_family"], row["barcode"], loc["id"] if loc else None, 1, row["updated_at"] or now(), row["updated_at"] or now()))
+        physical_qty = row["physical_qty"] if "physical_qty" in row.keys() else 0
+        reserved_qty = row["reserved_qty"] if "reserved_qty" in row.keys() else 0
+        insert_or_ignore_dynamic(conn, "inventory_items", {
+            "id": row["id"],
+            "inventory_id": row["id"],
+            "pn": row["pn"],
+            "description": row["description"],
+            "device_family": row["device_family"],
+            "barcode": row["barcode"],
+            "default_location_id": loc["id"] if loc else None,
+            "active": 1,
+            "category": "spare_part",
+            "physical_qty": physical_qty,
+            "reserved_qty": reserved_qty,
+            "available_qty": max((physical_qty or 0) - (reserved_qty or 0), 0),
+            "location": row["location"],
+            "status": row["status"] or "active",
+            "created_at": row["updated_at"] or now(),
+            "updated_at": row["updated_at"] or now(),
+        })
     for row in conn.execute("SELECT * FROM pm_assets").fetchall():
         if row["manufacturer"] or row["model"]:
-            conn.execute("""
-                INSERT OR IGNORE INTO equipment_models (manufacturer, model, equipment_family, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (row["manufacturer"], row["model"], detect_family(" ".join([row["manufacturer"] or "", row["model"] or ""])), "Discovered from installed equipment", now(), now()))
+            insert_or_ignore_dynamic(conn, "equipment_models", {
+                "manufacturer": row["manufacturer"],
+                "model": row["model"],
+                "equipment_family": detect_family(" ".join([row["manufacturer"] or "", row["model"] or ""])),
+                "notes": "Discovered from installed equipment",
+                "created_at": now(),
+                "updated_at": now(),
+            })
         model = conn.execute("""
             SELECT id FROM equipment_models
             WHERE COALESCE(manufacturer, '')=COALESCE(?, '') AND COALESCE(model, '')=COALESCE(?, '')
         """, (row["manufacturer"], row["model"])).fetchone()
-        conn.execute("""
-            INSERT OR IGNORE INTO equipment
-            (id, pm_asset_id, client_id, department_id, equipment_model_id, asset_tag, serial_number, manufacturer, model, status, parent_case_reference, parent_case_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (row["id"], row["id"], row["client_id"], row["department_id"] if "department_id" in row.keys() else None, model["id"] if model else None, row["asset_tag"], row["serial_number"], row["manufacturer"], row["model"], row["status"], row["parent_case_reference"] if "parent_case_reference" in row.keys() else "", row["parent_case_id"] if "parent_case_id" in row.keys() else None, row["created_at"], row["updated_at"]))
+        equipment_name = row["equipment_name"] if "equipment_name" in row.keys() and row["equipment_name"] else row["model"] or row["asset_tag"] or row["serial_number"] or "Equipment"
+        insert_or_ignore_dynamic(conn, "equipment", {
+            "id": row["id"],
+            "pm_asset_id": row["id"],
+            "client_id": row["client_id"],
+            "department_id": row["department_id"] if "department_id" in row.keys() else None,
+            "equipment_model_id": model["id"] if model else None,
+            "name": equipment_name,
+            "asset_tag": row["asset_tag"],
+            "serial_number": row["serial_number"],
+            "manufacturer": row["manufacturer"],
+            "model": row["model"],
+            "status": row["status"],
+            "parent_case_reference": row["parent_case_reference"] if "parent_case_reference" in row.keys() else "",
+            "parent_case_id": row["parent_case_id"] if "parent_case_id" in row.keys() else None,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        })
         conn.execute("""
             UPDATE equipment
             SET client_id=?, department_id=?, equipment_model_id=?, asset_tag=?, serial_number=?,
@@ -2948,15 +3003,22 @@ def sync_core_reference_tables(conn):
         JOIN customer_requests r ON r.id=i.request_id
         LEFT JOIN cases c ON c.request_id=r.id
     """).fetchall():
-        conn.execute("""
-            INSERT OR IGNORE INTO case_items
-            (case_id, request_item_id, inventory_item_id, requested_item, item_type, quantity, reserved_qty, shortage_qty, procurement_status, parent_case_reference, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            row["case_id"], row["id"], row["inventory_item_id"], row["requested_item"], row["item_type"],
-            row["quantity"], row["reserved_qty"], row["shortage_qty"], row["procurement_status"],
-            row["parent_case_reference"], row["created_at"], row["updated_at"]
-        ))
+        insert_or_ignore_dynamic(conn, "case_items", {
+            "case_id": row["case_id"],
+            "request_item_id": row["id"],
+            "inventory_item_id": row["inventory_item_id"],
+            "requested_item": row["requested_item"],
+            "description": row["requested_item"],
+            "item_type": row["item_type"],
+            "quantity": row["quantity"],
+            "requested_qty": row["quantity"],
+            "reserved_qty": row["reserved_qty"],
+            "shortage_qty": row["shortage_qty"],
+            "procurement_status": row["procurement_status"],
+            "parent_case_reference": row["parent_case_reference"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        })
     for req in conn.execute("""
         SELECT r.*, c.id AS case_id, c.case_type, c.workflow_state, c.priority,
                c.responsible_person AS case_responsible, c.due_date AS case_due_date,

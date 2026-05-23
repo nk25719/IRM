@@ -6,3 +6,6 @@ python-multipart==0.0.20
 
 qrcode[pil]==7.4.2
 itsdangerous==2.2.0
+SQLAlchemy>=2.0.36
+alembic>=1.14.0
+psycopg2-binary>=2.9.10

@@ -250,3 +250,37 @@ New CRM tables are additive and non-destructive:
 - `crm_attachments`
 
 Existing PM assets can now carry client and warranty fields (`client_id`, `warranty_start`, `warranty_end`, `warranty_status`, `vendor`, `warranty_notes`). Clients are automatically discovered from PM asset hospitals, client orders, and transaction client names. Editing permissions are role-aware through the session role, with `APP_ROLE` defaulting to `admin` for local development.
+
+## ERP database foundation
+
+This project now includes a PostgreSQL-compatible SQLAlchemy/Alembic foundation for the ERP core tables.
+
+### Files added
+
+- `app/database.py` - SQLAlchemy engine/session setup. Uses `DATABASE_URL` when present; falls back to the local SQLite database for development.
+- `app/erp_models.py` - ORM models for clients, departments, contacts, cases, case items, activities, equipment, inventory, procurement, service calls, PM tasks, contracts, warranties, and invoices.
+- `app/erp_schemas.py` - Pydantic request schemas.
+- `app/erp_api.py` - generic CRUD API under `/api/erp/{resource}`.
+- `alembic/versions/20260523_erp_database_foundation.py` - additive migration that preserves existing tables/data and maps legacy columns into the new foundation fields where possible.
+- `scripts/seed_erp_data.py` - idempotent seed data for two hospitals.
+- `scripts/verify_erp_foundation.py` - simple schema/index/seed verification.
+
+### Run locally
+
+```bash
+pip install -r requirements.txt
+alembic upgrade head
+python scripts/seed_erp_data.py
+python scripts/verify_erp_foundation.py
+```
+
+For PostgreSQL, set `DATABASE_URL`, for example:
+
+```bash
+export DATABASE_URL="postgresql+psycopg2://user:password@localhost:5432/biomed_erp"
+alembic upgrade head
+```
+
+### CRUD resources
+
+Use these resource names with `/api/erp/{resource}`: `clients`, `departments`, `contacts`, `cases`, `case-items`, `client-activities`, `equipment`, `inventory-items`, `procurement-requests`, `service-calls`, `pm-tasks`, `contracts`, `warranties`, and `invoices`.
