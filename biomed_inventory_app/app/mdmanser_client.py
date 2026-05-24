@@ -7,6 +7,7 @@ import requests
 
 DEFAULT_MDMANSER_BASE_URL = "https://cmm.mdmanser.com"
 MDMANSER_COOKIE_DOMAIN = "cmm.mdmanser.com"
+CALENDAR_PATH = "/en/calendar/calendar/"
 
 
 class MDManserConfigurationError(RuntimeError):
@@ -27,6 +28,14 @@ def mdmanser_base_url() -> str:
 
 def mdmanser_session_configured() -> bool:
     return bool(os.getenv("MDMANSER_PHPSESSID", "").strip())
+
+
+def mdmanser_timeout() -> int:
+    value = os.getenv("MDMANSER_TIMEOUT", "20").strip()
+    try:
+        return max(1, int(value))
+    except ValueError:
+        return 20
 
 
 def _session_id() -> str:
@@ -53,14 +62,21 @@ def _is_authentication_failure(text: str, status_code: int) -> bool:
 
 
 class MDManserClient:
-    def __init__(self, base_url: str | None = None, session_id: str | None = None, timeout: int = 30):
+    def __init__(self, base_url: str | None = None, session_id: str | None = None, timeout: int | None = None):
         self.base_url = (base_url or mdmanser_base_url()).rstrip("/")
         _validate_https(self.base_url)
         self.session_id = session_id or _session_id()
-        self.timeout = timeout
+        self.timeout = timeout or mdmanser_timeout()
         self.last_status_code: int | None = None
         self.session = requests.Session()
         self.session.cookies.set("PHPSESSID", self.session_id, domain=MDMANSER_COOKIE_DOMAIN, path="/")
+        self.session.headers.update(
+            {
+                "User-Agent": "IRM-ERP-MDManser-ReadConnector/1.0",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Referer": self._url(CALENDAR_PATH),
+            }
+        )
 
     def _url(self, path: str) -> str:
         return urljoin(self.base_url + "/", path.lstrip("/"))
@@ -71,53 +87,27 @@ class MDManserClient:
             raise MDManserAuthenticationError("MDManser authentication required or session expired")
         return response
 
+    @classmethod
+    def configured(cls) -> bool:
+        return bool(mdmanser_base_url()) and mdmanser_session_configured()
+
     def get_calendar_html(self, month: int, year: int) -> str:
         try:
-            response = self.session.get(self._url("/"), params={"month": month, "year": year}, timeout=self.timeout)
+            response = self.session.get(self._url(CALENDAR_PATH), params={"m": month, "y": year}, timeout=self.timeout)
         except requests.RequestException as exc:
             raise MDManserRequestError(f"MDManser calendar request failed: {exc}") from exc
         return self._checked_response(response).text
 
-    def search_cases(self, payload: dict) -> dict | str:
-        endpoint = self._url("/process/other/ajax.php?f=searchCases")
-        try:
-            response = self.session.post(endpoint, data=payload, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise MDManserRequestError(f"MDManser searchCases request failed: {exc}") from exc
-        response = self._checked_response(response)
-        try:
-            return response.json()
-        except ValueError:
-            return response.text
-
-    def edit_case(
-        self,
-        case_id: str,
-        new_id: str,
-        visit_date: str,
-        engineer_id: str,
-        note: str,
-        followup_date: str,
-        followup_time: str,
-        status_id: str,
-        priority_id: str,
-    ) -> dict:
-        endpoint = self._url("/process/other/ajax.php?f=editCase")
-        record_values = ["", visit_date, "-", engineer_id, note, "-", engineer_id, followup_date, followup_time, status_id, priority_id]
-        multipart_fields: list[tuple[str, tuple[None, str]]] = [
-            ("case_id", (None, str(case_id))),
-            ("new", (None, str(new_id))),
-        ]
-        multipart_fields.extend(("record[]", (None, str(value))) for value in record_values)
-        try:
-            response = self.session.post(endpoint, files=multipart_fields, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise MDManserRequestError(f"MDManser editCase request failed: {exc}") from exc
-        response = self._checked_response(response)
+    def check_calendar_read(self, month: int, year: int) -> dict:
+        html = self.get_calendar_html(month=month, year=year)
+        lowered = html.lower()
         return {
-            "status_code": response.status_code,
-            "response_text": response.text,
-            "ok": response.ok,
-            "endpoint": endpoint,
-            "action": "editCase",
+            "configured": self.configured(),
+            "auth_ok": True,
+            "status_code": self.last_status_code or 200,
+            "html_length": len(html),
+            "contains_service_contract": "serviceContract" in html,
+            "contains_engineer": "engineer" in lowered,
+            "contains_callreassons": "callreassons" in lowered,
+            "contains_calendar": "calendar" in lowered,
         }

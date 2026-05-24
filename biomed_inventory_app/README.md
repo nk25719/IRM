@@ -42,7 +42,7 @@ Open:
 http://127.0.0.1:8000
 ```
 
-## ERP database foundation and MDManser connector
+## ERP database foundation and MDManser read connector
 
 Setup:
 
@@ -75,12 +75,17 @@ Connector endpoints:
 ```bash
 curl "http://127.0.0.1:8000/api/erp/mdmanser/status"
 curl "http://127.0.0.1:8000/api/erp/mdmanser/calendar/raw?month=5&year=2026"
-curl -X POST "http://127.0.0.1:8000/api/erp/mdmanser/cases/8507599998755030/write" \
-  -H "Content-Type: application/json" \
-  -d '{"new_id":"8016903363231","visit_date":"2028-01-24","engineer_id":"28","note":"ERP API WRITE TEST","followup_date":"2029-01-01","followup_time":"02:31","status_id":"4","priority_id":"7","confirm":true}'
+curl -X POST "http://127.0.0.1:8000/api/erp/mdmanser/calendar/import?month=5&year=2026"
+curl "http://127.0.0.1:8000/api/erp/mdmanser/calendar/events"
 ```
 
-The MDManser connector reads `MDMANSER_PHPSESSID` only from the environment. The app does not hardcode credentials, store the PHP session cookie in the database by default, or return cookies in API responses. Writes require `confirm=true`.
+Read-only connector smoke test:
+
+```bash
+python scripts/test_mdmanser_read.py
+```
+
+The MDManser connector reads `MDMANSER_PHPSESSID` only from the environment. The app does not hardcode credentials, store the PHP session cookie in the database by default, or return cookies in API responses. The connector uses HTTPS and request timeouts, and this read integration does not write to MDManser.
 
 ## Important notes
 

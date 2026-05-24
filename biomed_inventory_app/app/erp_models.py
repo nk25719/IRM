@@ -355,6 +355,34 @@ class MDManserSyncLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class MDManserCalendarEvent(Base):
+    __tablename__ = "mdmanser_calendar_events"
+    __table_args__ = (
+        Index("ix_mdmanser_calendar_events_source_event_key", "source_event_key"),
+        Index("ix_mdmanser_calendar_events_start_date", "start_date"),
+        Index("ix_mdmanser_calendar_events_engineer_name", "engineer_name"),
+        Index("ix_mdmanser_calendar_events_contract_reference", "contract_reference"),
+        Index("ix_mdmanser_calendar_events_mapped_client_id", "mapped_client_id"),
+    )
+    id = Column(Integer, primary_key=True)
+    source = Column(String(80))
+    source_event_key = Column(String(64), unique=True)
+    event_type = Column(String(80))
+    title = Column(String(255))
+    engineer_name = Column(String(255))
+    call_reasons = Column(Text)
+    contract_reference = Column(String(120))
+    client_name = Column(String(255))
+    equipment_name = Column(String(255))
+    start_date = Column(Date)
+    end_date = Column(Date)
+    raw_payload = Column(Text)
+    mapped_client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    mapped_equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="SET NULL"), nullable=True)
+    mapped_case_id = Column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
+    imported_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class MDManserCaseLink(Base):
     __tablename__ = "mdmanser_case_links"
     __table_args__ = (Index("ix_mdmanser_case_links_report", "mdmanser_report_number"),)

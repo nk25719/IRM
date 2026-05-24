@@ -27,6 +27,13 @@ REQUIRED_INDEXES = {
         "ix_mdmanser_service_records_engineer_name",
         "ix_mdmanser_service_records_source_row_hash",
     ],
+    "mdmanser_calendar_events": [
+        "ix_mdmanser_calendar_events_source_event_key",
+        "ix_mdmanser_calendar_events_start_date",
+        "ix_mdmanser_calendar_events_engineer_name",
+        "ix_mdmanser_calendar_events_contract_reference",
+        "ix_mdmanser_calendar_events_mapped_client_id",
+    ],
 }
 
 REQUIRED_COMPATIBILITY_COLUMNS = {

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from . import erp_models as m
@@ -16,20 +15,9 @@ from .mdmanser_client import (
     mdmanser_base_url,
     mdmanser_session_configured,
 )
+from .mdmanser_parser import parse_mdmanser_calendar_html
 
-router = APIRouter(prefix="/api/erp/mdmanser", tags=["MDManser Connector"])
-
-
-class MDManserEditCasePayload(BaseModel):
-    new_id: str
-    visit_date: str
-    engineer_id: str
-    note: str
-    followup_date: str
-    followup_time: str
-    status_id: str
-    priority_id: str
-    confirm: bool = False
+router = APIRouter(prefix="/api/erp/mdmanser", tags=["MDManser"])
 
 
 def _raise_connector_error(exc: Exception) -> None:
@@ -42,95 +30,95 @@ def _raise_connector_error(exc: Exception) -> None:
     raise HTTPException(status_code=502, detail="MDManser connector request failed") from exc
 
 
-def _log_sync(db: Session, *, sync_type: str, direction: str, endpoint: str, status: str, status_code: int | None, request_summary: dict, response_summary: str):
-    db.add(
-        m.MDManserSyncLog(
-            sync_type=sync_type,
-            direction=direction,
-            endpoint=endpoint,
-            status=status,
-            status_code=status_code,
-            request_summary=json.dumps(request_summary, sort_keys=True),
-            response_summary=(response_summary or "")[:2000],
-        )
-    )
-    db.commit()
+def _event_dict(row: m.MDManserCalendarEvent) -> dict:
+    return {
+        "id": row.id,
+        "source": row.source,
+        "source_event_key": row.source_event_key,
+        "event_type": row.event_type,
+        "title": row.title,
+        "engineer_name": row.engineer_name,
+        "call_reasons": row.call_reasons,
+        "contract_reference": row.contract_reference,
+        "client_name": row.client_name,
+        "equipment_name": row.equipment_name,
+        "start_date": row.start_date.isoformat() if row.start_date else None,
+        "end_date": row.end_date.isoformat() if row.end_date else None,
+        "raw_payload": row.raw_payload,
+        "mapped_client_id": row.mapped_client_id,
+        "mapped_equipment_id": row.mapped_equipment_id,
+        "mapped_case_id": row.mapped_case_id,
+        "imported_at": row.imported_at.isoformat() if row.imported_at else None,
+    }
 
 
 @router.get("/status")
 def mdmanser_status():
     return {
-        "mdmanser_base_url": mdmanser_base_url(),
-        "base_url_configured": True,
-        "php_session_configured": mdmanser_session_configured(),
+        "configured": MDManserClient.configured(),
+        "base_url": mdmanser_base_url(),
+        "has_session": mdmanser_session_configured(),
     }
 
 
 @router.get("/calendar/raw")
 def mdmanser_calendar_raw(month: int = Query(..., ge=1, le=12), year: int = Query(..., ge=2000, le=2100)):
     try:
-        client = MDManserClient()
-        html = client.get_calendar_html(month=month, year=year)
+        return MDManserClient().check_calendar_read(month=month, year=year)
     except Exception as exc:
         _raise_connector_error(exc)
-    return {
-        "status": "ok",
-        "html_length": len(html),
-        "contains_calendar": "calendar" in html.lower(),
-        "contains_service_contract": "serviceContract" in html,
-        "contains_engineer": "engineer" in html.lower(),
-        "auth_ok": True,
-    }
 
 
-@router.post("/cases/{case_id}/write")
-def mdmanser_write_case(case_id: str, payload: MDManserEditCasePayload, db: Session = Depends(get_db)):
-    if not payload.confirm:
-        raise HTTPException(status_code=400, detail="confirm=true is required for MDManser writes")
-    request_summary = {
-        "case_id": case_id,
-        "new_id": payload.new_id,
-        "visit_date": payload.visit_date,
-        "engineer_id": payload.engineer_id,
-        "followup_date": payload.followup_date,
-        "followup_time": payload.followup_time,
-        "status_id": payload.status_id,
-        "priority_id": payload.priority_id,
-        "note_length": len(payload.note or ""),
-        "confirm": payload.confirm,
-    }
+@router.post("/calendar/import")
+def mdmanser_calendar_import(
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2000, le=2100),
+    db: Session = Depends(get_db),
+):
     try:
-        result = MDManserClient().edit_case(
-            case_id=case_id,
-            new_id=payload.new_id,
-            visit_date=payload.visit_date,
-            engineer_id=payload.engineer_id,
-            note=payload.note,
-            followup_date=payload.followup_date,
-            followup_time=payload.followup_time,
-            status_id=payload.status_id,
-            priority_id=payload.priority_id,
-        )
-        _log_sync(
-            db,
-            sync_type="editCase",
-            direction="write",
-            endpoint=result["endpoint"],
-            status="ok" if result["ok"] else "failed",
-            status_code=result["status_code"],
-            request_summary=request_summary,
-            response_summary=result.get("response_text", ""),
-        )
-        return result
+        html = MDManserClient().get_calendar_html(month=month, year=year)
     except Exception as exc:
-        _log_sync(
-            db,
-            sync_type="editCase",
-            direction="write",
-            endpoint="/process/other/ajax.php?f=editCase",
-            status="error",
-            status_code=getattr(exc, "status_code", None),
-            request_summary=request_summary,
-            response_summary=str(exc),
-        )
         _raise_connector_error(exc)
+    events = parse_mdmanser_calendar_html(html)
+    inserted = updated = 0
+    for event in events:
+        row = db.query(m.MDManserCalendarEvent).filter_by(source_event_key=event["source_event_key"]).first()
+        if row:
+            for key, value in event.items():
+                setattr(row, key, value)
+            updated += 1
+        else:
+            db.add(m.MDManserCalendarEvent(**event))
+            inserted += 1
+    db.commit()
+    return {"parsed": len(events), "inserted": inserted, "updated": updated}
+
+
+@router.get("/calendar/events")
+def mdmanser_calendar_events(
+    limit: int = Query(100, ge=1, le=1000),
+    engineer_name: str | None = None,
+    start: date | None = None,
+    end: date | None = None,
+    event_type: str | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(m.MDManserCalendarEvent)
+    if engineer_name:
+        query = query.filter(m.MDManserCalendarEvent.engineer_name.ilike(f"%{engineer_name}%"))
+    if start:
+        query = query.filter(m.MDManserCalendarEvent.start_date >= start)
+    if end:
+        query = query.filter(m.MDManserCalendarEvent.start_date <= end)
+    if event_type:
+        query = query.filter(m.MDManserCalendarEvent.event_type == event_type)
+    rows = query.order_by(m.MDManserCalendarEvent.start_date.desc(), m.MDManserCalendarEvent.id.desc()).limit(limit).all()
+    return [_event_dict(row) for row in rows]
+
+
+@router.get("/calendar/events/{event_id}")
+def mdmanser_calendar_event(event_id: int, db: Session = Depends(get_db)):
+    row = db.get(m.MDManserCalendarEvent, event_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="MDManser calendar event not found")
+    return _event_dict(row)
