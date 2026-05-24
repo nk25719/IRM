@@ -34,7 +34,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(mdmanser_router)
 app.include_router(erp_router)
 
-PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc", "/mdmanser", "/static/mdmanser.html"}
+PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc", "/mdmanser", "/cmm", "/static/mdmanser.html"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -2131,6 +2131,18 @@ def init_db():
             "due_date": "TEXT",
         },
         "contracts": {
+            "document_id": "INTEGER",
+            "doc_no": "TEXT",
+            "document_reference": "TEXT",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "department_id": "INTEGER",
+            "request_id": "INTEGER",
+            "equipment_id": "INTEGER",
+            "amount": "REAL DEFAULT 0",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "blocked_reason": "TEXT DEFAULT 'none'",
             "blocked_notes": "TEXT",
             "client_informed": "INTEGER DEFAULT 0",
@@ -2142,6 +2154,15 @@ def init_db():
             "due_date": "TEXT",
         },
         "warranties": {
+            "department_id": "INTEGER",
+            "warranty_start": "TEXT",
+            "warranty_end": "TEXT",
+            "vendor": "TEXT",
+            "notes": "TEXT",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "blocked_reason": "TEXT DEFAULT 'none'",
             "blocked_notes": "TEXT",
             "client_informed": "INTEGER DEFAULT 0",
@@ -4853,6 +4874,10 @@ def imports_page():
 
 @app.get("/mdmanser")
 def mdmanser_page():
+    return RedirectResponse(url="/static/mdmanser.html", status_code=303)
+
+@app.get("/cmm")
+def cmm_page():
     return RedirectResponse(url="/static/mdmanser.html", status_code=303)
 
 @app.get("/crm")

@@ -36,6 +36,8 @@ REQUIRED_COMPATIBILITY_COLUMNS = {
     "departments": ["department_name", "main_contact_name", "created_at", "updated_at"],
     "contacts": ["role", "created_at", "updated_at"],
     "equipment": ["pm_asset_id", "parent_case_reference", "parent_case_id", "created_at", "updated_at"],
+    "contracts": ["doc_no", "document_reference", "parent_case_reference", "department_id", "amount", "created_at", "updated_at"],
+    "warranties": ["department_id", "warranty_start", "warranty_end", "vendor", "notes", "created_at", "updated_at"],
     "service_calls": ["engineer", "request_id", "call_no", "opened_at", "closed_at"],
     "pm_tasks": ["asset_id", "task_name", "assigned_to", "due_date"],
 }
