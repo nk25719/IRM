@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MDManser Connector</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f6f8fb; color: #142033; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; background: #fff; border-bottom: 1px solid #d9e2ec; }
+    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 22px; }
+    h2 { font-size: 16px; }
+    main { width: min(1180px, calc(100% - 28px)); margin: 18px auto 28px; display: grid; gap: 16px; }
+    section { background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; padding: 16px; }
+    .bar, .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 440px); gap: 16px; align-items: start; }
+    .metric { min-height: 72px; padding: 12px; border: 1px solid #d9e2ec; border-radius: 8px; background: #fbfdff; }
+    .metric span, label, .hint { color: #5d6b7b; font-size: 12px; font-weight: 700; }
+    .metric strong { display: block; margin-top: 6px; font-size: 18px; overflow-wrap: anywhere; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    label { display: grid; gap: 6px; }
+    input, textarea { width: 100%; min-height: 40px; border: 1px solid #d9e2ec; border-radius: 7px; padding: 10px 11px; font: inherit; }
+    textarea { min-height: 92px; resize: vertical; }
+    .wide { grid-column: 1 / -1; }
+    button { border: 0; border-radius: 7px; min-height: 40px; padding: 10px 14px; background: #0f5f8f; color: #fff; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #e8eef5; color: #142033; }
+    button.danger { background: #b42318; }
+    button:disabled { opacity: .6; cursor: wait; }
+    pre { margin: 14px 0 0; min-height: 160px; max-height: 520px; overflow: auto; padding: 14px; border-radius: 8px; background: #101828; color: #ecf2f8; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ok { color: #107c41; }
+    .warn { color: #a35b00; }
+    .error { color: #b42318; }
+    @media (max-width: 860px) { .layout, .grid, .form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>MDManser / CMM Connector</h1>
+      <div class="hint">Authenticated read and confirm-gated editCase write bridge</div>
+    </div>
+    <a href="/portal">Portal</a>
+  </header>
+  <main>
+    <section>
+      <div class="bar">
+        <div>
+          <h2>Status</h2>
+          <div id="statusMessage" class="hint">Checking connector status...</div>
+        </div>
+        <button id="statusBtn" class="secondary" type="button">Check Status</button>
+      </div>
+      <div class="grid">
+        <div class="metric"><span>Base URL</span><strong id="baseUrl">-</strong></div>
+        <div class="metric"><span>Base configured</span><strong id="baseConfigured">-</strong></div>
+        <div class="metric"><span>Session configured</span><strong id="sessionConfigured">-</strong></div>
+      </div>
+      <pre id="statusOutput">{}</pre>
+    </section>
+
+    <div class="layout">
+      <section>
+        <div class="head">
+          <div>
+            <h2>Calendar Read Test</h2>
+            <div class="hint">May 2026 raw HTML probe without returning full HTML</div>
+          </div>
+          <button id="readBtn" type="button">Read Calendar</button>
+        </div>
+        <div class="grid">
+          <div class="metric"><span>contains_service_contract</span><strong id="serviceContract">-</strong></div>
+          <div class="metric"><span>contains_calendar</span><strong id="calendar">-</strong></div>
+          <div class="metric"><span>html_length</span><strong id="htmlLength">-</strong></div>
+        </div>
+        <pre id="readOutput">{}</pre>
+      </section>
+
+      <section>
+        <div class="head">
+          <div>
+            <h2>Write Test</h2>
+            <div class="hint">Requires checkbox and browser confirmation</div>
+          </div>
+        </div>
+        <form id="writeForm" class="form-grid">
+          <label>case_id<input name="case_id" value="8507599998755030" autocomplete="off"></label>
+          <label>new_id<input name="new_id" value="8016903363231" autocomplete="off"></label>
+          <label>visit_date<input name="visit_date" value="2028-01-24" autocomplete="off"></label>
+          <label>engineer_id<input name="engineer_id" value="28" autocomplete="off"></label>
+          <label class="wide">note<textarea name="note">ERP API WRITE TEST</textarea></label>
+          <label>followup_date<input name="followup_date" value="2029-01-01" autocomplete="off"></label>
+          <label>followup_time<input name="followup_time" value="02:31" autocomplete="off"></label>
+          <label>status_id<input name="status_id" value="4" autocomplete="off"></label>
+          <label>priority_id<input name="priority_id" value="7" autocomplete="off"></label>
+          <label class="wide" style="display:flex;align-items:center;gap:8px;grid-template-columns:auto 1fr">
+            <input name="confirm" type="checkbox" style="width:auto;min-height:auto">
+            I confirm this should POST to MDManser editCase
+          </label>
+          <div class="wide"><button id="writeBtn" class="danger" type="submit">Write Test to MDManser</button></div>
+        </form>
+      </section>
+    </div>
+
+    <section>
+      <div class="head">
+        <h2>Import Summary</h2>
+        <button id="summaryBtn" class="secondary" type="button">Refresh Summary</button>
+      </div>
+      <pre id="summaryOutput">{}</pre>
+    </section>
+
+    <section>
+      <h2>Write Response</h2>
+      <pre id="writeOutput">{}</pre>
+    </section>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const pretty = value => JSON.stringify(value, null, 2);
+    async function api(path, options = {}) {
+      const res = await fetch(path, { credentials: "same-origin", ...options, headers: { ...(options.headers || {}) } });
+      const text = await res.text();
+      let data;
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { response_text: text }; }
+      if (!res.ok) {
+        const err = new Error(data.detail || data.response_text || res.statusText);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+    function showError(target, err) {
+      target.textContent = pretty({ status: err.status, error: err.message, response: err.data || null });
+    }
+    async function checkStatus() {
+      $("statusBtn").disabled = true;
+      try {
+        const data = await api("/api/erp/mdmanser/status");
+        $("baseUrl").textContent = data.mdmanser_base_url || "-";
+        $("baseConfigured").textContent = String(Boolean(data.base_url_configured));
+        $("sessionConfigured").textContent = String(Boolean(data.php_session_configured));
+        $("statusMessage").textContent = data.php_session_configured ? "MDManser session is configured." : "MDMANSER_PHPSESSID is not configured.";
+        $("statusMessage").className = data.php_session_configured ? "hint ok" : "hint warn";
+        $("statusOutput").textContent = pretty(data);
+      } catch (err) {
+        $("statusMessage").textContent = `Status failed: ${err.message}`;
+        $("statusMessage").className = "hint error";
+        showError($("statusOutput"), err);
+      } finally {
+        $("statusBtn").disabled = false;
+      }
+    }
+    async function readCalendar() {
+      $("readBtn").disabled = true;
+      $("readOutput").textContent = "Reading...";
+      try {
+        const data = await api("/api/erp/mdmanser/calendar/raw?month=5&year=2026");
+        $("serviceContract").textContent = String(Boolean(data.contains_service_contract));
+        $("calendar").textContent = String(Boolean(data.contains_calendar));
+        $("htmlLength").textContent = String(data.html_length ?? "-");
+        $("readOutput").textContent = pretty(data);
+      } catch (err) {
+        showError($("readOutput"), err);
+      } finally {
+        $("readBtn").disabled = false;
+      }
+    }
+    async function refreshSummary() {
+      $("summaryBtn").disabled = true;
+      try { $("summaryOutput").textContent = pretty(await api("/api/erp/mdmanser/import-summary")); }
+      catch (err) { showError($("summaryOutput"), err); }
+      finally { $("summaryBtn").disabled = false; }
+    }
+    function writePayload() {
+      const fd = new FormData($("writeForm"));
+      return {
+        case_id: String(fd.get("case_id") || ""),
+        new_id: String(fd.get("new_id") || ""),
+        visit_date: String(fd.get("visit_date") || ""),
+        engineer_id: String(fd.get("engineer_id") || ""),
+        note: String(fd.get("note") || ""),
+        followup_date: String(fd.get("followup_date") || ""),
+        followup_time: String(fd.get("followup_time") || ""),
+        status_id: String(fd.get("status_id") || ""),
+        priority_id: String(fd.get("priority_id") || ""),
+        confirm: fd.get("confirm") === "on"
+      };
+    }
+    async function writeCase(event) {
+      event.preventDefault();
+      const payload = writePayload();
+      if (!payload.confirm) {
+        $("writeOutput").textContent = pretty({ error: "confirm=true is required before writing" });
+        return;
+      }
+      if (!confirm(`POST editCase to MDManser case ${payload.case_id}?`)) return;
+      $("writeBtn").disabled = true;
+      const { case_id, ...body } = payload;
+      try {
+        $("writeOutput").textContent = pretty(await api(`/api/erp/mdmanser/cases/${encodeURIComponent(case_id)}/write`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }));
+      } catch (err) {
+        showError($("writeOutput"), err);
+      } finally {
+        $("writeBtn").disabled = false;
+      }
+    }
+    $("statusBtn").addEventListener("click", checkStatus);
+    $("readBtn").addEventListener("click", readCalendar);
+    $("summaryBtn").addEventListener("click", refreshSummary);
+    $("writeForm").addEventListener("submit", writeCase);
+    checkStatus();
+    refreshSummary();
+  </script>
+</body>
+</html>

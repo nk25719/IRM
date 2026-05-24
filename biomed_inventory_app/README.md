@@ -42,6 +42,46 @@ Open:
 http://127.0.0.1:8000
 ```
 
+## ERP database foundation and MDManser connector
+
+Setup:
+
+```bash
+pip install -r requirements.txt
+alembic upgrade head
+python scripts/import_mdmanser_html_excel.py "/path/to/MDmanser-05-24-2026.xls"
+python scripts/import_pm_tracker.py "/path/to/pm_tracker_with_hospital_contracts_pmcount_from_source-1.xlsx"
+python scripts/verify_erp_foundation.py
+```
+
+Run with an authenticated MDManser PHP session:
+
+```bash
+export MDMANSER_BASE_URL="https://cmm.mdmanser.com"
+export MDMANSER_PHPSESSID="your_current_php_session_id"
+python3 -m uvicorn app.main:app --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/static/mdmanser.html
+http://127.0.0.1:8000/mdmanser
+```
+
+Connector endpoints:
+
+```bash
+curl "http://127.0.0.1:8000/api/erp/mdmanser/status"
+curl "http://127.0.0.1:8000/api/erp/mdmanser/calendar/raw?month=5&year=2026"
+curl -X POST "http://127.0.0.1:8000/api/erp/mdmanser/cases/8507599998755030/write" \
+  -H "Content-Type: application/json" \
+  -d '{"new_id":"8016903363231","visit_date":"2028-01-24","engineer_id":"28","note":"ERP API WRITE TEST","followup_date":"2029-01-01","followup_time":"02:31","status_id":"4","priority_id":"7","confirm":true}'
+```
+
+The MDManser connector reads `MDMANSER_PHPSESSID` only from the environment. The app does not hardcode credentials, store the PHP session cookie in the database by default, or return cookies in API responses. Writes require `confirm=true`.
+
 ## Important notes
 
 - Barcode scanning uses a browser library and needs camera permission.

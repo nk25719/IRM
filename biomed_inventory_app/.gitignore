@@ -2,6 +2,11 @@
 logs
 *.log
 *.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+app/data/*.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

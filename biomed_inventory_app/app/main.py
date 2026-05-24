@@ -3,6 +3,8 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, Red
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
+from app.erp_api import router as erp_router
+from app.mdmanser_api import router as mdmanser_router
 from pathlib import Path
 import sqlite3, os, shutil, urllib.parse, io, base64, json
 import html as html_module
@@ -29,8 +31,10 @@ app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+app.include_router(mdmanser_router)
+app.include_router(erp_router)
 
-PUBLIC_PATHS = {"/login"}
+PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc", "/mdmanser", "/static/mdmanser.html"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -38,6 +42,8 @@ PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico"
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
     if path in PUBLIC_PATHS:
+        return await call_next(request)
+    if path.startswith("/api/erp/mdmanser"):
         return await call_next(request)
     if path.startswith("/static") and path.lower().endswith(PUBLIC_STATIC_SUFFIXES):
         return await call_next(request)
@@ -1675,10 +1681,16 @@ def init_db():
 
     client_cols = [r["name"] for r in conn.execute("PRAGMA table_info(clients)").fetchall()]
     for col, col_type in {
+        "city": "TEXT",
+        "main_contact": "TEXT",
+        "contact_email": "TEXT",
+        "biomedical_department": "TEXT",
+        "primary_engineer": "TEXT",
         "phone": "TEXT",
         "financial_status": "TEXT DEFAULT 'good standing'",
         "credit_balance": "REAL DEFAULT 0",
         "last_payment_date": "TEXT",
+        "notes": "TEXT",
     }.items():
         if col not in client_cols:
             conn.execute(f"ALTER TABLE clients ADD COLUMN {col} {col_type}")
@@ -1720,15 +1732,58 @@ def init_db():
             "due_date": "TEXT",
         },
         "client_activities": {
+            "department_id": "INTEGER",
+            "case_id": "INTEGER",
+            "activity_type": "TEXT",
+            "title": "TEXT",
+            "description": "TEXT",
+            "status": "TEXT DEFAULT 'open'",
+            "date": "TEXT",
+            "created_by": "TEXT",
             "blocked_notes": "TEXT",
         },
         "sales_requests": {
             "blocked_notes": "TEXT",
         },
         "procurement_requests": {
+            "case_id": "INTEGER",
+            "case_item_id": "INTEGER",
+            "sales_request_item_id": "INTEGER",
+            "customer_request_item_id": "INTEGER",
+            "client_id": "INTEGER",
+            "department_id": "INTEGER",
+            "sales_request_id": "INTEGER",
+            "purchase_order_id": "INTEGER",
+            "category": "TEXT",
+            "requested_item": "TEXT",
+            "expected_delivery_date": "TEXT",
+            "expected_date": "TEXT",
+            "received_qty": "INTEGER DEFAULT 0",
+            "pending_qty": "INTEGER DEFAULT 0",
+            "responsible_person": "TEXT",
+            "blocked_reason": "TEXT DEFAULT 'none'",
+            "supplier": "TEXT",
+            "priority": "TEXT DEFAULT 'normal'",
+            "due_date": "TEXT",
+            "client_informed": "INTEGER DEFAULT 0",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "blocked_notes": "TEXT",
         },
         "cases": {
+            "case_no": "TEXT",
+            "contact_id": "INTEGER",
+            "request_id": "INTEGER",
+            "quotation_id": "INTEGER",
+            "client_order_id": "INTEGER",
+            "purchase_order_id": "INTEGER",
+            "delivery_note_id": "INTEGER",
+            "invoice_id": "INTEGER",
+            "engineer_id": "INTEGER",
+            "contract_id": "INTEGER",
+            "workflow_state": "TEXT DEFAULT 'lead'",
+            "notes": "TEXT",
             "department": "TEXT",
             "department_id": "INTEGER",
             "request_source": "TEXT",
@@ -1829,8 +1884,51 @@ def init_db():
             "blocked_notes": "TEXT",
         },
         "inventory_items": {
+            "inventory_id": "INTEGER",
+            "device_family": "TEXT",
+            "barcode": "TEXT",
+            "default_location_id": "INTEGER",
+            "active": "INTEGER DEFAULT 1",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "blocked_reason": "TEXT DEFAULT 'none'",
             "blocked_notes": "TEXT",
+        },
+        "departments": {
+            "department_name": "TEXT",
+            "main_contact_name": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        },
+        "contacts": {
+            "role": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        },
+        "equipment_models": {
+            "equipment_family": "TEXT",
+            "notes": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        },
+        "equipment": {
+            "pm_asset_id": "INTEGER",
+            "warranty_id": "INTEGER",
+            "contract_id": "INTEGER",
+            "parent_case_reference": "TEXT",
+            "parent_case_id": "INTEGER",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
+        },
+        "case_items": {
+            "request_item_id": "INTEGER",
+            "requested_item": "TEXT",
+            "quantity": "INTEGER DEFAULT 1",
+            "reserved_qty": "INTEGER DEFAULT 0",
+            "shortage_qty": "INTEGER DEFAULT 0",
+            "parent_case_reference": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
         },
         "pm_assets": {
             "department_id": "INTEGER",
@@ -1846,6 +1944,15 @@ def init_db():
             "informed_attachment": "TEXT",
         },
         "service_calls": {
+            "request_id": "INTEGER",
+            "call_no": "TEXT",
+            "engineer": "TEXT",
+            "issue": "TEXT",
+            "resolution": "TEXT",
+            "opened_at": "TEXT",
+            "closed_at": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "department_id": "INTEGER",
@@ -1864,6 +1971,14 @@ def init_db():
             "due_date": "TEXT",
         },
         "pm_tasks": {
+            "asset_id": "INTEGER",
+            "task_name": "TEXT",
+            "description": "TEXT",
+            "checklist": "TEXT",
+            "assigned_to": "TEXT",
+            "due_date": "TEXT",
+            "created_at": "TEXT",
+            "updated_at": "TEXT",
             "parent_case_reference": "TEXT",
             "parent_case_id": "INTEGER",
             "department_id": "INTEGER",
@@ -2063,6 +2178,9 @@ def init_db():
         for col, col_type in columns.items():
             if col not in existing_cols:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_inventory_items_inventory_id ON inventory_items(inventory_id)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_case_items_request_item_id ON case_items(request_item_id)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_procurement_requests_customer_request_item_id ON procurement_requests(customer_request_item_id)")
 
     ensure_clients_from_existing_data(conn)
     sync_core_reference_tables(conn)
@@ -4732,6 +4850,10 @@ def admin_page():
 @app.get("/admin/imports")
 def imports_page():
     return FileResponse(BASE_DIR / "static" / "imports.html")
+
+@app.get("/mdmanser")
+def mdmanser_page():
+    return RedirectResponse(url="/static/mdmanser.html", status_code=303)
 
 @app.get("/crm")
 def crm_page():
