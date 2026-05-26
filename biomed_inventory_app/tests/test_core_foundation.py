@@ -105,6 +105,160 @@ class CoreFoundationSmokeTest(unittest.TestCase):
         edit = m.bulk_edit({"target": "cases", "ids": [cases[0]["id"]], "updates": {"priority": "urgent"}}, self.request)
         self.assertEqual(edit["requested"], 1)
 
+    def test_procurement_assigns_unassigned_client_order_items_to_po(self):
+        m = self.main
+        request = m.create_customer_request(
+            m.CustomerRequestIn(
+                client_hospital="Hospital Procurement",
+                department="ICU",
+                contact_person="Purchasing Lead",
+                request_source="email",
+                lines=[m.CustomerRequestLineIn(requested_item="ECG-CABLE-001", quantity=3, item_type="spare_part")],
+            ),
+            self.request,
+        )
+        m.convert_customer_request_to_order(request["id"])
+
+        unassigned = m.unassigned_client_order_items()
+        self.assertEqual(len(unassigned), 1)
+        self.assertEqual(unassigned[0]["client_order_no"][:3], "CO-")
+
+        po_no = "PO-TEST-001"
+        m.create_po(
+            m.PurchaseOrder(
+                po_no=po_no,
+                supplier="Supplier A",
+                po_date="2026-05-26",
+                contact_person="Supplier Contact",
+                payment_terms="30 days",
+                expected_date="2026-06-10",
+            )
+        )
+        assigned = m.assign_client_order_items_to_po(
+            po_no,
+            {"client_order_item_ids": [unassigned[0]["client_order_item_id"]]},
+        )
+        self.assertEqual(assigned["assigned"], 1)
+        self.assertEqual(m.unassigned_client_order_items(), [])
+
+        conn = m.db()
+        try:
+            po = conn.execute("SELECT * FROM purchase_orders WHERE po_no=?", (po_no,)).fetchone()
+            line = conn.execute("SELECT * FROM purchase_order_items WHERE po_no=?", (po_no,)).fetchone()
+            request_line = conn.execute("SELECT * FROM customer_request_items WHERE id=?", (line["request_item_id"],)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(po["payment_terms"], "30 days")
+        self.assertEqual(line["client_order_no"], unassigned[0]["client_order_no"])
+        self.assertEqual(request_line["linked_purchase_order"], po_no)
+        self.assertEqual(request_line["procurement_status"], "po_draft")
+
+        received = m.receive_po_now(po_no)
+        self.assertEqual(received["auto_received_items"], 1)
+
+    def test_procurement_tracks_duplicate_refs_as_separate_rows(self):
+        m = self.main
+        request_ids = []
+        for hospital in ["Hospital One", "Hospital Two"]:
+            request = m.create_customer_request(
+                m.CustomerRequestIn(
+                    client_hospital=hospital,
+                    department="ICU",
+                    contact_person="Procurement Lead",
+                    request_source="email",
+                    lines=[m.CustomerRequestLineIn(requested_item="ECG-CABLE-001", quantity=1, item_type="spare_part")],
+                ),
+                self.request,
+            )
+            m.convert_customer_request_to_order(request["id"])
+            request_ids.append(request["id"])
+
+        unassigned = m.unassigned_client_order_items()
+        self.assertEqual(len(unassigned), 2)
+        self.assertEqual({row["ref"] for row in unassigned}, {"ECG-CABLE-001"})
+        self.assertEqual({row["description"] for row in unassigned}, {"ECG-CABLE-001"})
+        self.assertEqual(len({row["co_no"] for row in unassigned}), 2)
+
+        for idx, row in enumerate(unassigned, start=1):
+            po_no = f"PO-DUP-{idx:03d}"
+            m.create_po(m.PurchaseOrder(po_no=po_no, supplier=f"Supplier {idx}"))
+            result = m.assign_client_order_items_to_po(po_no, {"client_order_item_ids": [row["client_order_item_id"]]})
+            self.assertEqual(result["assigned"], 1)
+
+        tracked = [row for row in m.procurement_tracked_items() if row["ref"] == "ECG-CABLE-001"]
+        assigned = [row for row in tracked if row["source"] == "purchase_order"]
+        self.assertEqual(len(assigned), 2)
+        self.assertEqual({row["description"] for row in assigned}, {"ECG-CABLE-001"})
+        self.assertEqual(len({row["co_no"] for row in assigned}), 2)
+        self.assertEqual({row["po_no"] for row in assigned}, {"PO-DUP-001", "PO-DUP-002"})
+        self.assertEqual({row["supplier"] for row in assigned}, {"Supplier 1", "Supplier 2"})
+        self.assertEqual({row["customer"] for row in assigned}, {"Hospital One", "Hospital Two"})
+
+    def test_inventory_split_and_equipment_database_fields(self):
+        m = self.main
+        part = m.create_item(
+            m.InventoryItem(
+                pn="SPARE-001",
+                description="Monitor spare cable",
+                location="C1",
+                system_qty=2,
+                physical_qty=2,
+                item_category="spare_parts",
+            )
+        )
+        accessory = m.create_item(
+            m.InventoryItem(
+                pn="ACC-001",
+                description="Monitor accessory bracket",
+                location="A1",
+                system_qty=1,
+                physical_qty=1,
+                item_category="accessories",
+            )
+        )
+
+        spare_rows = m.list_inventory_category("spare-parts")
+        accessory_rows = m.list_inventory_category("accessories")
+        self.assertTrue(any(row["id"] == part["id"] for row in spare_rows))
+        self.assertFalse(any(row["id"] == accessory["id"] for row in spare_rows))
+        self.assertTrue(any(row["id"] == accessory["id"] for row in accessory_rows))
+
+        client = m.create_crm_client(m.CRMClient(name="Hospital Equipment"), self.request)
+        department = m.save_department({"client_id": client["id"], "department_name": "NICU"}, self.request)
+        equipment = m.create_equipment(
+            {
+                "client_id": client["id"],
+                "department_id": department["id"],
+                "asset_tag": "EQ-SYS-1",
+                "serial_number": "SN-SYS-1",
+                "manufacturer": "GE",
+                "model": "B450",
+                "equipment_name": "Patient Monitor",
+                "equipment_family": "Monitoring",
+                "system_name": "Monitoring System",
+                "subsystem_name": "Bedside Monitor",
+                "end_user": "NICU Nurse Station",
+                "installation_date": "2026-05-20",
+                "installation_data": "Installed with network and power validation",
+                "warranty_expiration": "2028-05-20",
+                "delivery_doc": "DN-2026-001",
+                "supplies": "ECG leads, NIBP cuff",
+            },
+            self.request,
+        )
+        rows = m.list_equipment(q="EQ-SYS-1")
+        row = rows[0]
+        self.assertEqual(row["system_name"], "Monitoring System")
+        self.assertEqual(row["subsystem_name"], "Bedside Monitor")
+        self.assertEqual(row["end_user"], "NICU Nurse Station")
+        self.assertEqual(row["warranty_expiration"], "2028-05-20")
+        self.assertEqual(row["delivery_doc"], "DN-2026-001")
+        self.assertEqual(row["supplies"], "ECG leads, NIBP cuff")
+
+        detail = m.get_equipment(equipment["id"])
+        self.assertEqual(detail["installation_data"], "Installed with network and power validation")
+
 
 if __name__ == "__main__":
     unittest.main()

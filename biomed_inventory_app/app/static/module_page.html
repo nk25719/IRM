@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1 id="title">ERP Module</h1><p id="subtitle">Clean module entry point preserving existing routes</p></div><nav class="top-actions"><a href="/portal">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/after-sales">After Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a></nav></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1 id="title">ERP Module</h1><p id="subtitle">Clean module entry point preserving existing routes</p></div><nav class="top-actions"><a href="/portal">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/after-sales">After Sales</a><a href="/inventory">Database</a><a href="/logout">Logout</a></nav></div></header>
   <main class="container">
     <section class="page-intro"><h2 id="heading">Module</h2><p id="description"></p></section>
     <section id="cards" class="module-grid"></section>
@@ -19,9 +19,9 @@
   </main>
   <script>
     const modules={
-      "/procurement":{title:"Procurement",description:"Supplier purchase orders, missing-item purchasing, goods receiving, and PO exports.",api:"/api/purchase-orders",cards:[["Purchase Orders","/inventory","Existing PO creation and receiving workflow"],["PO Export","/api/export","Full Excel export with PO and received items"],["Missing Sales Items","/sales","Create PO for shortages from Sales requests"]]},
+      "/procurement":{title:"Procurement",description:"Client orders, supplier purchase orders, shipping, reception, missing-item purchasing, and PO exports.",api:"/api/purchase-orders",cards:[["Procurement Workspace","/procurement","CO assignment, PO creation, shipping, and reception"],["PO Export","/api/export","Full Excel export with PO and received items"],["Missing Sales Items","/sales","Create PO for shortages from Sales requests"]]},
       "/equipment-registry":{title:"Equipment Registry",description:"Installed equipment, biomedical profiles, PM assets, risk, calibration, uptime, recall, and compatibility records.",api:"/api/pm-assets",cards:[["PM Assets","/pm/assets","Existing equipment registry route"],["After Sales Equipment","/after-sales/pm-tracking","PM and warranty status"],["Biomedical Reports","/reports","Calibration and equipment-history reports"]]},
-      "/financials":{title:"Financials",description:"Invoices, unpaid balances, client order exports, and financial status by hospital.",api:"/api/client-orders",cards:[["Client Orders","/inventory","Existing client order workflow"],["Sales Invoices","/sales","Generate invoices only after delivery"],["CRM Financials","/crm","Client financial overview"]]},
+      "/financials":{title:"Financials",description:"Invoices, unpaid balances, client order exports, and financial status by hospital.",api:"/api/client-orders",cards:[["Client Orders","/procurement","Client order references and procurement handoff"],["Sales Invoices","/sales","Generate invoices only after delivery"],["CRM Financials","/crm","Client financial overview"]]},
       "/reports":{title:"Reports",description:"Printable, Excel, and PDF exports for inventory, stock movement, service, PM, installation, acceptance, calibration, contract, and equipment history reports.",api:"/api/dashboard",cards:[["Inventory Export","/api/export","Master Excel export"],["Stock Movement Report","/api/stock-movements/export","Excel stock movement report"],["Service Report","/api/biomedical/reports/service-report?format=excel","Service call report"],["PM Report","/api/pm-reports?report=completion","PM completion report"],["Calibration Certificate","/api/biomedical/reports/calibration-certificate?format=pdf","PDF calibration report"],["Contract PDF","/api/biomedical/reports/contract-pdf?format=pdf","Contract PDF export"]]},
       "/admin":{title:"Admin",description:"Configuration, audit trail, import/export safety, and system health.",api:"/api/audit",cards:[["Audit Trail","/inventory","Existing audit module"],["Full Export","/api/export","Backup/export"],["Import","/inventory","Existing append/merge import"]]},
     };

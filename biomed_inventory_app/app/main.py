@@ -70,6 +70,7 @@ class InventoryItem(BaseModel):
     notes: str = ""
     barcode: str = ""
     photo_url: str = ""
+    item_category: str = "spare_parts"
 
 class QuantityUpdate(BaseModel):
     physical_qty: int
@@ -96,6 +97,12 @@ class PurchaseOrder(BaseModel):
     po_no: str
     supplier: str = ""
     status: str = "OPEN"
+    po_date: str = ""
+    contact_person: str = ""
+    payment_terms: str = ""
+    shipping_status: str = ""
+    shipping_reference: str = ""
+    reception_status: str = ""
     expected_date: str = ""
     notes: str = ""
 
@@ -108,6 +115,9 @@ class PurchaseOrderLine(BaseModel):
     barcode: str = ""
     device_family: str = ""
     notes: str = ""
+    request_id: int | None = None
+    request_item_id: int | None = None
+    client_order_no: str = ""
 
 class PMAsset(BaseModel):
     asset_tag: str
@@ -129,6 +139,13 @@ class PMAsset(BaseModel):
     notes: str = ""
     linked_inventory_pn: str = ""
     barcode: str = ""
+    end_user: str = ""
+    installation_data: str = ""
+    warranty_expiration: str = ""
+    delivery_doc: str = ""
+    supplies: str = ""
+    system_name: str = ""
+    subsystem_name: str = ""
 
 class PMTask(BaseModel):
     asset_id: int
@@ -572,6 +589,14 @@ def detect_family(description: str) -> str:
             return fam
     return ""
 
+def normalize_inventory_category(category: str = "", device_family: str = "", description: str = "") -> str:
+    text = " ".join([category or "", device_family or "", description or ""]).lower()
+    if "accessor" in text:
+        return "accessories"
+    if "equipment" in text or "machine" in text or "system" in text:
+        return "equipment"
+    return "spare_parts"
+
 def lookup_url_for(pn: str, description: str = "") -> str:
     query = f"{pn} {description} biomedical spare part GE Healthcare".strip()
     return "https://www.google.com/search?q=" + urllib.parse.quote_plus(query)
@@ -653,7 +678,8 @@ def init_db():
             updated_at TEXT,
             barcode TEXT,
             photo_url TEXT,
-            lookup_url TEXT
+            lookup_url TEXT,
+            item_category TEXT DEFAULT 'spare_parts'
         )
     """)
     conn.execute("""
@@ -704,6 +730,12 @@ def init_db():
             po_no TEXT UNIQUE,
             supplier TEXT,
             status TEXT,
+            po_date TEXT,
+            contact_person TEXT,
+            payment_terms TEXT,
+            shipping_status TEXT,
+            shipping_reference TEXT,
+            reception_status TEXT,
             expected_date TEXT,
             notes TEXT,
             created_at TEXT,
@@ -723,6 +755,7 @@ def init_db():
             device_family TEXT,
             notes TEXT,
             received INTEGER DEFAULT 0,
+            client_order_no TEXT,
             created_at TEXT,
             updated_at TEXT
         )
@@ -772,6 +805,13 @@ def init_db():
             notes TEXT,
             linked_inventory_pn TEXT,
             barcode TEXT,
+            end_user TEXT,
+            installation_data TEXT,
+            warranty_expiration TEXT,
+            delivery_doc TEXT,
+            supplies TEXT,
+            system_name TEXT,
+            subsystem_name TEXT,
             created_at TEXT,
             updated_at TEXT
         )
@@ -1632,9 +1672,9 @@ def init_db():
     conn.commit()
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(inventory)").fetchall()]
-    for col in ["barcode", "photo_url", "lookup_url", "client_id", "client_name", "reserved_qty"]:
+    for col in ["barcode", "photo_url", "lookup_url", "client_id", "client_name", "reserved_qty", "item_category"]:
         if col not in cols:
-            col_type = "INTEGER DEFAULT 0" if col == "reserved_qty" else "TEXT"
+            col_type = "INTEGER DEFAULT 0" if col == "reserved_qty" else "TEXT DEFAULT 'spare_parts'" if col == "item_category" else "TEXT"
             conn.execute(f"ALTER TABLE inventory ADD COLUMN {col} {col_type}")
 
     tx_cols = [r["name"] for r in conn.execute("PRAGMA table_info(transactions)").fetchall()]
@@ -1649,7 +1689,8 @@ def init_db():
                 "total_downtime_hours", "outage_frequency", "operational_percentage", "mtbf_hours",
                 "failure_categories", "recurring_issue_flag", "equipment_name", "equipment_family",
                 "installation_date", "calibration_required", "calibration_due_date", "last_service_date",
-                "lifecycle_status", "eol_date", "eosl_date"]:
+                "lifecycle_status", "eol_date", "eosl_date", "end_user", "installation_data",
+                "warranty_expiration", "delivery_doc", "supplies", "system_name", "subsystem_name"]:
         if col not in pm_asset_cols:
             col_type = "REAL DEFAULT 0" if col in {"total_uptime_hours", "total_downtime_hours", "operational_percentage", "mtbf_hours"} else "INTEGER DEFAULT 0" if col in {"life_support", "outage_frequency", "recurring_issue_flag", "calibration_required"} else "TEXT"
             conn.execute(f"ALTER TABLE pm_assets ADD COLUMN {col} {col_type}")
@@ -1699,6 +1740,8 @@ def init_db():
     for col in ["request_id", "request_item_id"]:
         if col not in po_item_cols:
             conn.execute(f"ALTER TABLE purchase_order_items ADD COLUMN {col} INTEGER")
+    if "client_order_no" not in po_item_cols:
+        conn.execute("ALTER TABLE purchase_order_items ADD COLUMN client_order_no TEXT")
 
     quotation_cols = [r["name"] for r in conn.execute("PRAGMA table_info(quotations)").fetchall()]
     for col in ["request_id", "contact_person"]:
@@ -1710,6 +1753,9 @@ def init_db():
     for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id", "case_id"]:
         if col not in po_cols:
             conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} INTEGER")
+    for col in ["po_date", "contact_person", "payment_terms", "shipping_status", "shipping_reference", "reception_status"]:
+        if col not in po_cols:
+            conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} TEXT")
 
     extra_table_columns = {
         "customer_requests": {
@@ -4876,6 +4922,11 @@ def imports_page():
 def mdmanser_page():
     return RedirectResponse(url="/static/mdmanser.html", status_code=303)
 
+@app.get("/mdmanser-data")
+@app.get("/mdmanser/data")
+def mdmanser_data_page():
+    return FileResponse(BASE_DIR / "static" / "mdmanser_data.html")
+
 @app.get("/cmm")
 def cmm_page():
     return RedirectResponse(url="/static/mdmanser.html", status_code=303)
@@ -5085,7 +5136,9 @@ def list_equipment(client_id: int | None = None, department_id: int | None = Non
                e.asset_tag, e.serial_number, e.manufacturer, e.model,
                COALESCE(a.status, e.status) AS status,
                COALESCE(a.lifecycle_status, '') AS lifecycle_status,
-               a.location, a.installation_date,
+               a.location, a.installation_date, a.installation_data,
+               a.end_user, a.warranty_expiration, a.delivery_doc, a.supplies,
+               a.system_name, a.subsystem_name,
                a.contract_no, a.contract_start_date, a.contract_end_date,
                a.frequency_days AS pm_frequency_days, a.last_pm_date, a.next_pm_date,
                a.last_service_date, a.calibration_required, a.calibration_due_date,
@@ -5094,7 +5147,7 @@ def list_equipment(client_id: int | None = None, department_id: int | None = Non
                a.blocked_reason, a.client_informed,
                c.name AS client_name, d.department_name,
                COALESCE(w.warranty_start, a.warranty_start) AS warranty_start,
-               COALESCE(w.warranty_end, a.warranty_end) AS warranty_end,
+               COALESCE(w.warranty_end, a.warranty_end, a.warranty_expiration) AS warranty_end,
                COALESCE(w.status, a.warranty_status) AS warranty_status
         FROM equipment e
         LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
@@ -5146,8 +5199,9 @@ def create_equipment(payload: dict, request: Request):
              contract_no, contract_start_date, contract_end_date, frequency_days, next_pm_date, last_pm_date, status,
              notes, linked_inventory_pn, barcode, created_at, updated_at, client_id, department_id,
              equipment_name, equipment_family, installation_date, warranty_start, warranty_end, calibration_required,
-             calibration_due_date, risk_level, life_support, lifecycle_status, last_service_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             calibration_due_date, risk_level, life_support, lifecycle_status, last_service_date,
+             end_user, installation_data, warranty_expiration, delivery_doc, supplies, system_name, subsystem_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             asset_tag, payload.get("serial_number", ""), payload.get("manufacturer", ""), payload.get("model", ""),
             department, hospital, payload.get("location", ""), payload.get("engineer", ""), payload.get("contact_email", ""),
@@ -5162,6 +5216,10 @@ def create_equipment(payload: dict, request: Request):
             payload.get("risk_classification", payload.get("risk_level", "medium")),
             int(bool(payload.get("life_support", False))), payload.get("lifecycle_status", payload.get("status", "active")),
             payload.get("last_service_date", ""),
+            payload.get("end_user", ""), payload.get("installation_data", ""),
+            payload.get("warranty_expiration", payload.get("warranty_end_date", payload.get("warranty_end", ""))),
+            payload.get("delivery_doc", ""), payload.get("supplies", ""),
+            payload.get("system_name", ""), payload.get("subsystem_name", ""),
         ))
     except sqlite3.IntegrityError:
         conn.close()
@@ -5198,7 +5256,11 @@ def update_equipment(equipment_id: int, payload: dict, request: Request):
             warranty_end=COALESCE(?, warranty_end), calibration_required=COALESCE(?, calibration_required),
             calibration_due_date=COALESCE(?, calibration_due_date), risk_level=COALESCE(?, risk_level),
             life_support=COALESCE(?, life_support), lifecycle_status=COALESCE(?, lifecycle_status),
-            last_service_date=COALESCE(?, last_service_date), updated_at=?
+            last_service_date=COALESCE(?, last_service_date),
+            end_user=COALESCE(?, end_user), installation_data=COALESCE(?, installation_data),
+            warranty_expiration=COALESCE(?, warranty_expiration), delivery_doc=COALESCE(?, delivery_doc),
+            supplies=COALESCE(?, supplies), system_name=COALESCE(?, system_name),
+            subsystem_name=COALESCE(?, subsystem_name), updated_at=?
         WHERE id=?
     """, (
         payload.get("serial_number"), payload.get("manufacturer"), payload.get("model"),
@@ -5211,7 +5273,11 @@ def update_equipment(equipment_id: int, payload: dict, request: Request):
         int(bool(payload.get("calibration_required"))) if "calibration_required" in payload else None,
         payload.get("calibration_due_date"), payload.get("risk_classification", payload.get("risk_level")),
         int(bool(payload.get("life_support"))) if "life_support" in payload else None,
-        payload.get("lifecycle_status"), payload.get("last_service_date"), now(), pm_asset_id,
+        payload.get("lifecycle_status"), payload.get("last_service_date"),
+        payload.get("end_user"), payload.get("installation_data"),
+        payload.get("warranty_expiration", payload.get("warranty_end_date", payload.get("warranty_end"))),
+        payload.get("delivery_doc"), payload.get("supplies"),
+        payload.get("system_name"), payload.get("subsystem_name"), now(), pm_asset_id,
     ))
     conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
                  (pm_asset_id, "ASSET_UPDATED", "Equipment updated from core API", payload.get("engineer", ""), now()))
@@ -7245,12 +7311,16 @@ def create_pm_asset(asset: PMAsset):
             INSERT INTO pm_assets
             (asset_tag, serial_number, manufacturer, model, department, hospital, location,
              engineer, contact_email, contract_no, contract_start_date, contract_end_date, frequency_days,
-             next_pm_date, last_pm_date, status, notes, linked_inventory_pn, barcode, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             next_pm_date, last_pm_date, status, notes, linked_inventory_pn, barcode,
+             end_user, installation_data, warranty_expiration, delivery_doc, supplies, system_name, subsystem_name,
+             created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (asset.asset_tag.strip(), asset.serial_number, asset.manufacturer, asset.model, asset.department,
               asset.hospital, asset.location, asset.engineer, asset.contact_email, asset.contract_no,
               asset.contract_start_date, asset.contract_end_date, asset.frequency_days, asset.next_pm_date,
-              asset.last_pm_date, asset.status, asset.notes, asset.linked_inventory_pn, asset.barcode, now(), now()))
+              asset.last_pm_date, asset.status, asset.notes, asset.linked_inventory_pn, asset.barcode,
+              asset.end_user, asset.installation_data, asset.warranty_expiration, asset.delivery_doc,
+              asset.supplies, asset.system_name, asset.subsystem_name, now(), now()))
     except sqlite3.IntegrityError:
         conn.close()
         raise HTTPException(status_code=400, detail="Asset tag already exists")
@@ -7272,12 +7342,15 @@ def update_pm_asset(asset_id: int, asset: PMAsset):
         SET asset_tag=?, serial_number=?, manufacturer=?, model=?, department=?, hospital=?, location=?,
             engineer=?, contact_email=?, contract_no=?, contract_start_date=?, contract_end_date=?,
             frequency_days=?, next_pm_date=?, last_pm_date=?, status=?, notes=?, linked_inventory_pn=?,
-            barcode=?, updated_at=?
+            barcode=?, end_user=?, installation_data=?, warranty_expiration=?, delivery_doc=?, supplies=?,
+            system_name=?, subsystem_name=?, updated_at=?
         WHERE id=?
     """, (asset.asset_tag.strip(), asset.serial_number, asset.manufacturer, asset.model, asset.department,
           asset.hospital, asset.location, asset.engineer, asset.contact_email, asset.contract_no,
           asset.contract_start_date, asset.contract_end_date, asset.frequency_days, asset.next_pm_date,
-          asset.last_pm_date, asset.status, asset.notes, asset.linked_inventory_pn, asset.barcode, now(), asset_id))
+          asset.last_pm_date, asset.status, asset.notes, asset.linked_inventory_pn, asset.barcode,
+          asset.end_user, asset.installation_data, asset.warranty_expiration, asset.delivery_doc, asset.supplies,
+          asset.system_name, asset.subsystem_name, now(), asset_id))
     conn.execute("INSERT INTO pm_history (asset_id, action, notes, engineer, created_at) VALUES (?, ?, ?, ?, ?)",
                  (asset_id, "ASSET_UPDATED", "PM asset details updated", "", now()))
     conn.commit()
@@ -7632,7 +7705,7 @@ async def import_pm_assets(file: UploadFile = File(...)):
 
 
 @app.get("/api/clean-inventory")
-def clean_inventory(q: str = "", location: str = "", limit: int = 1000):
+def clean_inventory(q: str = "", location: str = "", category: str = "", limit: int = 1000):
     conn = db()
     where, args = [], []
 
@@ -7643,6 +7716,10 @@ def clean_inventory(q: str = "", location: str = "", limit: int = 1000):
     if location:
         where.append("location LIKE ?")
         args.append(f"%{location}%")
+    normalized_category = normalize_inventory_category(category) if category else ""
+    if normalized_category:
+        where.append("COALESCE(item_category, 'spare_parts') = ?")
+        args.append(normalized_category)
 
     sql = """
         SELECT
@@ -7669,16 +7746,22 @@ def clean_inventory(q: str = "", location: str = "", limit: int = 1000):
 
 
 @app.get("/api/item-options")
-def item_options(q: str = "", limit: int = 300):
+def item_options(q: str = "", category: str = "", limit: int = 300):
     conn = db()
-    args = []
+    where, args = [], []
     sql = """
         SELECT id, pn, description, barcode, location, physical_qty, system_qty
         FROM inventory
     """
     if q:
-        sql += " WHERE pn LIKE ? OR description LIKE ? OR barcode LIKE ?"
+        where.append("(pn LIKE ? OR description LIKE ? OR barcode LIKE ?)")
         args.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    normalized_category = normalize_inventory_category(category) if category else ""
+    if normalized_category:
+        where.append("COALESCE(item_category, 'spare_parts') = ?")
+        args.append(normalized_category)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY pn LIMIT ?"
     args.append(limit)
     rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
@@ -7687,7 +7770,7 @@ def item_options(q: str = "", limit: int = 300):
 
 
 @app.get("/api/items")
-def list_items(q: str = "", status: str = "", location: str = "", limit: int = 1000):
+def list_items(q: str = "", status: str = "", location: str = "", category: str = "", limit: int = 1000):
     conn = db()
     where, args = [], []
     if q:
@@ -7699,6 +7782,10 @@ def list_items(q: str = "", status: str = "", location: str = "", limit: int = 1
     if location:
         where.append("location LIKE ?")
         args.append(f"%{location}%")
+    normalized_category = normalize_inventory_category(category) if category else ""
+    if normalized_category:
+        where.append("COALESCE(item_category, 'spare_parts') = ?")
+        args.append(normalized_category)
     sql = "SELECT * FROM inventory"
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -7708,19 +7795,27 @@ def list_items(q: str = "", status: str = "", location: str = "", limit: int = 1
     conn.close()
     return rows
 
+@app.get("/api/inventory/{category}")
+def list_inventory_category(category: str, q: str = "", status: str = "", location: str = "", limit: int = 1000):
+    if category not in {"spare-parts", "spare_parts", "accessories"}:
+        raise HTTPException(status_code=404, detail="Inventory category not found")
+    normalized = "spare_parts" if category in {"spare-parts", "spare_parts"} else "accessories"
+    return list_items(q=q, status=status, location=location, category=normalized, limit=limit)
+
 @app.post("/api/items")
 def create_item(item: InventoryItem):
     conn = db()
     diff = item.physical_qty - item.system_qty
     status = item.status or compute_status(item.system_qty, item.physical_qty)
     family = item.device_family or detect_family(item.description)
+    item_category = normalize_inventory_category(item.item_category, family, item.description)
     lookup_url = lookup_url_for(item.pn, item.description)
     cur = conn.execute("""
         INSERT INTO inventory
-        (pn, description, location, system_qty, physical_qty, difference, device_family, status, notes, source, updated_at, barcode, photo_url, lookup_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (pn, description, location, system_qty, physical_qty, difference, device_family, status, notes, source, updated_at, barcode, photo_url, lookup_url, item_category)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (item.pn.strip(), item.description, item.location, item.system_qty, item.physical_qty,
-          diff, family, status, item.notes, "WEB_APP", now(), item.barcode, item.photo_url, lookup_url))
+          diff, family, status, item.notes, "WEB_APP", now(), item.barcode, item.photo_url, lookup_url, item_category))
     audit(conn, cur.lastrowid, "CREATE_ITEM", "", item.dict(), item.notes)
     conn.commit()
     new_id = cur.lastrowid
@@ -7738,14 +7833,15 @@ def update_item(item_id: int, item: InventoryItem):
     diff = item.physical_qty - item.system_qty
     status = item.status or compute_status(item.system_qty, item.physical_qty)
     family = item.device_family or detect_family(item.description)
+    item_category = normalize_inventory_category(item.item_category, family, item.description)
     lookup_url = lookup_url_for(item.pn, item.description)
     conn.execute("""
         UPDATE inventory
         SET pn=?, description=?, location=?, system_qty=?, physical_qty=?, difference=?,
-            device_family=?, status=?, notes=?, updated_at=?, barcode=?, photo_url=?, lookup_url=?
+            device_family=?, status=?, notes=?, updated_at=?, barcode=?, photo_url=?, lookup_url=?, item_category=?
         WHERE id=?
     """, (item.pn.strip(), item.description, item.location, item.system_qty, item.physical_qty,
-          diff, family, status, item.notes, now(), item.barcode, item.photo_url, lookup_url, item_id))
+          diff, family, status, item.notes, now(), item.barcode, item.photo_url, lookup_url, item_category, item_id))
     audit(conn, item_id, "UPDATE_ITEM", dict(old), item.dict(), item.notes)
     conn.commit()
     conn.close()
@@ -8140,12 +8236,12 @@ def receive_purchase_order(conn, po_no: str):
             cur = conn.execute("""
                 INSERT INTO inventory
                 (pn, description, location, system_qty, physical_qty, difference, device_family, status,
-                 notes, source, updated_at, barcode, photo_url, lookup_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 notes, source, updated_at, barcode, photo_url, lookup_url, item_category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 line["pn"], line["description"], line["location"], system_qty, new_qty, diff,
                 family, status, line["notes"], "PO_RECEIVED", now(),
-                line["barcode"], "", lookup_url
+                line["barcode"], "", lookup_url, normalize_inventory_category("", family, line["description"])
             ))
 
             item_id = cur.lastrowid
@@ -8167,6 +8263,13 @@ def receive_purchase_order(conn, po_no: str):
             WHERE id=?
         """, (qty, now(), line["id"]))
 
+        if line["request_item_id"]:
+            conn.execute("""
+                UPDATE customer_request_items
+                SET procurement_status=?, updated_at=?
+                WHERE id=?
+            """, ("received", now(), line["request_item_id"]))
+
         audit(conn, item_id, "PO_RECEIVED_AUTO_STOCK_IN", old_qty, new_qty, f"PO={po_no}; PN={line['pn']}; qty={qty}")
         received_count += 1
 
@@ -8179,15 +8282,26 @@ def create_po(po: PurchaseOrder):
     previous = conn.execute("SELECT * FROM purchase_orders WHERE po_no=?", (po.po_no,)).fetchone()
 
     conn.execute("""
-        INSERT INTO purchase_orders (po_no, supplier, status, expected_date, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO purchase_orders
+        (po_no, supplier, status, po_date, contact_person, payment_terms, shipping_status, shipping_reference,
+         reception_status, expected_date, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(po_no) DO UPDATE SET
             supplier=excluded.supplier,
             status=excluded.status,
+            po_date=excluded.po_date,
+            contact_person=excluded.contact_person,
+            payment_terms=excluded.payment_terms,
+            shipping_status=excluded.shipping_status,
+            shipping_reference=excluded.shipping_reference,
+            reception_status=excluded.reception_status,
             expected_date=excluded.expected_date,
             notes=excluded.notes,
             updated_at=excluded.updated_at
-    """, (po.po_no, po.supplier, po.status, po.expected_date, po.notes, now(), now()))
+    """, (
+        po.po_no, po.supplier, po.status, po.po_date, po.contact_person, po.payment_terms,
+        po.shipping_status, po.shipping_reference, po.reception_status, po.expected_date, po.notes, now(), now()
+    ))
 
     audit(conn, None, "UPSERT_PO", dict(previous) if previous else "", po.dict(), "")
 
@@ -8297,12 +8411,21 @@ def add_po_item(line: PurchaseOrderLine):
 
     cur = conn.execute("""
         INSERT INTO purchase_order_items
-        (po_no, pn, description, qty, received_qty, location, barcode, device_family, notes, received, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (po_no, pn, description, qty, received_qty, location, barcode, device_family, notes, received,
+         created_at, updated_at, request_id, request_item_id, client_order_no)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         line.po_no, line.pn.strip(), line.description, line.qty, 0,
-        line.location, line.barcode, family, line.notes, 0, now(), now()
+        line.location, line.barcode, family, line.notes, 0, now(), now(),
+        line.request_id, line.request_item_id, line.client_order_no
     ))
+
+    if line.request_item_id:
+        conn.execute("""
+            UPDATE customer_request_items
+            SET linked_purchase_order=?, procurement_status=?, updated_at=?
+            WHERE id=?
+        """, (line.po_no, "po_draft", now(), line.request_item_id))
 
     audit(conn, None, "ADD_PO_ITEM", "", line.dict(), f"PO={line.po_no}")
     conn.commit()
@@ -8310,6 +8433,181 @@ def add_po_item(line: PurchaseOrderLine):
     conn.close()
     export_excel(EXCEL_PATH)
     return {"message": "PO item added", "id": new_id}
+
+
+@app.get("/api/procurement/client-order-items/unassigned")
+def unassigned_client_order_items():
+    conn = db()
+    rows = [dict(r) for r in conn.execute("""
+        SELECT
+            'COI-' || coi.id AS tracking_id,
+            coi.id AS client_order_item_id,
+            coi.client_order_no,
+            coi.client_order_no AS co_no,
+            '' AS po_no,
+            '' AS supplier,
+            coi.request_id,
+            coi.request_item_id,
+            coi.requested_item,
+            COALESCE(NULLIF(cri.pn, ''), coi.requested_item) AS ref,
+            coi.requested_item AS description,
+            coi.item_type,
+            coi.quantity,
+            coi.quantity AS qty,
+            coi.reserved_qty,
+            coi.delivered_qty,
+            coi.invoiced_qty,
+            coi.notes,
+            co.client_name,
+            co.client_name AS customer,
+            co.status AS client_order_status,
+            co.expected_date,
+            cr.contact_person,
+            cr.parent_case_reference,
+            cri.pn,
+            cri.shortage_qty,
+            cri.procurement_status,
+            cri.linked_purchase_order
+        FROM client_order_items coi
+        LEFT JOIN client_orders co ON co.id=coi.client_order_id
+        LEFT JOIN customer_requests cr ON cr.id=coi.request_id
+        LEFT JOIN customer_request_items cri ON cri.id=coi.request_item_id
+        WHERE COALESCE(cri.linked_purchase_order, '') = ''
+          AND COALESCE(coi.quantity, 0) > COALESCE(coi.delivered_qty, 0)
+          AND COALESCE(co.status, '') NOT IN ('CANCELLED', 'cancelled')
+        ORDER BY co.updated_at DESC, coi.id DESC
+    """).fetchall()]
+    conn.close()
+    return rows
+
+
+@app.get("/api/procurement/tracked-items")
+def procurement_tracked_items(limit: int = 1000):
+    conn = db()
+    unassigned = [dict(r) for r in conn.execute("""
+        SELECT
+            'COI-' || coi.id AS tracking_id,
+            'client_order' AS source,
+            coi.id AS source_id,
+            coi.client_order_no AS co_no,
+            '' AS po_no,
+            '' AS supplier,
+            co.client_name AS customer,
+            COALESCE(NULLIF(cri.pn, ''), coi.requested_item) AS ref,
+            coi.requested_item AS description,
+            coi.quantity AS qty,
+            0 AS received_qty,
+            COALESCE(cri.procurement_status, 'not_ordered') AS status,
+            '' AS shipping_status,
+            '' AS reception_status,
+            coi.request_id,
+            coi.request_item_id,
+            cr.parent_case_reference,
+            coi.updated_at
+        FROM client_order_items coi
+        LEFT JOIN client_orders co ON co.id=coi.client_order_id
+        LEFT JOIN customer_requests cr ON cr.id=coi.request_id
+        LEFT JOIN customer_request_items cri ON cri.id=coi.request_item_id
+        WHERE COALESCE(cri.linked_purchase_order, '') = ''
+          AND COALESCE(coi.quantity, 0) > COALESCE(coi.delivered_qty, 0)
+          AND COALESCE(co.status, '') NOT IN ('CANCELLED', 'cancelled')
+        ORDER BY coi.updated_at DESC
+        LIMIT ?
+    """, (limit,)).fetchall()]
+    assigned = [dict(r) for r in conn.execute("""
+        SELECT
+            'POI-' || poi.id AS tracking_id,
+            'purchase_order' AS source,
+            poi.id AS source_id,
+            poi.client_order_no AS co_no,
+            poi.po_no,
+            po.supplier,
+            co.client_name AS customer,
+            poi.pn AS ref,
+            poi.description,
+            poi.qty,
+            poi.received_qty,
+            CASE WHEN poi.received=1 THEN 'received' ELSE COALESCE(po.status, 'OPEN') END AS status,
+            po.shipping_status,
+            po.reception_status,
+            poi.request_id,
+            poi.request_item_id,
+            cr.parent_case_reference,
+            poi.updated_at
+        FROM purchase_order_items poi
+        LEFT JOIN purchase_orders po ON po.po_no=poi.po_no
+        LEFT JOIN client_orders co ON co.client_order_no=poi.client_order_no
+        LEFT JOIN customer_requests cr ON cr.id=poi.request_id
+        ORDER BY poi.updated_at DESC
+        LIMIT ?
+    """, (limit,)).fetchall()]
+    conn.close()
+    rows = unassigned + assigned
+    rows.sort(key=lambda r: r.get("updated_at") or "", reverse=True)
+    return rows[:limit]
+
+
+@app.post("/api/procurement/purchase-orders/{po_no}/assign-client-order-items")
+def assign_client_order_items_to_po(po_no: str, payload: dict):
+    item_ids = [int(x) for x in payload.get("client_order_item_ids", []) if str(x).strip()]
+    if not item_ids:
+        raise HTTPException(status_code=400, detail="Select at least one client order item")
+
+    conn = db()
+    po = conn.execute("SELECT * FROM purchase_orders WHERE po_no=?", (po_no,)).fetchone()
+    if not po:
+        conn.execute("""
+            INSERT INTO purchase_orders (po_no, supplier, status, po_date, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (po_no, "", "OPEN", date.today().isoformat(), "Created from client order assignment", now(), now()))
+
+    placeholders = ",".join("?" for _ in item_ids)
+    rows = conn.execute(f"""
+        SELECT
+            coi.*,
+            co.client_name,
+            cri.pn,
+            cri.shortage_qty,
+            cri.linked_purchase_order
+        FROM client_order_items coi
+        LEFT JOIN client_orders co ON co.id=coi.client_order_id
+        LEFT JOIN customer_request_items cri ON cri.id=coi.request_item_id
+        WHERE coi.id IN ({placeholders})
+    """, item_ids).fetchall()
+
+    assigned = 0
+    skipped = []
+    for row in rows:
+        if row["linked_purchase_order"]:
+            skipped.append({"id": row["id"], "reason": "already assigned", "po_no": row["linked_purchase_order"]})
+            continue
+        qty = int(row["shortage_qty"] or 0) or max(0, int(row["quantity"] or 0) - int(row["delivered_qty"] or 0))
+        if qty <= 0:
+            skipped.append({"id": row["id"], "reason": "no pending quantity"})
+            continue
+        pn = row["pn"] or row["requested_item"]
+        conn.execute("""
+            INSERT INTO purchase_order_items
+            (po_no, pn, description, qty, received_qty, location, barcode, device_family, notes, received,
+             created_at, updated_at, request_id, request_item_id, client_order_no)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            po_no, pn, row["requested_item"], qty, 0, "", "", "", f"Linked from client order {row['client_order_no']}",
+            0, now(), now(), row["request_id"], row["request_item_id"], row["client_order_no"]
+        ))
+        if row["request_item_id"]:
+            conn.execute("""
+                UPDATE customer_request_items
+                SET linked_purchase_order=?, procurement_status=?, updated_at=?
+                WHERE id=?
+            """, (po_no, "po_draft", now(), row["request_item_id"]))
+        assigned += 1
+        audit(conn, None, "ASSIGN_CO_ITEM_TO_PO", "", f"CO={row['client_order_no']}; PO={po_no}; qty={qty}", f"client_order_item_id={row['id']}")
+
+    conn.commit()
+    conn.close()
+    export_excel(EXCEL_PATH)
+    return {"message": "client order items assigned to purchase order", "assigned": assigned, "skipped": skipped}
 
 
 @app.get("/api/purchase-orders/{po_no}/items")
@@ -8327,7 +8625,24 @@ def list_po_items(po_no: str):
 def list_all_po_items(limit: int = 500):
     conn = db()
     rows = [dict(r) for r in conn.execute(
-        "SELECT * FROM purchase_order_items ORDER BY updated_at DESC LIMIT ?",
+        """
+        SELECT
+            poi.*,
+            po.supplier,
+            po.status AS po_status,
+            po.po_date,
+            po.contact_person,
+            po.payment_terms,
+            po.shipping_status,
+            po.shipping_reference,
+            po.reception_status,
+            co.client_name
+        FROM purchase_order_items poi
+        LEFT JOIN purchase_orders po ON po.po_no=poi.po_no
+        LEFT JOIN client_orders co ON co.client_order_no=poi.client_order_no
+        ORDER BY poi.updated_at DESC
+        LIMIT ?
+        """,
         (limit,)
     ).fetchall()]
     conn.close()

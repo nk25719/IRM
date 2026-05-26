@@ -60,8 +60,36 @@ def dashboard_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/mdmanser/service-records")
-def mdmanser_service_records(db: Session = Depends(get_db), limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
-    rows = db.query(m.MDManserServiceRecord).order_by(m.MDManserServiceRecord.id.desc()).offset(offset).limit(limit).all()
+def mdmanser_service_records(
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    q: str = "",
+    institution: str = "",
+    engineer_name: str = "",
+    serial_number: str = "",
+    report_number: str = "",
+):
+    query = db.query(m.MDManserServiceRecord)
+    if q:
+        needle = f"%{q}%"
+        query = query.filter(
+            m.MDManserServiceRecord.report_number.ilike(needle)
+            | m.MDManserServiceRecord.institution.ilike(needle)
+            | m.MDManserServiceRecord.engineer_name.ilike(needle)
+            | m.MDManserServiceRecord.serial_number.ilike(needle)
+            | m.MDManserServiceRecord.product_type.ilike(needle)
+            | m.MDManserServiceRecord.model.ilike(needle)
+        )
+    if institution:
+        query = query.filter(m.MDManserServiceRecord.institution.ilike(f"%{institution}%"))
+    if engineer_name:
+        query = query.filter(m.MDManserServiceRecord.engineer_name.ilike(f"%{engineer_name}%"))
+    if serial_number:
+        query = query.filter(m.MDManserServiceRecord.serial_number.ilike(f"%{serial_number}%"))
+    if report_number:
+        query = query.filter(m.MDManserServiceRecord.report_number.ilike(f"%{report_number}%"))
+    rows = query.order_by(m.MDManserServiceRecord.id.desc()).offset(offset).limit(limit).all()
     return [_serialize(row) for row in rows]
 
 
@@ -74,6 +102,7 @@ def mdmanser_import_summary(db: Session = Depends(get_db)):
         "suppliers": db.query(func.count(func.distinct(m.MDManserServiceRecord.supplier))).scalar() or 0,
         "product_types": db.query(func.count(func.distinct(m.MDManserServiceRecord.product_type))).scalar() or 0,
         "models": db.query(func.count(func.distinct(m.MDManserServiceRecord.model))).scalar() or 0,
+        "calendar_events": db.query(func.count(m.MDManserCalendarEvent.id)).scalar() or 0,
     }
 
 

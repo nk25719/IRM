@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Biomedical Inventory ERP v4</title>
+<title>Biomedical Database ERP v4</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#1f4e78" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -109,6 +109,37 @@ main {
 
 .panel.active {
   display: block;
+}
+
+.inventory-hub-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.inventory-hub-box {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 14px;
+  text-align: left;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-hub-box span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.inventory-hub-box b {
+  color: var(--primary);
+  font-size: 18px;
 }
 
 /* ============================================================
@@ -1237,22 +1268,20 @@ left:-90vw;
 </style>
 </head>
 <body>
-<header><div style='display:flex;justify-content:space-between;gap:12px;align-items:flex-start'><div><h1>CMM Inventory</h1><p>Inventory reconciliation, stock control, barcode transactions, purchase orders, and audit history.</p></div><div style='display:flex;gap:10px;align-items:center'><a href='/portal' style='color:white;font-weight:700;text-decoration:none'>Home</a><a href='/logout' style='color:white;font-weight:700;text-decoration:none'>Logout</a></div></div></header>
+<header><div style='display:flex;justify-content:space-between;gap:12px;align-items:flex-start'><div><h1>CMM Database</h1><p>Equipment, spare parts, accessories, stock control, barcode transactions, and audit history.</p></div><div style='display:flex;gap:10px;align-items:center'><a href='/portal' style='color:white;font-weight:700;text-decoration:none'>Home</a><a href='/procurement' style='color:white;font-weight:700;text-decoration:none'>Procurement</a><a href='/logout' style='color:white;font-weight:700;text-decoration:none'>Logout</a></div></div></header>
 <main>
 
 <button class="burger" onclick="toggleDrawer()">☰</button>
 <aside id="drawer" class="drawer">
   <div class="drawer-header">
-    <b>Inventory Menu</b>
+    <b>Database Menu</b>
     <button class="light" onclick="toggleDrawer()">×</button>
   </div>
   <div class="drawer-metrics" id="metrics"></div>
   <hr>
-  <button onclick="showPanel('cleanInventory');toggleDrawer(false)">Clean Inventory</button>
-  <button onclick="showPanel('inventory');toggleDrawer(false)">Audit / Edit Inventory</button>
+  <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Database Home</button>
+  <button onclick="showPanel('cleanInventory');toggleDrawer(false)">Clean Stock View</button>
   <button onclick="showPanel('transaction');toggleDrawer(false)">In / Out Transactions</button>
-  <button onclick="showPanel('po');toggleDrawer(false)">Purchase Orders</button>
-  <button onclick="showPanel('clientOrders');toggleDrawer(false)">Client Orders</button>
   <button onclick="showPanel('history');toggleDrawer(false)">Audit History</button>
   <button class="light" onclick="showPanel('inventoryReports');toggleDrawer(false)">Reports / Exports</button>
   <button class="light" onclick="window.open('/api/qr-labels','_blank')">Generate QR Labels</button>
@@ -1260,7 +1289,26 @@ left:-90vw;
 <div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer(false)"></div>
 
 
-<section class="card panel active" id="cleanInventory">
+<section class="card panel active" id="inventoryHub">
+<h2>Database</h2>
+<p class="small">Open one of the database views.</p>
+<div class="inventory-hub-grid">
+  <button class="inventory-hub-box" type="button" onclick="window.location='/equipment-database'">
+    <b>Equipment</b>
+    <span>Equipment database with systems, subsystems, end user, installation, warranty, delivery documents, supplies, PM, and service history.</span>
+  </button>
+  <button class="inventory-hub-box" type="button" onclick="openInventoryCategory('spare_parts')">
+    <b>Spare Parts</b>
+    <span>Current spare-parts stock view with PN, barcode, description, location, expected and physical quantities, status, photo, and notes.</span>
+  </button>
+  <button class="inventory-hub-box" type="button" onclick="openInventoryCategory('accessories')">
+    <b>Accessories</b>
+    <span>Accessory stock view using the same fields and controls as spare parts.</span>
+  </button>
+</div>
+</section>
+
+<section class="card panel" id="cleanInventory">
 <h2>Clean Inventory View</h2>
 <p class="small">Simple stock view showing expected quantity only, without audit/reconciliation editing fields.</p>
 
@@ -1292,6 +1340,7 @@ left:-90vw;
 
 
 <section class="card panel" id="inventory">
+<h2 id="inventoryTitle">Spare Parts Inventory</h2>
 <div class="toolbar">
 <input id="search" placeholder="Search PN, barcode, description, family..." />
 <select id="status"><option value="">All statuses</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select>
@@ -1412,6 +1461,7 @@ left:-90vw;
 <label class="wide">Description<input id="description" /></label>
 <label>Expected Qty<input id="systemQty" type="number" value="0" /></label><label>Physical Qty<input id="physicalQty" type="number" value="0" /></label><label>Device Family<input id="family" /></label>
 <label>Status<select id="itemStatus"><option value="">Auto</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select></label>
+<label>Inventory Type<select id="itemCategory"><option value="spare_parts">Spare part</option><option value="accessories">Accessory</option></select></label>
 <label>Photo Upload<input id="photoFile" type="file" accept="image/*" capture="environment" /></label><label>Photo URL<input id="photoUrl" /></label>
 <label class="wide">Lookup<div class="lookup-row"><button type="button" class="light" onclick="openLookup()">Search description online</button><a id="lookupLink" href="#" target="_blank" rel="noopener">Open lookup</a></div></label>
 <label class="wide">Notes<textarea id="notes"></textarea></label>
@@ -1419,7 +1469,7 @@ left:-90vw;
 </div></div>
 
 <script>
-let currentItems=[],html5QrCode=null,scanTarget="search";
+let currentItems=[],html5QrCode=null,scanTarget="search",currentInventoryCategory="spare_parts";
 function toggleDrawer(force){
  const drawer=document.getElementById("drawer");
  const backdrop=document.getElementById("drawerBackdrop");
@@ -1430,16 +1480,18 @@ function toggleDrawer(force){
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
 async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
-function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='cleanInventory')loadCleanInventory();if(id==='inventory')loadItems();if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='clientOrders')loadClientOrders();if(id==='history')loadAudit()}
+function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Inventory":"Spare Parts Inventory"}
+function openInventoryCategory(category){currentInventoryCategory=category==="accessories"?"accessories":"spare_parts";showPanel("inventory")}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='clientOrders')loadClientOrders();if(id==='history')loadAudit()}
 async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
-async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}`);renderItems(currentItems);loadDashboard()}
+async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}&category=${currentInventoryCategory}`);renderItems(currentItems);loadDashboard()}
 async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
 function googleLookupUrl(pn,description){const q=`${pn||""} ${description||""} biomedical spare part GE Healthcare`.trim();return`https://www.google.com/search?q=${encodeURIComponent(q)}`}
 
 async function loadCleanInventory(){
  const q=encodeURIComponent(document.getElementById("cleanSearch").value);
  const location=encodeURIComponent(document.getElementById("cleanLocation").value);
- const rows=await api(`/api/clean-inventory?q=${q}&location=${location}`);
+ const rows=await api(`/api/clean-inventory?q=${q}&location=${location}&category=${currentInventoryCategory}`);
  document.getElementById("cleanItems").innerHTML=rows.map(item=>{
    const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";
    return `<tr>
@@ -1468,9 +1520,9 @@ function renderItems(items){document.getElementById("items").innerHTML=items.map
 async function quickQty(id, qty){if(qty<0){alert("Quantity cannot be negative");return}await api(`/api/items/${id}/quantity`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({physical_qty:qty,reason:"Quick edit from inventory table"})});await loadItems()}
 function updateLookupLink(){document.getElementById("lookupLink").href=googleLookupUrl(document.getElementById("pn").value,document.getElementById("description").value)}
 function openLookup(){updateLookupLink();window.open(document.getElementById("lookupLink").href,"_blank","noopener")}
-function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Inventory Item":"Add Inventory Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
+function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Inventory Item":"Add Inventory Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("itemCategory").value=item?.item_category||currentInventoryCategory;document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
 function closeForm(){document.getElementById("modal").classList.remove("open")}
-async function saveItem(){const id=document.getElementById("itemId").value;const payload={pn:document.getElementById("pn").value,barcode:document.getElementById("barcode").value,description:document.getElementById("description").value,location:document.getElementById("itemLocation").value,system_qty:Number(document.getElementById("systemQty").value||0),physical_qty:Number(document.getElementById("physicalQty").value||0),device_family:document.getElementById("family").value,status:document.getElementById("itemStatus").value,notes:document.getElementById("notes").value,photo_url:document.getElementById("photoUrl").value};const result=await api(id?`/api/items/${id}`:"/api/items",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const itemId=id||result.id;const photo=document.getElementById("photoFile").files[0];if(photo&&itemId){const form=new FormData();form.append("file",photo);await fetch(`/api/items/${itemId}/photo`,{method:"POST",body:form})}closeForm();await loadItems()}
+async function saveItem(){const id=document.getElementById("itemId").value;const payload={pn:document.getElementById("pn").value,barcode:document.getElementById("barcode").value,description:document.getElementById("description").value,location:document.getElementById("itemLocation").value,system_qty:Number(document.getElementById("systemQty").value||0),physical_qty:Number(document.getElementById("physicalQty").value||0),device_family:document.getElementById("family").value,status:document.getElementById("itemStatus").value,item_category:document.getElementById("itemCategory").value,notes:document.getElementById("notes").value,photo_url:document.getElementById("photoUrl").value};const result=await api(id?`/api/items/${id}`:"/api/items",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});currentInventoryCategory=payload.item_category;const itemId=id||result.id;const photo=document.getElementById("photoFile").files[0];if(photo&&itemId){const form=new FormData();form.append("file",photo);await fetch(`/api/items/${itemId}/photo`,{method:"POST",body:form})}closeForm();await loadItems()}
 async function deleteItem(id){if(!confirm("Delete this item?"))return;await api(`/api/items/${id}`,{method:"DELETE"});await loadItems()}
 async function uploadExcel(){const file=document.getElementById("excelFile").files[0];if(!file)return alert("Choose an Excel file first.");const form=new FormData();form.append("file",file);await fetch("/api/import",{method:"POST",body:form});await loadItems();alert("Excel imported.")}
 async function syncExport(){await api("/api/sync/export",{method:"POST"});await loadDashboard();alert("Excel synced/exported.")}

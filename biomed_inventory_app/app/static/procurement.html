@@ -7,38 +7,168 @@
   <title>CMM Procurement</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar select,.toolbar input{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px}.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:24px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;margin:12px 0 22px;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.warn{background:#fff4cc;color:#854d0e}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions a,.actions button{background:#fff;border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .tabs,.toolbar,.actions{align-items:center;display:flex;flex-wrap:wrap;gap:8px}.tabs{margin:14px 0}.tabs button,.actions button,.actions a{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.tabs button.active,.actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.panel{display:none}.panel.active{display:block}.form-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin:12px 0}.form-grid label{color:var(--muted);font-size:12px;font-weight:800}.form-grid input,.form-grid select,.form-grid textarea,.toolbar input,.toolbar select{border:1px solid var(--line);border-radius:8px;font:inherit;margin-top:4px;padding:10px;width:100%}.wide{grid-column:1/-1}.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:24px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;margin:12px 0 22px;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.warn{background:#fff4cc;color:#854d0e}.mini{color:var(--muted);display:block;font-size:12px}.message{color:var(--primary-dark);font-weight:800;min-height:22px}
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Minimum stock, sales shortages, incoming orders, and supplier PO alerts</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/inventory">Inventory</a><a href="/logout">Logout</a></nav></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Client orders, supplier POs, shipping, reception, and shortage purchasing</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/inventory">Database</a><a href="/logout">Logout</a></nav></div></header>
   <main class="container">
+    <section class="page-intro">
+      <h2>Procurement Workspace</h2>
+      <p>CO lines created by Sales stay visible here until they are assigned to a supplier PO and received.</p>
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button class="active" data-tab="overview">Overview</button>
+      <button data-tab="itemTracking">Item Tracking</button>
+      <button data-tab="clientOrders">Client Orders</button>
+      <button data-tab="purchaseOrders">Purchase Orders</button>
+      <button data-tab="shipping">Shipping</button>
+      <button data-tab="reception">Reception</button>
+    </div>
+
     <section class="card">
       <div class="toolbar">
         <select id="category"><option value="">All categories</option><option value="spare_parts">Spare parts</option><option value="accessories">Accessories</option><option value="equipment">Equipment</option></select>
-        <input id="filter" placeholder="Filter supplier, PN, client, reference">
-        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/purchase-orders">PO API</a><a href="/api/exports/procurement">Export</a></div>
+        <input id="filter" placeholder="Filter supplier, Ref., CO#, PO#, customer">
+        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/exports/procurement">Export</a></div>
       </div>
       <div class="stats" id="stats"></div>
+      <div class="message" id="message"></div>
     </section>
-    <section class="card" id="tables"></section>
+
+    <section class="card panel active" id="overview"></section>
+
+    <section class="card panel" id="itemTracking">
+      <h2>Item Tracking</h2>
+      <p class="mini">Each row is tracked independently. The same Ref. and Desc. can appear more than once when CO#, PO#, supplier, or customer differs.</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Track ID</th><th>Ref.</th><th>Desc.</th><th>Qty.</th><th>CO#</th><th>PO#</th><th>Supplier</th><th>Customer</th><th>Status</th></tr></thead><tbody id="trackedItemRows"></tbody></table></div>
+    </section>
+
+    <section class="card panel" id="clientOrders">
+      <h2>Client Orders</h2>
+      <p class="mini">These rows are created at CO stage. Rows without a linked PO are available for assignment.</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>CO</th><th>Client</th><th>Status</th><th>Expected</th><th>Notes</th><th>Updated</th><th>Action</th></tr></thead><tbody id="clientOrderRows"></tbody></table></div>
+      <h3>CO Items Not Assigned to a PO</h3>
+      <div class="table-wrap"><table class="table"><thead><tr><th></th><th>Ref.</th><th>Desc.</th><th>Qty.</th><th>CO#</th><th>PO#</th><th>Supplier</th><th>Customer</th><th>Status</th></tr></thead><tbody id="unassignedRows"></tbody></table></div>
+    </section>
+
+    <section class="card panel" id="purchaseOrders">
+      <h2>Purchase Orders</h2>
+      <div class="form-grid">
+        <label>PO#<input id="poNo" placeholder="PO-2026-001"></label>
+        <label>Supplier<input id="poSupplier"></label>
+        <label>PO Date<input id="poDate" type="date"></label>
+        <label>Contact Person<input id="poContact"></label>
+        <label>Payment Terms<input id="poPayment" placeholder="30 days, advance, COD"></label>
+        <label>Status<select id="poStatus"><option>OPEN</option><option>DRAFT</option><option>ORDERED</option><option>PARTIAL</option><option>RECEIVED</option><option>CLOSED</option><option>CANCELLED</option></select></label>
+        <label>Expected Delivery<input id="poExpected" type="date"></label>
+        <label class="wide">Notes<textarea id="poNotes"></textarea></label>
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="savePO()">Save PO / Update Status</button>
+        <button onclick="assignSelectedCOItems()">Assign Selected CO Items</button>
+        <button onclick="receivePO()">Receive PO Now</button>
+        <button onclick="downloadPO()">Download PO Excel</button>
+      </div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>PO Date</th><th>Payment</th><th>Expected</th><th>Shipping</th><th>Reception</th><th>Action</th></tr></thead><tbody id="poRows"></tbody></table></div>
+      <h3>Tracked PO Items</h3>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Track ID</th><th>Ref.</th><th>Desc.</th><th>Qty.</th><th>CO#</th><th>PO#</th><th>Supplier</th><th>Customer</th><th>Received</th><th>Status</th></tr></thead><tbody id="poItemRows"></tbody></table></div>
+    </section>
+
+    <section class="card panel" id="shipping">
+      <h2>Shipping</h2>
+      <div class="form-grid">
+        <label>PO#<input id="shipPoNo"></label>
+        <label>Shipping Status<select id="shipStatus"><option></option><option>pending</option><option>packed</option><option>shipped</option><option>in_transit</option><option>arrived</option></select></label>
+        <label>Shipping Reference<input id="shipReference" placeholder="AWB / tracking / container"></label>
+      </div>
+      <div class="actions"><button class="primary" onclick="saveShipping()">Save Shipping</button></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>Supplier</th><th>Expected</th><th>Shipping</th><th>Reference</th><th>Open Items</th></tr></thead><tbody id="shippingRows"></tbody></table></div>
+    </section>
+
+    <section class="card panel" id="reception">
+      <h2>Reception</h2>
+      <div class="form-grid">
+        <label>PO#<input id="receivePoNo"></label>
+        <label>Reception Status<select id="receiveStatus"><option></option><option>pending</option><option>partially_received</option><option>received</option><option>needs_review</option></select></label>
+        <label class="wide">Reception Notes<textarea id="receiveNotes"></textarea></label>
+      </div>
+      <div class="actions"><button class="primary" onclick="saveReception()">Save Reception</button><button onclick="receivePOFromReception()">Receive PO Now</button></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>CO</th><th>Item</th><th>Qty</th><th>Received Qty</th><th>Reception</th><th>Action</th></tr></thead><tbody id="receptionRows"></tbody></table></div>
+    </section>
   </main>
   <script>
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("not_ordered")||l.includes("cancel")?"bad":l.includes("draft")||l.includes("partial")||l.includes("sent")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
+    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("not_ordered")||l.includes("cancel")?"bad":l.includes("draft")||l.includes("partial")||l.includes("sent")||l.includes("pending")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
     const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;
-    const table=(title,headers,rows)=>`<h2>${esc(title)}</h2><div class="table-wrap"><table class="table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">No rows</td></tr>`}</tbody></table></div>`;
     const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
-    async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function matches(row){const q=filter.value.toLowerCase();return !q||Object.values(row).join(" ").toLowerCase().includes(q)}
+    const table=(title,headers,rows)=>`<h2>${esc(title)}</h2><div class="table-wrap"><table class="table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">No rows</td></tr>`}</tbody></table></div>`;
+    async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function showMessage(text){message.textContent=text||""}
+    function matches(x){const q=filter.value.toLowerCase();return !q||Object.values(x).join(" ").toLowerCase().includes(q)}
+    function payloadFromPO(extra={}){
+      return {po_no:poNo.value||shipPoNo.value||receivePoNo.value,supplier:poSupplier.value,status:poStatus.value,po_date:poDate.value,contact_person:poContact.value,payment_terms:poPayment.value,shipping_status:shipStatus.value,shipping_reference:shipReference.value,reception_status:receiveStatus.value,expected_date:poExpected.value,notes:extra.notes??poNotes.value};
+    }
+    function selectPO(p){
+      poNo.value=p.po_no||"";shipPoNo.value=p.po_no||"";receivePoNo.value=p.po_no||"";poSupplier.value=p.supplier||"";poStatus.value=p.status||"OPEN";poDate.value=p.po_date||"";poContact.value=p.contact_person||"";poPayment.value=p.payment_terms||"";poExpected.value=p.expected_date||"";poNotes.value=p.notes||"";shipStatus.value=p.shipping_status||"";shipReference.value=p.shipping_reference||"";receiveStatus.value=p.reception_status||"";
+      document.querySelector('[data-tab="purchaseOrders"]').click();
+    }
+    async function savePO(){
+      if(!poNo.value){alert("PO# is required");return}
+      const res=await api("/api/purchase-orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payloadFromPO())});
+      await load();showMessage(`PO saved. Auto-received items: ${res.auto_received_items??0}`);
+    }
+    async function assignSelectedCOItems(){
+      const selected=[...document.querySelectorAll(".coPick:checked")].map(x=>Number(x.value));
+      if(!poNo.value){alert("Enter/select a PO number first");return}
+      if(!selected.length){alert("Select at least one unassigned CO item");return}
+      const res=await api(`/api/procurement/purchase-orders/${encodeURIComponent(poNo.value)}/assign-client-order-items`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_order_item_ids:selected})});
+      await load();showMessage(`Assigned ${res.assigned} CO item(s) to ${poNo.value}`);
+    }
+    async function receivePO(){
+      if(!poNo.value){alert("Enter/select a PO number first");return}
+      const res=await api(`/api/purchase-orders/${encodeURIComponent(poNo.value)}/receive`,{method:"POST"});
+      await load();showMessage(`PO received. Items added to stock: ${res.auto_received_items}`);
+    }
+    async function receivePOFromReception(){poNo.value=receivePoNo.value;await receivePO()}
+    async function saveShipping(){
+      if(!shipPoNo.value){alert("PO# is required");return}
+      poNo.value=shipPoNo.value;const current=poCache.find(p=>p.po_no===shipPoNo.value)||{};poSupplier.value=current.supplier||poSupplier.value;poStatus.value=current.status||poStatus.value;poDate.value=current.po_date||poDate.value;poContact.value=current.contact_person||poContact.value;poPayment.value=current.payment_terms||poPayment.value;poExpected.value=current.expected_date||poExpected.value;poNotes.value=current.notes||poNotes.value;
+      await savePO();
+    }
+    async function saveReception(){
+      if(!receivePoNo.value){alert("PO# is required");return}
+      poNo.value=receivePoNo.value;const current=poCache.find(p=>p.po_no===receivePoNo.value)||{};poSupplier.value=current.supplier||poSupplier.value;poStatus.value=current.status||poStatus.value;poDate.value=current.po_date||poDate.value;poContact.value=current.contact_person||poContact.value;poPayment.value=current.payment_terms||poPayment.value;poExpected.value=current.expected_date||poExpected.value;poNotes.value=receiveNotes.value||current.notes||poNotes.value;
+      await savePO();
+    }
+    function downloadPO(){if(!poNo.value){alert("Enter/select a PO number first");return}window.location=`/api/purchase-orders/${encodeURIComponent(poNo.value)}/export`}
+    let poCache=[];
     async function load(){
-      const data=await api(`/api/procurement/dashboard?category=${encodeURIComponent(category.value)}`);
-      const min=data.minimum_stock_alerts.filter(matches), shortages=data.requested_shortages.filter(matches), incoming=data.incoming_ordered_items.filter(matches);
-      stats.innerHTML=metric("Minimum stock alerts",min.length)+metric("Sales shortages",shortages.length)+metric("Incoming ordered items",incoming.length)+metric("Statuses",data.procurement_statuses.length);
-      tables.innerHTML=table("A. Minimum Stock Alerts",["PN","Description","Current","Minimum","Suggested reorder","Supplier"],min.map(x=>row([esc(x.pn),esc(x.description),esc(x.current_quantity),esc(x.minimum_quantity),esc(x.suggested_reorder_quantity),esc(x.supplier||"")])).join(""))+
+      const [dash,clientOrders,unassigned,pos,poItems,trackedItems]=await Promise.all([
+        api(`/api/procurement/dashboard?category=${encodeURIComponent(category.value)}`),
+        api("/api/client-orders"),
+        api("/api/procurement/client-order-items/unassigned"),
+        api("/api/purchase-orders"),
+        api("/api/purchase-orders/items/all"),
+        api("/api/procurement/tracked-items")
+      ]);
+      poCache=pos;
+      const min=dash.minimum_stock_alerts.filter(matches), shortages=dash.requested_shortages.filter(matches), incoming=dash.incoming_ordered_items.filter(matches);
+      const filteredCO=clientOrders.filter(matches), filteredUnassigned=unassigned.filter(matches), filteredPO=pos.filter(matches), filteredItems=poItems.filter(matches), filteredTracked=trackedItems.filter(matches);
+      stats.innerHTML=metric("Tracked item rows",filteredTracked.length)+metric("Open CO items",filteredUnassigned.length)+metric("Purchase orders",filteredPO.length)+metric("Incoming items",incoming.length);
+      overview.innerHTML=table("A. Minimum Stock Alerts",["PN","Description","Current","Minimum","Suggested reorder","Supplier"],min.map(x=>row([esc(x.pn),esc(x.description),esc(x.current_quantity),esc(x.minimum_quantity),esc(x.suggested_reorder_quantity),esc(x.supplier||"")])).join(""))+
         table("B. Sales Requested but Out of Stock",["Client","Sales request","Offer","Item","Requested","Shortage","Status"],shortages.map(x=>row([esc(x.client_name),esc(x.parent_case_reference),esc(x.offer_reference),esc(x.requested_item),esc(x.requested_qty),esc(x.shortage_qty),badge(x.procurement_status)])).join(""))+
         table("C. Incoming / Ordered Items",["PO","Supplier","Expected","Item","Received","Pending","Status"],incoming.map(x=>row([esc(x.po_no),esc(x.supplier),esc(x.expected_delivery_date),esc(x.description||x.pn),esc(x.received_quantity),esc(x.pending_quantity),badge(x.po_status)])).join(""));
+      trackedItemRows.innerHTML=filteredTracked.map(x=>row([esc(x.tracking_id),esc(x.ref),esc(x.description),esc(x.qty),esc(x.co_no),esc(x.po_no),esc(x.supplier),esc(x.customer),badge(x.status)])).join("")||`<tr><td colspan="9">No tracked item rows</td></tr>`;
+      clientOrderRows.innerHTML=filteredCO.map(x=>row([esc(x.client_order_no),esc(x.client_name),badge(x.status),esc(x.expected_date),esc(x.notes),esc(x.updated_at),`<a href="/api/client-orders/${encodeURIComponent(x.client_order_no)}/export" target="_blank">Download</a>`])).join("")||`<tr><td colspan="7">No client orders</td></tr>`;
+      unassignedRows.innerHTML=filteredUnassigned.map(x=>row([`<input class="coPick" type="checkbox" value="${x.client_order_item_id}">`,esc(x.ref),esc(x.description),esc(x.qty),esc(x.co_no),esc(x.po_no),esc(x.supplier),esc(x.customer),badge(x.procurement_status)])).join("")||`<tr><td colspan="9">No unassigned CO items</td></tr>`;
+      poRows.innerHTML=filteredPO.map(x=>row([esc(x.po_no),esc(x.supplier),badge(x.status),esc(x.po_date),esc(x.payment_terms),esc(x.expected_date),badge(x.shipping_status),badge(x.reception_status),`<button onclick='selectPO(${JSON.stringify(x).replace(/'/g,"&#039;")})'>Select</button> <a href="/api/purchase-orders/${encodeURIComponent(x.po_no)}/export" target="_blank">Download</a>`])).join("")||`<tr><td colspan="9">No purchase orders</td></tr>`;
+      poItemRows.innerHTML=filteredItems.map(x=>row([esc(`POI-${x.id}`),esc(x.pn),esc(x.description),esc(x.qty),esc(x.client_order_no),esc(x.po_no),esc(x.supplier),esc(x.client_name),esc(x.received_qty),Number(x.received)===1?badge("received"):badge(x.po_status)])).join("")||`<tr><td colspan="10">No PO items</td></tr>`;
+      shippingRows.innerHTML=filteredPO.map(p=>{const open=poItems.filter(i=>i.po_no===p.po_no&&Number(i.received)!==1).length;return row([esc(p.po_no),esc(p.supplier),esc(p.expected_date),badge(p.shipping_status),esc(p.shipping_reference),esc(open)])}).join("")||`<tr><td colspan="6">No shipping rows</td></tr>`;
+      receptionRows.innerHTML=filteredItems.map(x=>row([esc(x.po_no),esc(x.client_order_no),esc(x.description||x.pn),esc(x.qty),esc(x.received_qty),badge(x.reception_status),`<button onclick="receivePoNo.value='${esc(x.po_no)}';poNo.value='${esc(x.po_no)}';receivePOFromReception()">Receive PO</button>`])).join("")||`<tr><td colspan="7">No reception rows</td></tr>`;
     }
+    document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));btn.classList.add("active");document.getElementById(btn.dataset.tab).classList.add("active")}));
     category.addEventListener("change",load);filter.addEventListener("input",load);load();
   </script>
 </body>
