@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Biomedical Database ERP v4</title>
+<title>Biomedical Warehouse ERP v4</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#1f4e78" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -140,6 +140,34 @@ main {
 .inventory-hub-box b {
   color: var(--primary);
   font-size: 18px;
+}
+
+.drawer-section {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin: 14px 0 4px;
+  text-transform: uppercase;
+}
+
+.warehouse-link-panel {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.view-nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.view-nav h2 {
+  margin: 0;
 }
 
 /* ============================================================
@@ -1128,7 +1156,7 @@ margin-top:0;
 #cleanInventory table{
 min-width:760px;
 }
-#cleanItems td[data-label="Expected Qty"]{
+#cleanItems td[data-label="Minimum Stock"]{
 font-size:15px;
 }
 @media(max-width:900px){
@@ -1138,7 +1166,7 @@ min-width:unset;
 #cleanInventory tr{
 border-left:5px solid var(--primary);
 }
-#cleanItems td[data-label="Expected Qty"] b{
+#cleanItems td[data-label="Minimum Stock"] b{
 font-size:20px;
 color:var(--primary);
 }
@@ -1268,21 +1296,30 @@ left:-90vw;
 </style>
 </head>
 <body>
-<header><div style='display:flex;justify-content:space-between;gap:12px;align-items:flex-start'><div><h1>CMM Database</h1><p>Equipment, spare parts, accessories, stock control, barcode transactions, and audit history.</p></div><div style='display:flex;gap:10px;align-items:center'><a href='/portal' style='color:white;font-weight:700;text-decoration:none'>Home</a><a href='/procurement' style='color:white;font-weight:700;text-decoration:none'>Procurement</a><a href='/logout' style='color:white;font-weight:700;text-decoration:none'>Logout</a></div></div></header>
+<header><div style='display:flex;justify-content:space-between;gap:12px;align-items:flex-start'><div><h1>CMM Warehouse</h1><p>Equipment, spare parts, accessories, minimum stock, stock control, barcode transactions, and audit history.</p></div><div style='display:flex;gap:10px;align-items:center'><a href='/portal' style='color:white;font-weight:700;text-decoration:none'>Home</a><a href='/procurement' style='color:white;font-weight:700;text-decoration:none'>Procurement</a><a href='/logout' style='color:white;font-weight:700;text-decoration:none'>Logout</a></div></div></header>
 <main>
 
 <button class="burger" onclick="toggleDrawer()">☰</button>
 <aside id="drawer" class="drawer">
   <div class="drawer-header">
-    <b>Database Menu</b>
+    <b>Warehouse Menu</b>
     <button class="light" onclick="toggleDrawer()">×</button>
   </div>
   <div class="drawer-metrics" id="metrics"></div>
   <hr>
-  <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Database Home</button>
+  <div class="drawer-section">Views</div>
+  <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Warehouse Home</button>
+  <button onclick="window.location='/equipment-database'">Equipment</button>
+  <button onclick="openInventoryCategory('spare_parts');toggleDrawer(false)">Spare Parts</button>
+  <button onclick="openInventoryCategory('accessories');toggleDrawer(false)">Accessories</button>
+  <button onclick="showPanel('minimumStock');toggleDrawer(false)">Minimum Stock</button>
+  <div class="drawer-section">Operations</div>
   <button onclick="showPanel('cleanInventory');toggleDrawer(false)">Clean Stock View</button>
   <button onclick="showPanel('transaction');toggleDrawer(false)">In / Out Transactions</button>
+  <button onclick="window.location='/procurement?tab=clientOrders'">Client Orders in ERP</button>
+  <button onclick="window.location='/procurement?tab=purchaseOrders'">Purchase Orders in ERP</button>
   <button onclick="showPanel('history');toggleDrawer(false)">Audit History</button>
+  <div class="drawer-section">Outputs</div>
   <button class="light" onclick="showPanel('inventoryReports');toggleDrawer(false)">Reports / Exports</button>
   <button class="light" onclick="window.open('/api/qr-labels','_blank')">Generate QR Labels</button>
 </aside>
@@ -1290,8 +1327,8 @@ left:-90vw;
 
 
 <section class="card panel active" id="inventoryHub">
-<h2>Database</h2>
-<p class="small">Open one of the database views.</p>
+<h2>Warehouse</h2>
+<p class="small">Open one warehouse view or create replenishment requests from minimum stock alerts.</p>
 <div class="inventory-hub-grid">
   <button class="inventory-hub-box" type="button" onclick="window.location='/equipment-database'">
     <b>Equipment</b>
@@ -1305,11 +1342,26 @@ left:-90vw;
     <b>Accessories</b>
     <span>Accessory stock view using the same fields and controls as spare parts.</span>
   </button>
+  <button class="inventory-hub-box" type="button" onclick="showPanel('minimumStock')">
+    <b>Minimum Stock</b>
+    <span>Low-stock warehouse items with one-click replenishment requests for Procurement.</span>
+  </button>
 </div>
 </section>
 
+<section class="card panel" id="minimumStock">
+<div class="view-nav"><h2>Minimum Stock</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Items below their minimum stock level can be sent to Procurement as replenishment requests.</p>
+<div class="toolbar">
+<input id="minimumStockSearch" placeholder="Search PN, description, location..." />
+<button onclick="loadMinimumStock()">Search</button>
+<button class="light" onclick="window.location='/procurement'">Open Procurement</button>
+</div>
+<div class="table-wrap"><table><thead><tr><th>PN</th><th>Description</th><th>Location</th><th>Current</th><th>Minimum</th><th>Suggested Replenishment</th><th>Action</th></tr></thead><tbody id="minimumStockRows"></tbody></table></div>
+</section>
+
 <section class="card panel" id="cleanInventory">
-<h2>Clean Inventory View</h2>
+<div class="view-nav"><h2>Clean Warehouse View</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
 <p class="small">Simple stock view showing expected quantity only, without audit/reconciliation editing fields.</p>
 
 <div class="toolbar">
@@ -1327,7 +1379,7 @@ left:-90vw;
 <th>Photo</th>
 <th>PN</th>
 <th>Description</th>
-<th>Expected Qty</th>
+<th>Minimum Stock</th>
 <th>Barcode</th>
 <th>Location</th>
 <th>QR</th>
@@ -1340,18 +1392,18 @@ left:-90vw;
 
 
 <section class="card panel" id="inventory">
-<h2 id="inventoryTitle">Spare Parts Inventory</h2>
+<div class="view-nav"><h2 id="inventoryTitle">Spare Parts Warehouse</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
 <div class="toolbar">
 <input id="search" placeholder="Search PN, barcode, description, family..." />
 <select id="status"><option value="">All statuses</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select>
 <input id="location" placeholder="Location e.g. C4" />
-<button onclick="loadItems()">Search</button><button class="warning" onclick="startSearchScanner()">Scan Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Database</button><button class="secondary" onclick="approveAudit()">Approve Audit → Expected Qty</button>
+<button onclick="loadItems()">Search</button><button class="warning" onclick="startSearchScanner()">Scan Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Warehouse</button><button class="secondary" onclick="approveAudit()">Approve Audit → Minimum Stock</button>
 </div>
 <div id="scannerBox"><div id="reader"></div><div class="actions"><button class="light" onclick="stopScanner()">Stop Scanner</button></div></div>
 
 <div class="toolbar compact-toolbar">
 <select id="report">
-<option value="">Master Inventory</option>
+<option value="">Master Warehouse</option>
 <option value="missing">Missing from Shelf</option>
 <option value="found">Found not in ERP</option>
 <option value="stale">Dead / Stale Inventory</option>
@@ -1364,12 +1416,12 @@ left:-90vw;
 <span class="small" id="syncInfo"></span>
 </div>
 
-<div class="table-wrap"><table><thead><tr><th>Photo</th><th>PN</th><th>Barcode</th><th>Description</th><th>Location</th><th>Expected Qty</th><th>Physical Qty</th><th>Quick Qty</th><th>Diff</th><th>Status</th><th>Action</th></tr></thead><tbody id="items"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Photo</th><th>PN</th><th>Barcode</th><th>Description</th><th>Location</th><th>Minimum Stock</th><th>Physical Qty</th><th>Quick Qty</th><th>Diff</th><th>Status</th><th>Action</th></tr></thead><tbody id="items"></tbody></table></div>
 </section>
 
 
 <section class="card panel" id="transaction">
-<h2>Stock Transaction In / Out</h2>
+<div class="view-nav"><h2>Stock Transaction In / Out</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
 <p class="small">Use Purchase Order for IN transactions and Client Order for OUT transactions. Add multiple items using the plus button.</p>
 
 <div class="form-grid">
@@ -1402,40 +1454,23 @@ left:-90vw;
 </section>
 
 <section class="card panel" id="po">
-<h2>Purchase Order Tracking</h2>
-<div class="form-grid">
-<label>PO No.<input id="poNo" /></label>
-<label>Supplier<input id="poSupplier" /></label>
-<label>Status<select id="poStatus"><option>OPEN</option><option>ORDERED</option><option>PARTIAL</option><option>RECEIVED</option><option>CLOSED</option><option>CANCELLED</option></select></label>
-<label>Expected Date<input id="poDate" type="date" /></label>
-<label class="wide">Notes<textarea id="poNotes"></textarea></label>
-</div>
-<div class="actions"><button onclick="savePO()">Save PO / Update Status</button><button class="secondary" onclick="receivePO()">Receive PO Now</button><button class="light" onclick="downloadPO()">Download PO Excel</button></div>
-
-<h3>Add Items to Purchase Order</h3>
-<p class="small">Select existing stock items from the dropdown, then use + to add more lines. If the item is new, add it first in Audit/Edit Inventory.</p>
-<div id="poLines"></div>
-<div class="actions"><button class="light" onclick="addPOLine()">+ Add Item</button><button onclick="savePOLines()">Save PO Items</button></div>
-<h3>Purchase Orders</h3>
-<div class="table-wrap"><table><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>Expected Date</th><th>Notes</th><th>Updated</th><th>Action</th></tr></thead><tbody id="pos"></tbody></table></div>
-
-<h3>PO Items</h3>
-<div class="table-wrap"><table><thead><tr><th>PO</th><th>PN</th><th>Description</th><th>Qty</th><th>Received Qty</th><th>Location</th><th>Barcode</th><th>Received?</th><th>Action</th></tr></thead><tbody id="poItems"></tbody></table></div>
+<div class="view-nav"><h2>Purchase Orders</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Purchase order tracking now lives in Procurement.</p>
+<div class="warehouse-link-panel"><button onclick="window.location='/procurement?tab=purchaseOrders'">Open Purchase Orders in ERP</button><button class="light" onclick="window.location='/procurement?tab=shipping'">Open Shipping</button><button class="light" onclick="window.location='/procurement?tab=reception'">Open Reception</button></div>
 </section>
 
 <section class="card panel" id="clientOrders">
-<h2>Client Orders</h2>
-<p class="small">Client orders are created from OUT transactions and can be downloaded as Excel references.</p>
-<button onclick="loadClientOrders()">Refresh Client Orders</button>
-<div class="table-wrap"><table><thead><tr><th>Client Order</th><th>Client / Hospital</th><th>Status</th><th>Expected Date</th><th>Notes</th><th>Updated</th><th>Action</th></tr></thead><tbody id="clientOrdersRows"></tbody></table></div>
+<div class="view-nav"><h2>Client Orders</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Client order tracking now lives in Procurement.</p>
+<div class="warehouse-link-panel"><button onclick="window.location='/procurement?tab=clientOrders'">Open Client Orders in ERP</button><button class="light" onclick="window.location='/sales'">Open Sales</button></div>
 </section>
 
 <section class="card panel" id="inventoryReports">
-<h2>Reports / Exports</h2>
-<p class="small">Inventory reports and Excel exports for stock, transactions, purchase orders, client orders, and audit history.</p>
+<div class="view-nav"><h2>Reports / Exports</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Warehouse reports and Excel exports for stock, transactions, purchase orders, client orders, and audit history.</p>
 <div class="grid">
 <button onclick="downloadExcel()">Download Master Excel Export</button>
-<button class="light" onclick="syncExport()">Sync Database Export</button>
+<button class="light" onclick="syncExport()">Sync Warehouse Export</button>
 <button class="secondary" onclick="loadReportFromMenu('missing')">Missing from Shelf</button>
 <button class="secondary" onclick="loadReportFromMenu('found')">Found not in ERP</button>
 <button class="secondary" onclick="loadReportFromMenu('stale')">Dead / Stale Inventory</button>
@@ -1446,22 +1481,22 @@ left:-90vw;
 </section>
 
 <section class="card panel" id="history">
-<h2>Audit Trail / History</h2>
+<div class="view-nav"><h2>Audit Trail / History</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
 <button onclick="loadAudit()">Refresh History</button>
 <div class="table-wrap"><table><thead><tr><th>Date</th><th>Item ID</th><th>Action</th><th>Old</th><th>New</th><th>Notes</th></tr></thead><tbody id="audit"></tbody></table></div>
 </section>
 </main>
 
 <div class="modal" id="modal"><div class="modal-card">
-<h2 id="modalTitle">Add Inventory Item</h2><input type="hidden" id="itemId" />
+<h2 id="modalTitle">Add Warehouse Item</h2><input type="hidden" id="itemId" />
 <div class="form-grid">
 <label>PN<input id="pn" /></label>
 <label>Barcode<div class="lookup-row"><input id="barcode" /><button type="button" class="warning" onclick="startFormScanner()">Scan</button></div></label>
 <label>Location<input id="itemLocation" /></label>
 <label class="wide">Description<input id="description" /></label>
-<label>Expected Qty<input id="systemQty" type="number" value="0" /></label><label>Physical Qty<input id="physicalQty" type="number" value="0" /></label><label>Device Family<input id="family" /></label>
+<label>Minimum Stock<input id="systemQty" type="number" value="0" /></label><label>Physical Qty<input id="physicalQty" type="number" value="0" /></label><label>Device Family<input id="family" /></label>
 <label>Status<select id="itemStatus"><option value="">Auto</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select></label>
-<label>Inventory Type<select id="itemCategory"><option value="spare_parts">Spare part</option><option value="accessories">Accessory</option></select></label>
+<label>Warehouse Type<select id="itemCategory"><option value="spare_parts">Spare part</option><option value="accessories">Accessory</option></select></label>
 <label>Photo Upload<input id="photoFile" type="file" accept="image/*" capture="environment" /></label><label>Photo URL<input id="photoUrl" /></label>
 <label class="wide">Lookup<div class="lookup-row"><button type="button" class="light" onclick="openLookup()">Search description online</button><a id="lookupLink" href="#" target="_blank" rel="noopener">Open lookup</a></div></label>
 <label class="wide">Notes<textarea id="notes"></textarea></label>
@@ -1480,13 +1515,31 @@ function toggleDrawer(force){
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
 async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
-function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Inventory":"Spare Parts Inventory"}
+function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Warehouse":"Spare Parts Warehouse"}
 function openInventoryCategory(category){currentInventoryCategory=category==="accessories"?"accessories":"spare_parts";showPanel("inventory")}
-function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='po')loadPOs();if(id==='clientOrders')loadClientOrders();if(id==='history')loadAudit()}
+function showPanel(id){if(id==="po"){window.location="/procurement?tab=purchaseOrders";return}if(id==="clientOrders"){window.location="/procurement?tab=clientOrders";return}document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
 async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
 async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}&category=${currentInventoryCategory}`);renderItems(currentItems);loadDashboard()}
 async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
 function googleLookupUrl(pn,description){const q=`${pn||""} ${description||""} biomedical spare part GE Healthcare`.trim();return`https://www.google.com/search?q=${encodeURIComponent(q)}`}
+
+async function loadMinimumStock(){
+ const d=await api("/api/procurement/dashboard");
+ const q=(document.getElementById("minimumStockSearch")?.value||"").toLowerCase();
+ const rows=(d.minimum_stock_alerts||[]).filter(x=>!q||[x.pn,x.description,x.location,x.supplier].join(" ").toLowerCase().includes(q));
+ document.getElementById("minimumStockRows").innerHTML=rows.map(x=>`<tr>
+  <td>${esc(x.pn)}</td><td>${esc(x.description)}</td><td>${esc(x.location)}</td>
+  <td>${esc(x.current_quantity)}</td><td>${esc(x.minimum_quantity)}</td><td>${esc(x.suggested_reorder_quantity)}</td>
+  <td><button onclick="requestReplenishment(${Number(x.id)},${Number(x.suggested_reorder_quantity)||1})">Request Replenishment</button></td>
+ </tr>`).join("")||`<tr><td colspan="7">No items below minimum stock.</td></tr>`;
+}
+
+async function requestReplenishment(itemId,qty){
+ const supplier=prompt("Supplier for replenishment request (optional)")||"";
+ const res=await api("/api/warehouse/replenishment-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({inventory_item_id:itemId,requested_qty:qty,supplier,notes:"Created from Warehouse minimum stock"})});
+ await loadMinimumStock();
+ alert(res.message||"Replenishment request created");
+}
 
 async function loadCleanInventory(){
  const q=encodeURIComponent(document.getElementById("cleanSearch").value);
@@ -1498,7 +1551,7 @@ async function loadCleanInventory(){
     <td data-label="Photo">${photo}</td>
     <td data-label="PN"><b>${esc(item.pn)}</b></td>
     <td data-label="Description">${esc(item.description)}</td>
-    <td data-label="Expected Qty"><b>${esc(item.expected_qty)}</b></td>
+    <td data-label="Minimum Stock"><b>${esc(item.expected_qty)}</b></td>
     <td data-label="Barcode">${esc(item.barcode)}</td>
     <td data-label="Location">${esc(item.location)}</td>
     
@@ -1516,11 +1569,11 @@ async function startAuditScanner(){
  await startScanner();
 }
 
-function renderItems(items){document.getElementById("items").innerHTML=items.map(item=>{const lookup=item.lookup_url||googleLookupUrl(item.pn,item.description);const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";return`<tr><td data-label="Photo">${photo}</td><td data-label="PN"><b>${esc(item.pn)}</b></td><td data-label="Barcode">${esc(item.barcode)}</td><td data-label="Description">${esc(item.description)}</td><td data-label="Location">${esc(item.location)}</td><td data-label="Expected">${esc(item.system_qty)}</td><td data-label="Physical">${esc(item.physical_qty)}</td><td data-label="Quick Qty"><div class="qtybox"><button class="light" onclick="quickQty(${item.id},${Number(item.physical_qty)-1})">-</button><input id="qty${item.id}" type="number" value="${esc(item.physical_qty)}"><button class="light" onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value)+1)">+</button><button onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value))">Save</button></div></td><td data-label="Diff">${esc(item.difference)}</td><td data-label="Status"><span class="status ${esc(item.status)}">${esc(item.status)}</span></td><td class="actions-cell"><button class="light" onclick='openForm(${JSON.stringify(item)})'>Edit</button><button class="danger" onclick='deleteItem(${item.id})'>Delete</button><a href="${esc(lookup)}" target="_blank">Lookup</a></td></tr>`}).join("")}
-async function quickQty(id, qty){if(qty<0){alert("Quantity cannot be negative");return}await api(`/api/items/${id}/quantity`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({physical_qty:qty,reason:"Quick edit from inventory table"})});await loadItems()}
+function renderItems(items){document.getElementById("items").innerHTML=items.map(item=>{const lookup=item.lookup_url||googleLookupUrl(item.pn,item.description);const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";return`<tr><td data-label="Photo">${photo}</td><td data-label="PN"><b>${esc(item.pn)}</b></td><td data-label="Barcode">${esc(item.barcode)}</td><td data-label="Description">${esc(item.description)}</td><td data-label="Location">${esc(item.location)}</td><td data-label="Minimum Stock">${esc(item.system_qty)}</td><td data-label="Physical">${esc(item.physical_qty)}</td><td data-label="Quick Qty"><div class="qtybox"><button class="light" onclick="quickQty(${item.id},${Number(item.physical_qty)-1})">-</button><input id="qty${item.id}" type="number" value="${esc(item.physical_qty)}"><button class="light" onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value)+1)">+</button><button onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value))">Save</button></div></td><td data-label="Diff">${esc(item.difference)}</td><td data-label="Status"><span class="status ${esc(item.status)}">${esc(item.status)}</span></td><td class="actions-cell"><button class="light" onclick='openForm(${JSON.stringify(item)})'>Edit</button><button class="danger" onclick='deleteItem(${item.id})'>Delete</button><a href="${esc(lookup)}" target="_blank">Lookup</a></td></tr>`}).join("")}
+async function quickQty(id, qty){if(qty<0){alert("Quantity cannot be negative");return}await api(`/api/items/${id}/quantity`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({physical_qty:qty,reason:"Quick edit from warehouse table"})});await loadItems()}
 function updateLookupLink(){document.getElementById("lookupLink").href=googleLookupUrl(document.getElementById("pn").value,document.getElementById("description").value)}
 function openLookup(){updateLookupLink();window.open(document.getElementById("lookupLink").href,"_blank","noopener")}
-function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Inventory Item":"Add Inventory Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("itemCategory").value=item?.item_category||currentInventoryCategory;document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
+function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Warehouse Item":"Add Warehouse Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("itemCategory").value=item?.item_category||currentInventoryCategory;document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
 function closeForm(){document.getElementById("modal").classList.remove("open")}
 async function saveItem(){const id=document.getElementById("itemId").value;const payload={pn:document.getElementById("pn").value,barcode:document.getElementById("barcode").value,description:document.getElementById("description").value,location:document.getElementById("itemLocation").value,system_qty:Number(document.getElementById("systemQty").value||0),physical_qty:Number(document.getElementById("physicalQty").value||0),device_family:document.getElementById("family").value,status:document.getElementById("itemStatus").value,item_category:document.getElementById("itemCategory").value,notes:document.getElementById("notes").value,photo_url:document.getElementById("photoUrl").value};const result=await api(id?`/api/items/${id}`:"/api/items",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});currentInventoryCategory=payload.item_category;const itemId=id||result.id;const photo=document.getElementById("photoFile").files[0];if(photo&&itemId){const form=new FormData();form.append("file",photo);await fetch(`/api/items/${itemId}/photo`,{method:"POST",body:form})}closeForm();await loadItems()}
 async function deleteItem(id){if(!confirm("Delete this item?"))return;await api(`/api/items/${id}`,{method:"DELETE"});await loadItems()}
@@ -1771,7 +1824,7 @@ async function savePOLines(){
 }
 
 async function approveAudit(){
- if(!confirm("This will set Expected Qty = approved Physical Qty for ALL inventory items and generate a mismatch report. Continue?")) return;
+ if(!confirm("This will set Minimum Stock = approved Physical Qty for ALL warehouse items and generate a mismatch report. Continue?")) return;
  const res=await api("/api/audit/approve-physical-as-expected",{method:"POST"});
  await loadItems();
  await loadCleanInventory();
@@ -1800,6 +1853,6 @@ function downloadCurrentTransactionReference(){
  }
 }
 
-document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();addPOLine();});
+document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();});
 </script>
 </body></html>

@@ -19,7 +19,7 @@
     <div class="topbar-inner">
       <div class="brand"><h1>PM Tracking</h1><p>Preventive maintenance workspace</p></div>
       <nav class="top-actions" aria-label="PM top navigation">
-        <a href="/portal">Home</a><a href="/inventory">Database</a><a href="/logout">Logout</a>
+        <a href="/portal">Home</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a>
       </nav>
     </div>
   </header>
@@ -74,7 +74,7 @@
       </section>
 
       <section class="pm-panel" id="assets">
-        <div class="page-intro"><h2>PM Assets</h2><p>Register equipment, link inventory spare parts, and issue parts directly to PM service work.</p></div>
+        <div class="page-intro"><h2>PM Assets</h2><p>Register equipment, link warehouse spare parts, and issue parts directly to PM service work.</p></div>
         <div class="toolbar"><input id="pmAssetSearch" placeholder="Search asset, serial, hospital, PN..."><input id="pmAssetHospitalFilter" placeholder="Hospital / client"><select id="pmAssetTiming"><option value="">All timing</option><option value="due_today">Due today</option><option value="due_this_week">Due this week</option><option value="overdue">Overdue</option><option value="completed">Completed</option><option value="missed">Missed</option><option value="upcoming">Upcoming</option></select><button class="btn" onclick="loadPMAssets()">Search</button></div>
         <div class="form-grid">
           <input type="hidden" id="pmAssetId">
@@ -87,7 +87,7 @@
           <label>Contract End<input id="pmContractEnd" type="date"></label>
           <label>Next PM Date<input id="pmNextDate" type="date"></label><label>Last PM Date<input id="pmLastDate" type="date"></label>
           <label>Status<select id="pmStatus"><option>Upcoming</option><option>Hospital notified</option><option>Confirmed</option><option>In Progress</option><option>Completed</option><option>Missed</option><option>On Hold</option></select></label><label>Barcode<input id="pmBarcode"></label>
-          <label class="wide">Linked Inventory Spare Part<select id="pmLinkedPn"></select></label>
+          <label class="wide">Linked Warehouse Spare Part<select id="pmLinkedPn"></select></label>
           <label class="wide">Notes<textarea id="pmNotes"></textarea></label>
         </div>
         <div class="actions"><button class="btn" onclick="savePMAsset()">Save PM Asset</button><button class="btn light" onclick="clearPMAssetForm()">New Asset</button></div>

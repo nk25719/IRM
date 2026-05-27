@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1f4e78">
-  <title>CMM CRM Clients</title>
+  <title>CMM Dashboard History</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
     .filters{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:18px 0}
@@ -22,8 +22,8 @@
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand"><h1>CRM / Clients</h1><p>Client-centric biomedical ERP workspaces</p></div>
-      <nav class="top-actions" aria-label="CRM top navigation">
+      <div class="brand"><h1>Dashboard History</h1><p>Client history and CRM records</p></div>
+      <nav class="top-actions" aria-label="Dashboard history navigation">
         <a href="/dashboard">Dashboard</a><a href="/sales">Sales</a><a href="/procurement">Procurement</a><a href="/after-sales">After Sales</a><a href="/logout">Logout</a>
       </nav>
     </div>
@@ -31,8 +31,8 @@
 
   <main class="container">
     <section class="page-intro">
-      <h2>Hospital CRM Hub</h2>
-      <p>Open one hospital profile to review the full client dashboard: profile, offers, requests, orders, pending items, service calls, equipment, financials, and documents.</p>
+      <h2>Client History</h2>
+      <p>Open one hospital profile to review the full history: profile, offers, requests, orders, pending items, service calls, equipment, financials, and documents.</p>
     </section>
     <section class="card">
       <div class="filters">
@@ -45,7 +45,7 @@
         <button class="btn" onclick="loadClients()">Search</button>
       </div>
     </section>
-    <section id="clientGrid" class="client-grid" aria-label="CRM clients"></section>
+    <section id="clientGrid" class="client-grid" aria-label="Dashboard history clients"></section>
   </main>
 
   <script>
@@ -60,7 +60,7 @@
         <article class="card client-card">
           <div>
             <h3>${esc(c.name)}</h3>
-            <p>${esc(c.city||c.address||"Client CRM workspace")}</p>
+            <p>${esc(c.city||c.address||"Client history workspace")}</p>
           </div>
           <div class="metric-row">
             ${metric("Equipment",c.equipment_count)}

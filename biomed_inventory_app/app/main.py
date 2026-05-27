@@ -119,6 +119,12 @@ class PurchaseOrderLine(BaseModel):
     request_item_id: int | None = None
     client_order_no: str = ""
 
+class WarehouseReplenishmentRequest(BaseModel):
+    inventory_item_id: int
+    requested_qty: int = 1
+    supplier: str = ""
+    notes: str = ""
+
 class PMAsset(BaseModel):
     asset_tag: str
     serial_number: str = ""
@@ -4234,6 +4240,32 @@ def hospital_dashboard_rows(conn):
             contract_status = "expiring soon"
         else:
             contract_status = "active"
+        activity_types = [r["activity_type"] for r in conn.execute("""
+            SELECT DISTINCT activity_type FROM client_activities
+            WHERE client_id=? AND COALESCE(activity_type, '') != ''
+            UNION
+            SELECT DISTINCT case_type AS activity_type FROM cases
+            WHERE client_id=? AND COALESCE(case_type, '') != ''
+            ORDER BY activity_type
+        """, (client_id, client_id)).fetchall()]
+        modality_rows = [r["modality"] for r in conn.execute("""
+            SELECT DISTINCT COALESCE(em.modality, a.equipment_family, '') AS modality
+            FROM equipment e
+            LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
+            LEFT JOIN equipment_models em ON em.id=e.equipment_model_id
+            WHERE e.client_id=? AND COALESCE(COALESCE(em.modality, a.equipment_family), '') != ''
+            ORDER BY modality
+        """, (client_id,)).fetchall()]
+        client_order_refs = [r["client_order_no"] for r in conn.execute("""
+            SELECT DISTINCT client_order_no FROM client_orders
+            WHERE client_id=? OR lower(trim(client_name))=lower(trim(?))
+            ORDER BY client_order_no
+        """, (client_id, name)).fetchall()]
+        purchase_order_refs = [r["po_no"] for r in conn.execute("""
+            SELECT DISTINCT po_no FROM purchase_orders
+            WHERE client_id=? OR request_id IN (SELECT id FROM customer_requests WHERE client_id=?)
+            ORDER BY po_no
+        """, (client_id, client_id)).fetchall()]
         rows.append({
             **client,
             **metrics,
@@ -4258,6 +4290,10 @@ def hospital_dashboard_rows(conn):
             "blocked_items_count": int(blocked_items or 0),
             "urgent_open_issues": int(urgent_issues or 0),
             "urgent_items_count": int(urgent_issues or 0),
+            "activity_types": ", ".join(activity_types),
+            "modalities": ", ".join(modality_rows),
+            "client_order_refs": ", ".join(client_order_refs),
+            "purchase_order_refs": ", ".join(purchase_order_refs),
         })
     return rows
 
@@ -4309,9 +4345,10 @@ def procurement_dashboard_data(conn, category: str = ""):
                '' AS supplier
         FROM inventory i
         WHERE (COALESCE(i.physical_qty, 0) - COALESCE(i.reserved_qty, 0)) < (CASE WHEN COALESCE(i.system_qty, 0) > 0 THEN i.system_qty ELSE 1 END)
+          AND (? = '' OR COALESCE(i.item_category, CASE WHEN lower(COALESCE(i.device_family, '')) LIKE '%accessor%' THEN 'accessories' ELSE 'spare_parts' END)=?)
         ORDER BY suggested_reorder_quantity DESC, i.pn
         LIMIT 200
-    """).fetchall()]
+    """, (selected, selected)).fetchall()]
     requested_shortages = [dict(r) for r in conn.execute("""
         SELECT pr.*, c.name AS client_name, d.department_name, sr.offer_reference,
                sr.parent_case_reference, sr.customer_request_id
@@ -4880,6 +4917,7 @@ def dashboard_page():
     return FileResponse(BASE_DIR / "static" / "dashboard.html")
 
 @app.get("/inventory")
+@app.get("/warehouse")
 def inventory_page():
     return FileResponse(BASE_DIR / "static" / "index.html")
 
@@ -5036,6 +5074,60 @@ def procurement_dashboard(category: str = ""):
     conn.commit()
     conn.close()
     return data
+
+@app.post("/api/warehouse/replenishment-requests")
+def create_warehouse_replenishment_request(payload: WarehouseReplenishmentRequest):
+    if payload.requested_qty <= 0:
+        raise HTTPException(status_code=400, detail="Requested quantity must be greater than zero")
+    conn = db()
+    item = conn.execute("SELECT * FROM inventory WHERE id=?", (payload.inventory_item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Warehouse item not found")
+    category = normalize_inventory_category(item["item_category"] if "item_category" in item.keys() else "", item["device_family"], item["description"])
+    existing = conn.execute("""
+        SELECT * FROM procurement_requests
+        WHERE inventory_item_id=?
+          AND customer_request_item_id IS NULL
+          AND lower(COALESCE(procurement_status, 'not_ordered')) NOT IN ('received', 'closed', 'cancelled')
+        ORDER BY id DESC LIMIT 1
+    """, (item["id"],)).fetchone()
+    note = payload.notes or f"Minimum stock replenishment request for {item['pn'] or item['description']}"
+    if existing:
+        new_qty = max(int(existing["requested_qty"] or 0), payload.requested_qty)
+        conn.execute("""
+            UPDATE procurement_requests
+            SET requested_qty=?, shortage_qty=?, pending_qty=?, supplier=?, notes=?, updated_at=?
+            WHERE id=?
+        """, (new_qty, new_qty, new_qty, payload.supplier or existing["supplier"] or "", note, now(), existing["id"]))
+        request_id = existing["id"]
+        action = "updated"
+    else:
+        cur = conn.execute("""
+            INSERT INTO procurement_requests
+            (inventory_item_id, category, requested_item, requested_qty, shortage_qty, procurement_status,
+             supplier, pending_qty, priority, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            item["id"],
+            category,
+            item["description"] or item["pn"],
+            payload.requested_qty,
+            payload.requested_qty,
+            "not_ordered",
+            payload.supplier,
+            payload.requested_qty,
+            "normal",
+            note,
+            now(),
+            now(),
+        ))
+        request_id = cur.lastrowid
+        action = "created"
+    audit(conn, item["id"], "WAREHOUSE_REPLENISHMENT_REQUEST", "", {"procurement_request_id": request_id, "qty": payload.requested_qty}, note)
+    conn.commit()
+    conn.close()
+    return {"id": request_id, "action": action, "message": f"Replenishment request {action}"}
 
 @app.get("/api/clients")
 def list_clients(q: str = "", status: str = ""):

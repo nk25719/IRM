@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Client orders, supplier POs, shipping, reception, and shortage purchasing</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">CRM / Clients</a><a href="/sales">Sales</a><a href="/inventory">Database</a><a href="/logout">Logout</a></nav></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Procurement</h1><p>Client orders, supplier POs, shipping, reception, and shortage purchasing</p></div><nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">History</a><a href="/sales">Sales</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a></nav></div></header>
   <main class="container">
     <section class="page-intro">
       <h2>Procurement Workspace</h2>
@@ -168,8 +168,16 @@
       shippingRows.innerHTML=filteredPO.map(p=>{const open=poItems.filter(i=>i.po_no===p.po_no&&Number(i.received)!==1).length;return row([esc(p.po_no),esc(p.supplier),esc(p.expected_date),badge(p.shipping_status),esc(p.shipping_reference),esc(open)])}).join("")||`<tr><td colspan="6">No shipping rows</td></tr>`;
       receptionRows.innerHTML=filteredItems.map(x=>row([esc(x.po_no),esc(x.client_order_no),esc(x.description||x.pn),esc(x.qty),esc(x.received_qty),badge(x.reception_status),`<button onclick="receivePoNo.value='${esc(x.po_no)}';poNo.value='${esc(x.po_no)}';receivePOFromReception()">Receive PO</button>`])).join("")||`<tr><td colspan="7">No reception rows</td></tr>`;
     }
-    document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));btn.classList.add("active");document.getElementById(btn.dataset.tab).classList.add("active")}));
+    function activateTab(tab){
+      const btn=document.querySelector(`[data-tab="${tab}"]`)||document.querySelector('[data-tab="overview"]');
+      document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab).classList.add("active");
+    }
+    document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>activateTab(btn.dataset.tab)));
     category.addEventListener("change",load);filter.addEventListener("input",load);load();
+    activateTab(new URLSearchParams(location.search).get("tab") || location.hash.replace("#","") || "overview");
   </script>
 </body>
 </html>
