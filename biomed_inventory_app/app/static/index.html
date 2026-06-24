@@ -1307,9 +1307,23 @@ left:-90vw;
   </div>
   <div class="drawer-metrics" id="metrics"></div>
   <hr>
-  <div class="drawer-section">Views</div>
+  <div class="drawer-section">ERP Pages</div>
+  <button onclick="window.location='/portal'">Portal</button>
+  <button onclick="window.location='/dashboard'">Dashboard</button>
+  <button onclick="window.location='/crm'">Dashboard History</button>
+  <button onclick="window.location='/sales'">Sales</button>
+  <button onclick="window.location='/procurement'">Procurement</button>
+  <button onclick="window.location='/warehouse'">Warehouse</button>
+  <button onclick="window.location='/after-sales'">After Sales</button>
+  <button onclick="window.location='/pm'">PM</button>
+  <button onclick="window.location='/financials'">Financials</button>
+  <button onclick="window.location='/reports'">Reports</button>
+  <button onclick="window.location='/admin'">Admin</button>
+  <button onclick="window.location='/imports'">Imports</button>
+  <button onclick="window.location='/mdmanser-data'">MDManser Data</button>
+  <div class="drawer-section">Warehouse Views</div>
   <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Warehouse Home</button>
-  <button onclick="window.location='/equipment-database'">Equipment</button>
+  <button onclick="window.location='/equipment-database'">Equipment Database</button>
   <button onclick="openInventoryCategory('spare_parts');toggleDrawer(false)">Spare Parts</button>
   <button onclick="openInventoryCategory('accessories');toggleDrawer(false)">Accessories</button>
   <button onclick="showPanel('minimumStock');toggleDrawer(false)">Minimum Stock</button>
@@ -1331,7 +1345,7 @@ left:-90vw;
 <p class="small">Open one warehouse view or create replenishment requests from minimum stock alerts.</p>
 <div class="inventory-hub-grid">
   <button class="inventory-hub-box" type="button" onclick="window.location='/equipment-database'">
-    <b>Equipment</b>
+    <b>Equipment Database</b>
     <span>Equipment database with systems, subsystems, end user, installation, warranty, delivery documents, supplies, PM, and service history.</span>
   </button>
   <button class="inventory-hub-box" type="button" onclick="openInventoryCategory('spare_parts')">
@@ -1354,7 +1368,7 @@ left:-90vw;
 <p class="small">Items below their minimum stock level can be sent to Procurement as replenishment requests.</p>
 <div class="toolbar">
 <input id="minimumStockSearch" placeholder="Search PN, description, location..." />
-<button onclick="loadMinimumStock()">Search</button>
+<button onclick="loadMinimumStock()">Search Minimum Stock</button>
 <button class="light" onclick="window.location='/procurement'">Open Procurement</button>
 </div>
 <div class="table-wrap"><table><thead><tr><th>PN</th><th>Description</th><th>Location</th><th>Current</th><th>Minimum</th><th>Suggested Replenishment</th><th>Action</th></tr></thead><tbody id="minimumStockRows"></tbody></table></div>
@@ -1367,8 +1381,8 @@ left:-90vw;
 <div class="toolbar">
 <input id="cleanSearch" placeholder="Search PN, barcode, description..." />
 <input id="cleanLocation" placeholder="Location e.g. C4" />
-<button onclick="loadCleanInventory()">Search</button>
-<button class="warning" onclick="startCleanScanner()">Scan Barcode</button>
+<button onclick="loadCleanInventory()">Search Clean Stock</button>
+<button class="warning" onclick="startCleanScanner()">Scan Clean Stock Barcode</button>
 <button class="light" onclick="window.open('/api/qr-labels','_blank')">QR Labels</button>
 </div>
 
@@ -1397,7 +1411,7 @@ left:-90vw;
 <input id="search" placeholder="Search PN, barcode, description, family..." />
 <select id="status"><option value="">All statuses</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select>
 <input id="location" placeholder="Location e.g. C4" />
-<button onclick="loadItems()">Search</button><button class="warning" onclick="startSearchScanner()">Scan Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Warehouse</button><button class="secondary" onclick="approveAudit()">Approve Audit → Minimum Stock</button>
+<button onclick="loadItems()">Search Audit Stock</button><button class="warning" onclick="startSearchScanner()">Scan Audit Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Warehouse</button><button class="secondary" onclick="approveAudit()">Approve Audit → Minimum Stock</button>
 </div>
 <div id="scannerBox"><div id="reader"></div><div class="actions"><button class="light" onclick="stopScanner()">Stop Scanner</button></div></div>
 
@@ -1444,7 +1458,7 @@ left:-90vw;
 
 <div class="actions">
 <button class="light" onclick="addTxLine()">+ Add Item</button>
-<button class="warning" onclick="startTxScanner()">Scan Barcode</button>
+<button class="warning" onclick="startTxScanner()">Scan Transaction Barcode</button>
 <button onclick="saveBulkTransaction()">Save Bulk Transaction</button>
 <button class="light" onclick="downloadCurrentTransactionReference()">Download PO/CO Excel</button>
 </div>

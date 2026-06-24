@@ -75,7 +75,7 @@
 
       <section class="pm-panel" id="assets">
         <div class="page-intro"><h2>PM Assets</h2><p>Register equipment, link warehouse spare parts, and issue parts directly to PM service work.</p></div>
-        <div class="toolbar"><input id="pmAssetSearch" placeholder="Search asset, serial, hospital, PN..."><input id="pmAssetHospitalFilter" placeholder="Hospital / client"><select id="pmAssetTiming"><option value="">All timing</option><option value="due_today">Due today</option><option value="due_this_week">Due this week</option><option value="overdue">Overdue</option><option value="completed">Completed</option><option value="missed">Missed</option><option value="upcoming">Upcoming</option></select><button class="btn" onclick="loadPMAssets()">Search</button></div>
+        <div class="toolbar"><input id="pmAssetSearch" placeholder="Search asset, serial, hospital, PN..."><input id="pmAssetHospitalFilter" placeholder="Hospital / client"><select id="pmAssetTiming"><option value="">All timing</option><option value="due_today">Due today</option><option value="due_this_week">Due this week</option><option value="overdue">Overdue</option><option value="completed">Completed</option><option value="missed">Missed</option><option value="upcoming">Upcoming</option></select><button class="btn" onclick="loadPMAssets()">Search PM Assets</button></div>
         <div class="form-grid">
           <input type="hidden" id="pmAssetId">
           <label>Asset Tag<input id="pmAssetTag" placeholder="ASSET-001"></label><label>Serial Number<input id="pmSerial"></label>
@@ -107,7 +107,7 @@
       <section class="pm-panel" id="history">
         <div class="page-intro"><h2>PM History</h2><p>Service notes, task events, spare-part usage, and completion history.</p></div>
         <div class="form-grid"><label>Asset<select id="pmHistoryAsset"></select></label><label>Action<input id="pmHistoryAction" placeholder="SERVICE_NOTE"></label><label>Engineer<input id="pmHistoryEngineer"></label><label class="wide">Notes<textarea id="pmHistoryNotes"></textarea></label></div>
-        <div class="actions"><button class="btn" onclick="savePMHistory()">Add History Note</button><button class="btn light" onclick="loadPMHistory()">Refresh History</button></div>
+        <div class="actions"><button class="btn" onclick="savePMHistory()">Add History Note</button><button class="btn light" onclick="loadPMHistory()">Refresh PM History</button></div>
         <div class="table-wrap"><table class="pm-table"><thead><tr><th>Date</th><th>Asset</th><th>Hospital</th><th>Action</th><th>Engineer</th><th>Notes</th></tr></thead><tbody id="pmHistoryRows"></tbody></table></div>
       </section>
     </main>

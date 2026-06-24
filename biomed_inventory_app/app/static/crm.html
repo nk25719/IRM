@@ -42,7 +42,7 @@
         <select id="activeContract"><option value="">Contract yes/no</option><option value="yes">Active contract: yes</option><option value="no">Active contract: no</option></select>
         <select id="warrantyEquipment"><option value="">Warranty yes/no</option><option value="yes">Warranty equipment: yes</option><option value="no">Warranty equipment: no</option></select>
         <select id="status"><option value="">All clients</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="under review">Under review</option></select>
-        <button class="btn" onclick="loadClients()">Search</button>
+        <button class="btn" onclick="loadClients()">Search Clients</button>
       </div>
     </section>
     <section id="clientGrid" class="client-grid" aria-label="Dashboard history clients"></section>
@@ -72,9 +72,9 @@
           </div>
           <p><b>Main contact:</b> ${esc(c.main_contact||c.contact_email||"Not set")}</p>
           <div class="actions">
-            <a class="primary" href="/crm/client/${c.id}">Open Profile</a>
-            <a href="/crm/client/${c.id}#operations">Timeline</a>
-            <a href="/crm/client/${c.id}#sales">Sales</a>
+            <a class="primary" href="/crm/client/${c.id}">Open ${esc(c.name)} Profile</a>
+            <a href="/crm/client/${c.id}#operations">${esc(c.name)} Timeline</a>
+            <a href="/crm/client/${c.id}#sales">${esc(c.name)} Sales</a>
           </div>
         </article>`).join(""):`<div class="empty">No clients found yet. Clients are created automatically from PM assets, client orders, and transaction client names.</div>`;
     }

@@ -28,6 +28,10 @@
     <section id="submodules" class="submodule-grid" aria-label="After Sales submodules"></section>
     <nav id="tabs" class="tabs"></nav>
 
+    <section class="panel" id="hospital-crm">
+      <h2>Hospital CRM Follow-up</h2>
+      <div class="table-wrap"><table class="after-table"><thead><tr><th>Hospital</th><th>Calls Pending</th><th>Upcoming Sales</th><th>Offers Pending</th><th>Deliveries Pending</th><th>Contract Renewals</th><th>FMI Impact</th><th>PM Due</th><th>PM Overdue</th><th>Open</th></tr></thead><tbody id="hospitalCrmRows"></tbody></table></div>
+    </section>
     <section class="panel" id="overview">
       <div class="two-col">
         <div>
@@ -63,7 +67,7 @@
     </section>
   </main>
   <script>
-    const tabDefs=[["overview","Overview"],["service-calls","Service Calls"],["pm-tracking","PM Tracking"],["contracts","Contracts"],["reports","Reports"],["warranty","Warranty PM"]];
+    const tabDefs=[["hospital-crm","Hospital CRM"],["overview","Overview"],["service-calls","Service Calls"],["pm-tracking","PM Tracking"],["contracts","Contracts"],["reports","Reports"],["warranty","Warranty PM"]];
     const tabsEl=document.getElementById("tabs");
     let data=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
@@ -72,15 +76,16 @@
     const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
     const textRow=cells=>row(cells.map(esc));
     async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function activeSection(){const part=location.pathname.split("/")[2]||"overview";return tabDefs.some(t=>t[0]===part)?part:"overview"}
+    function activeSection(){const part=location.pathname.split("/")[2]||"hospital-crm";return tabDefs.some(t=>t[0]===part)?part:"hospital-crm"}
     function setSection(section){document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===section));document.querySelectorAll(".tabs a").forEach(a=>a.classList.toggle("active",a.dataset.section===section))}
     function linkFields(item){return [`client_id=${item.client_id??""}`,`equipment_id=${item.equipment_id??item.id??""}`,`engineer_id=${item.engineer_id??""}`,`contract_id=${item.contract_id??""}`,`request_id=${item.request_id??""}`].map(esc).join("<br>")}
-    function renderModules(){submodules.innerHTML=data.submodules.map(m=>`<article class="card module-card"><h3>${esc(m.name)}</h3><p>${esc(m.description)}</p><div class="module-links"><a class="primary" href="${esc(m.path)}">Open</a><a href="${esc(m.existing_route)}">Existing Route</a></div></article>`).join("")}
+    function renderModules(){submodules.innerHTML=data.submodules.map(m=>`<article class="card module-card"><h3>${esc(m.name)}</h3><p>${esc(m.description)}</p><div class="module-links"><a class="primary" href="${esc(m.path)}">Open ${esc(m.name)}</a><a href="${esc(m.existing_route)}">${esc(m.name)} Existing Route</a></div></article>`).join("")}
     function renderMetrics(){const m=data.metrics;metrics.innerHTML=metric("Open service calls",m.open_service_calls)+metric("PM visits due",m.pm_visits_due)+metric("Active contracts",m.active_contracts)+metric("Expiring contracts",m.expiring_contracts)+metric("Reports pending",m.reports_pending)+metric("Engineer workload",m.engineer_workload)+metric("Warranty PM due",m.warranty_equipment_needing_pm)}
     function renderTables(){
       overviewCalls.innerHTML=data.service_calls.slice(0,8).map(c=>textRow([c.call_no,c.client_name||c.client_id,c.asset_tag||c.equipment_id||"-",c.engineer||"Unassigned",c.status,c.request_id||"-"])).join("")||textRow(["No open service calls","","","","",""]);
       overviewWorkload.innerHTML=data.engineer_workload.map(w=>textRow([w.engineer,w.open_service_calls,w.pm_due,w.total])).join("")||textRow(["No workload yet","","",""]);
       serviceRows.innerHTML=data.service_calls.map(c=>row([esc(c.issue||"Corrective / labor / spare-part call"),esc(c.call_no),esc(c.client_name||c.client_id||"-"),esc(c.asset_tag||c.equipment_id||"-"),esc(c.engineer||"Unassigned"),badge(c.status),linkFields(c)])).join("")||textRow(["No service calls","","","","","",""]);
+      hospitalCrmRows.innerHTML=data.hospital_crm.map(h=>row([esc(h.name),badge(h.pending_calls),esc(h.open_sales_orders),badge(h.pending_offers),badge(h.pending_deliveries),badge(h.contract_renewals_pending),badge(h.fmi_impacted_equipment),badge(h.pm_due),badge(h.pm_overdue),`<a class="badge" href="/crm/client/${h.id}#service-follow-up">Open ${esc(h.name)} CRM</a>`])).join("")||textRow(["No hospitals","","","","","","","","",""]);
       pmRows.innerHTML=data.pm_due.map(p=>row([esc(p.next_pm_date),esc(p.client_name||p.hospital||"-"),esc(p.asset_tag||p.id),esc(p.engineer||"Unassigned"),badge(p.timing_status),esc(p.contract_no||"-"),linkFields(p)])).join("")||textRow(["No PM visits due","","","","","",""]);
       contractRows.innerHTML=data.contracts.map(c=>row([esc(c.contract_no),esc(c.hospital||c.client_id||"-"),esc(c.contract_start_date||"-"),esc(c.contract_end_date||"-"),badge(c.status),esc(c.equipment_count),linkFields(c)])).join("")||textRow(["No contracts","","","","","",""]);
       reportRows.innerHTML=data.reports_pending.map(r=>row([esc(r.report_type),esc(r.title||r.source_id),esc(r.engineer||"Unassigned"),badge(r.status),esc(r.updated_at||"-"),linkFields(r)])).join("")||textRow(["No pending reports","","","","",""]);

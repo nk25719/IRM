@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1 id="title">ERP Module</h1><p id="subtitle">Clean module entry point preserving existing routes</p></div><nav class="top-actions"><a href="/portal">Dashboard</a><a href="/crm">History</a><a href="/after-sales">After Sales</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a></nav></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1 id="title">ERP Module</h1><p id="subtitle">Clean module entry point preserving existing routes</p></div><nav class="top-actions"><a href="/portal">Portal</a><a href="/crm">Client History</a><a href="/after-sales">After Sales</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a></nav></div></header>
   <main class="container">
     <section class="page-intro"><h2 id="heading">Module</h2><p id="description"></p></section>
     <section id="cards" class="module-grid"></section>
@@ -28,7 +28,7 @@
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const cfg=modules[location.pathname]||modules["/reports"];
     title.textContent=cfg.title;heading.textContent=cfg.title;description.textContent=cfg.description;document.title=`CMM ${cfg.title}`;
-    cards.innerHTML=cfg.cards.map(([name,path,desc])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(desc)}</p><div class="links"><a class="primary" href="${esc(path)}">Open</a></div></article>`).join("");
+    cards.innerHTML=cfg.cards.map(([name,path,desc])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(desc)}</p><div class="links"><a class="primary" href="${esc(path)}">Open ${esc(name)}</a></div></article>`).join("");
     async function load(){try{const res=await fetch(cfg.api);const json=await res.json();const rows=Array.isArray(json)?json:(json&&typeof json==="object"?[json]:[]);const cols=Array.from(new Set(rows.flatMap(r=>Object.keys(r)))).slice(0,8);thead.innerHTML=`<tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=rows.slice(0,20).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td>No data yet</td></tr>`}catch(e){tbody.innerHTML=`<tr><td>${esc(e.message)}</td></tr>`}}load();
   </script>
 </body>

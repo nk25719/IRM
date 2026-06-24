@@ -31,7 +31,7 @@
       <div class="toolbar">
         <select id="category"><option value="">All categories</option><option value="spare_parts">Spare parts</option><option value="accessories">Accessories</option><option value="equipment">Equipment</option></select>
         <input id="filter" placeholder="Filter supplier, Ref., CO#, PO#, customer">
-        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/exports/procurement">Export</a></div>
+        <div class="actions"><button class="primary" onclick="load()">Refresh Procurement</button><a href="/api/exports/procurement">Export Procurement</a></div>
       </div>
       <div class="stats" id="stats"></div>
       <div class="message" id="message"></div>
@@ -68,7 +68,7 @@
       <div class="actions">
         <button class="primary" onclick="savePO()">Save PO / Update Status</button>
         <button onclick="assignSelectedCOItems()">Assign Selected CO Items</button>
-        <button onclick="receivePO()">Receive PO Now</button>
+        <button onclick="receivePO()">Receive Selected PO</button>
         <button onclick="downloadPO()">Download PO Excel</button>
       </div>
       <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>Supplier</th><th>Status</th><th>PO Date</th><th>Payment</th><th>Expected</th><th>Shipping</th><th>Reception</th><th>Action</th></tr></thead><tbody id="poRows"></tbody></table></div>
@@ -94,7 +94,7 @@
         <label>Reception Status<select id="receiveStatus"><option></option><option>pending</option><option>partially_received</option><option>received</option><option>needs_review</option></select></label>
         <label class="wide">Reception Notes<textarea id="receiveNotes"></textarea></label>
       </div>
-      <div class="actions"><button class="primary" onclick="saveReception()">Save Reception</button><button onclick="receivePOFromReception()">Receive PO Now</button></div>
+      <div class="actions"><button class="primary" onclick="saveReception()">Save Reception</button><button onclick="receivePOFromReception()">Receive Reception PO</button></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>CO</th><th>Item</th><th>Qty</th><th>Received Qty</th><th>Reception</th><th>Action</th></tr></thead><tbody id="receptionRows"></tbody></table></div>
     </section>
   </main>

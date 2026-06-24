@@ -18,7 +18,7 @@
         <input id="q" placeholder="Search model, serial, asset tag, hospital">
         <select id="risk"><option value="">All risk</option><option>low</option><option>medium</option><option>high</option></select>
         <select id="status"><option value="">All status</option><option>active</option><option>out_of_service</option><option>under_repair</option><option>retired</option><option>EOL</option><option>EOSL</option></select>
-        <div class="actions"><button class="primary" onclick="load()">Refresh</button><a href="/api/exports/equipment-database">Export</a></div>
+        <div class="actions"><button class="primary" onclick="load()">Refresh Equipment Database</button><a href="/api/exports/equipment-database">Export Equipment Database</a></div>
       </div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>End User</th><th>Department</th><th>System</th><th>Subsystem</th><th>Equipment</th><th>Manufacturer</th><th>Model</th><th>Serial</th><th>Asset Tag</th><th>Installed</th><th>Warranty Exp.</th><th>Delivery Doc</th><th>Supplies</th><th>PM</th><th>Risk</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>

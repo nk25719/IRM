@@ -1026,6 +1026,166 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ref TEXT,
+            description TEXT,
+            category TEXT,
+            product_type TEXT,
+            brand TEXT,
+            model TEXT,
+            unit_price REAL DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quotation_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            quotation_id INTEGER,
+            product_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            qty INTEGER,
+            unit_price REAL DEFAULT 0,
+            total_price REAL DEFAULT 0,
+            notes TEXT,
+            FOREIGN KEY (quotation_id) REFERENCES quotations(id),
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS customer_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            co_no TEXT UNIQUE,
+            quotation_id INTEGER,
+            customer_id INTEGER,
+            status TEXT DEFAULT 'open',
+            order_date TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (quotation_id) REFERENCES quotations(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS customer_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_order_id INTEGER,
+            quotation_item_id INTEGER,
+            product_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            ordered_qty INTEGER,
+            procured_qty INTEGER DEFAULT 0,
+            received_qty INTEGER DEFAULT 0,
+            delivered_qty INTEGER DEFAULT 0,
+            pending_qty INTEGER,
+            status TEXT,
+            FOREIGN KEY (customer_order_id) REFERENCES customer_orders(id),
+            FOREIGN KEY (quotation_item_id) REFERENCES quotation_items(id),
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS stock_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            qty INTEGER,
+            customer_order_id INTEGER,
+            customer_order_item_id INTEGER,
+            co_no TEXT,
+            purchase_order_id INTEGER,
+            po_no TEXT,
+            supplier_id INTEGER,
+            shipment_id INTEGER,
+            reception_id INTEGER,
+            delivery_order_id INTEGER,
+            customer_id INTEGER,
+            source TEXT DEFAULT 'customer_order',
+            status TEXT DEFAULT 'pending_procurement',
+            location TEXT,
+            serial_number TEXT,
+            barcode TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS shipments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_no TEXT UNIQUE,
+            supplier_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            shipment_date TEXT,
+            expected_arrival TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS shipment_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipment_id INTEGER,
+            purchase_order_item_id INTEGER,
+            stock_item_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            qty INTEGER,
+            status TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS receptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reception_no TEXT UNIQUE,
+            shipment_id INTEGER,
+            received_date TEXT,
+            status TEXT DEFAULT 'draft',
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS reception_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reception_id INTEGER,
+            shipment_item_id INTEGER,
+            stock_item_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            qty INTEGER,
+            received_qty INTEGER,
+            status TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS delivery_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            do_no TEXT UNIQUE,
+            customer_id INTEGER,
+            customer_order_id INTEGER,
+            status TEXT DEFAULT 'draft',
+            delivery_date TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS delivery_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            delivery_order_id INTEGER,
+            stock_item_id INTEGER,
+            ref TEXT,
+            description TEXT,
+            qty INTEGER,
+            source TEXT,
+            status TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS crm_attachments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER,
@@ -1750,18 +1910,26 @@ def init_db():
         conn.execute("ALTER TABLE purchase_order_items ADD COLUMN client_order_no TEXT")
 
     quotation_cols = [r["name"] for r in conn.execute("PRAGMA table_info(quotations)").fetchall()]
-    for col in ["request_id", "contact_person"]:
+    for col in ["request_id", "contact_person", "customer_id", "quotation_date", "valid_until"]:
         if col not in quotation_cols:
-            col_type = "INTEGER" if col == "request_id" else "TEXT"
+            col_type = "INTEGER" if col in {"request_id", "customer_id"} else "TEXT"
             conn.execute(f"ALTER TABLE quotations ADD COLUMN {col} {col_type}")
 
     po_cols = [r["name"] for r in conn.execute("PRAGMA table_info(purchase_orders)").fetchall()]
-    for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id", "case_id"]:
+    for col in ["client_id", "request_id", "quotation_id", "contract_id", "invoice_id", "case_id", "supplier_id"]:
         if col not in po_cols:
             conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} INTEGER")
     for col in ["po_date", "contact_person", "payment_terms", "shipping_status", "shipping_reference", "reception_status"]:
         if col not in po_cols:
             conn.execute(f"ALTER TABLE purchase_orders ADD COLUMN {col} TEXT")
+
+    po_item_cols = [r["name"] for r in conn.execute("PRAGMA table_info(purchase_order_items)").fetchall()]
+    for col in ["purchase_order_id", "stock_item_id", "product_id"]:
+        if col not in po_item_cols:
+            conn.execute(f"ALTER TABLE purchase_order_items ADD COLUMN {col} INTEGER")
+    for col in ["ref", "status"]:
+        if col not in po_item_cols:
+            conn.execute(f"ALTER TABLE purchase_order_items ADD COLUMN {col} TEXT")
 
     extra_table_columns = {
         "customer_requests": {
@@ -3311,6 +3479,139 @@ def crm_client_metrics(conn, client):
         "contract_status": "active" if active_contracts else "needs_review",
     }
 
+def service_hospital_follow_up_data(conn, client_id: int, department_id: int | None = None):
+    client = crm_client_row(conn, client_id)
+    hospital_name = client["name"]
+    today = date.today()
+    renewal_until = today + timedelta(days=90)
+    dept_clause = " AND COALESCE(department_id, 0)=?" if department_id else ""
+    dept_params = (department_id,) if department_id else ()
+
+    upcoming_sales_deliveries = [dict(r) for r in conn.execute(f"""
+        SELECT cr.id, cr.case_no, cr.client_hospital, cr.contact_person, cr.status,
+               cr.updated_at, cr.notes,
+               COUNT(cri.id) AS line_count,
+               COALESCE(SUM(cri.quantity), 0) AS requested_qty,
+               COALESCE(SUM(cri.delivered_qty), 0) AS delivered_qty,
+               COALESCE(SUM(MAX(COALESCE(cri.quantity, 0) - COALESCE(cri.delivered_qty, 0), 0)), 0) AS pending_delivery_qty
+        FROM customer_requests cr
+        LEFT JOIN customer_request_items cri ON cri.request_id=cr.id
+        WHERE cr.client_id=?
+          {dept_clause}
+          AND lower(COALESCE(cr.status, 'open')) NOT IN ('completed', 'invoiced', 'cancelled', 'closed')
+        GROUP BY cr.id
+        ORDER BY cr.updated_at DESC
+        LIMIT 50
+    """, (client_id, *dept_params)).fetchall()]
+
+    calls_pending = [dict(r) for r in conn.execute(f"""
+        SELECT s.*, a.asset_tag, a.model, a.serial_number, a.department
+        FROM service_calls s
+        LEFT JOIN pm_assets a ON a.id=s.equipment_id
+        WHERE s.client_id=?
+          {dept_clause}
+          AND lower(COALESCE(s.status, 'open')) NOT IN ('closed', 'resolved', 'cancelled')
+        ORDER BY COALESCE(s.opened_at, s.created_at) DESC
+        LIMIT 50
+    """, (client_id, *dept_params)).fetchall()]
+
+    offers_pending = [dict(r) for r in conn.execute(f"""
+        SELECT q.*, a.asset_tag, a.model, a.serial_number
+        FROM quotations q
+        LEFT JOIN pm_assets a ON a.id=q.equipment_id
+        WHERE q.client_id=?
+          {dept_clause}
+          AND lower(COALESCE(q.status, 'draft')) IN ('draft', 'pending', 'open', 'sent', 'in_progress', 'follow_up', 'waiting_client_approval')
+        ORDER BY COALESCE(q.quote_date, q.updated_at, q.created_at) DESC
+        LIMIT 50
+    """, (client_id, *dept_params)).fetchall()]
+
+    contract_rows = [dict(r) for r in conn.execute("""
+        SELECT MIN(a.id) AS equipment_id, a.client_id, a.hospital, a.contract_no,
+               MIN(a.contract_start_date) AS contract_start_date,
+               MAX(a.contract_end_date) AS contract_end_date,
+               COUNT(*) AS equipment_count,
+               GROUP_CONCAT(DISTINCT COALESCE(a.asset_tag, a.serial_number, a.model)) AS impacted_equipment
+        FROM pm_assets a
+        WHERE (a.client_id=? OR lower(trim(a.hospital))=lower(trim(?)))
+          AND COALESCE(a.contract_no, '') != ''
+        GROUP BY a.client_id, a.hospital, a.contract_no
+        ORDER BY COALESCE(a.contract_end_date, ''), a.hospital, a.contract_no
+    """, (client_id, hospital_name)).fetchall()]
+    contract_renewals_pending = []
+    for row in contract_rows:
+        end = parse_iso_date(row.get("contract_end_date"))
+        if end and end < today:
+            status = "expired"
+        elif end and end <= renewal_until:
+            status = "renewal_pending"
+        else:
+            status = "active"
+        row["renewal_status"] = status
+        row["contract_id"] = contract_link_id(row.get("hospital", ""), row.get("contract_no", ""))
+        if status in {"expired", "renewal_pending"}:
+            contract_renewals_pending.append(row)
+
+    fmi_impacted_equipment = [dict(r) for r in conn.execute("""
+        SELECT r.id, 'recall' AS source, a.department_id, r.notice_type, r.notice_no, r.manufacturer,
+               r.affected_serial_numbers, r.completion_status, r.corrective_actions AS corrective_action,
+               r.notes, r.created_at, r.updated_at,
+               a.id AS equipment_id, a.asset_tag, a.model, a.serial_number, a.department, a.next_pm_date, a.status AS pm_status
+        FROM equipment_recall_notices r
+        LEFT JOIN pm_assets a ON a.id=r.equipment_id
+        WHERE r.client_id=?
+          AND lower(COALESCE(r.completion_status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        UNION ALL
+        SELECT f.id, 'fmi' AS source, f.department_id, f.notice_type, '' AS notice_no, f.manufacturer,
+               f.affected_serial_numbers, f.completion_status, f.corrective_action,
+               f.notes, f.created_at, f.updated_at,
+               a.id AS equipment_id, a.asset_tag, a.model, a.serial_number, a.department, a.next_pm_date, a.status AS pm_status
+        FROM fmi_recalls f
+        LEFT JOIN pm_assets a ON a.id=f.equipment_id
+        WHERE f.client_id=?
+          AND lower(COALESCE(f.completion_status, 'open')) NOT IN ('completed', 'closed', 'cancelled')
+        ORDER BY 12 DESC
+        LIMIT 50
+    """, (client_id, client_id)).fetchall()]
+    if department_id:
+        fmi_impacted_equipment = [
+            row for row in fmi_impacted_equipment
+            if row.get("department_id") == department_id
+        ]
+
+    equipment_pm_status = []
+    for row in conn.execute("""
+        SELECT a.*, c.name AS client_name
+        FROM pm_assets a
+        LEFT JOIN clients c ON c.id=a.client_id
+        WHERE a.client_id=? OR lower(trim(a.hospital))=lower(trim(?))
+        ORDER BY COALESCE(a.next_pm_date, ''), a.department, a.asset_tag
+        LIMIT 100
+    """, (client_id, hospital_name)).fetchall():
+        item = enrich_pm_asset(row)
+        item["pm_status"] = item.get("timing_status")
+        item["warranty_status"] = warranty_status(item.get("warranty_end", ""))
+        if not department_id or item.get("department_id") == department_id:
+            equipment_pm_status.append(item)
+
+    return {
+        "summary": {
+            "upcoming_sales_deliveries": len(upcoming_sales_deliveries),
+            "calls_pending": len(calls_pending),
+            "offers_pending": len(offers_pending),
+            "contract_renewals_pending": len(contract_renewals_pending),
+            "fmi_impacted_equipment": len(fmi_impacted_equipment),
+            "pm_due": sum(1 for item in equipment_pm_status if item.get("timing_status") in {"due_today", "due_this_week", "overdue"}),
+            "pm_overdue": sum(1 for item in equipment_pm_status if item.get("timing_status") == "overdue"),
+        },
+        "upcoming_sales_deliveries": upcoming_sales_deliveries,
+        "calls_pending": calls_pending,
+        "offers_pending": offers_pending,
+        "contract_renewals_pending": contract_renewals_pending,
+        "fmi_impacted_equipment": fmi_impacted_equipment,
+        "equipment_pm_status": equipment_pm_status,
+    }
+
 def classify_offer_status(status: str) -> str:
     text = str(status or "draft").strip().lower()
     if text in {"approved", "accepted", "won"}:
@@ -3886,6 +4187,7 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
     fmi_rows = [dict(r) for r in conn.execute("SELECT * FROM equipment_recall_notices WHERE client_id=? ORDER BY updated_at DESC", (client_id,)).fetchall()]
     delivery_rows = [d for d in docs if d.get("doc_type") in {"delivery_note", "installation_report", "acceptance_test_report"}]
     notes_rows = [dict(r) for r in conn.execute("SELECT * FROM crm_communications WHERE client_id=? ORDER BY created_at DESC LIMIT 50", (client_id,)).fetchall()]
+    service_follow_up = service_hospital_follow_up_data(conn, client_id, department_id)
     return {
         "client": {**client, **metrics},
         "departments": departments,
@@ -3940,6 +4242,7 @@ def crm_client_dashboard_data(conn, client_id: int, department_id: int | None = 
             "escalations": [c for c in open_cases if str(c.get("priority", "")).lower() in {"urgent", "high", "critical"} or (c.get("blocked_reason") or "none") != "none"],
             "satisfaction": [n for n in notes_rows if "satisfaction" in str(n.get("type", "")).lower() or "satisfaction" in str(n.get("note", "")).lower()],
         },
+        "service_follow_up": service_follow_up,
         "timeline": [event for group in parent_timelines for event in group.get("timeline", [])],
         "notes": notes_rows,
         "counts": {
@@ -4136,8 +4439,10 @@ def after_sales_dashboard_data(conn):
         "recalls": recalls,
         "reports_pending": report_rows,
         "engineer_workload": sorted(workload.values(), key=lambda item: item["total"], reverse=True),
+        "hospital_crm": hospital_dashboard_rows(conn),
         "warranty_pm": warranty_pm[:20],
         "submodules": [
+            {"name": "Hospital CRM", "path": "/after-sales/hospital-crm", "existing_route": "/crm", "description": "Hospital follow-up for pending calls, offers, deliveries, contract renewals, FMI impact, and PM status."},
             {"name": "Dashboard", "path": "/after-sales", "existing_route": "/after-sales", "description": "Unified workload, case pipeline, service, PM, delivery, calibration, and recall overview."},
             {"name": "Service Calls", "path": "/after-sales/service-calls", "existing_route": "/crm", "description": "Corrective maintenance, labor, spare parts + installation, assignments, statuses, and service history."},
             {"name": "PM Tracking", "path": "/after-sales/pm-tracking", "existing_route": "/pm", "description": "Schedules, due lists, completed PMs, engineer assignment, PM reports, and warranty PM tracking."},
@@ -4266,6 +4571,8 @@ def hospital_dashboard_rows(conn):
             WHERE client_id=? OR request_id IN (SELECT id FROM customer_requests WHERE client_id=?)
             ORDER BY po_no
         """, (client_id, client_id)).fetchall()]
+        service_follow_up = service_hospital_follow_up_data(conn, client_id)
+        follow_up_summary = service_follow_up["summary"]
         rows.append({
             **client,
             **metrics,
@@ -4287,6 +4594,15 @@ def hospital_dashboard_rows(conn):
             "pending_deliveries": int(pending_deliveries or 0),
             "pending_installations_deliveries": int((pending_installations or 0) + (pending_deliveries or 0)),
             "pending_procurement": int(pending_procurement or 0),
+            "contract_renewals_pending": follow_up_summary["contract_renewals_pending"],
+            "fmi_impacted_equipment": follow_up_summary["fmi_impacted_equipment"],
+            "service_follow_up_score": (
+                follow_up_summary["calls_pending"]
+                + follow_up_summary["offers_pending"]
+                + follow_up_summary["contract_renewals_pending"]
+                + follow_up_summary["fmi_impacted_equipment"]
+                + follow_up_summary["pm_overdue"]
+            ),
             "blocked_items_count": int(blocked_items or 0),
             "urgent_open_issues": int(urgent_issues or 0),
             "urgent_items_count": int(urgent_issues or 0),
@@ -4296,6 +4612,349 @@ def hospital_dashboard_rows(conn):
             "purchase_order_refs": ", ".join(purchase_order_refs),
         })
     return rows
+
+def commercial_next_no(conn, table: str, no_col: str, prefix: str) -> str:
+    year = date.today().year
+    row = conn.execute(f"SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {table}").fetchone()
+    next_id = int(row["next_id"] or 1)
+    while True:
+        candidate = f"{prefix}-{year}-{next_id:05d}"
+        exists = conn.execute(f"SELECT 1 FROM {table} WHERE {no_col}=?", (candidate,)).fetchone()
+        if not exists:
+            return candidate
+        next_id += 1
+
+def create_product(payload: dict):
+    conn = db()
+    try:
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO products
+            (ref, description, category, product_type, brand, model, unit_price, active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            payload.get("ref", ""),
+            payload.get("description", ""),
+            payload.get("category", ""),
+            payload.get("product_type", ""),
+            payload.get("brand", ""),
+            payload.get("model", ""),
+            float(payload.get("unit_price") or 0),
+            int(payload.get("active", 1)),
+            ts,
+        ))
+        conn.commit()
+        return dict(conn.execute("SELECT * FROM products WHERE id=?", (cur.lastrowid,)).fetchone())
+    finally:
+        conn.close()
+
+def create_commercial_quotation(customer_id: int, items: list[dict], quotation_no: str = "", status: str = "draft",
+                                quotation_date: str = "", valid_until: str = "", notes: str = ""):
+    conn = db()
+    try:
+        quotation_no = quotation_no or commercial_next_no(conn, "quotations", "quotation_no", "QT")
+        quote_date = quotation_date or date.today().isoformat()
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO quotations
+            (quotation_no, client_id, customer_id, status, quote_date, quotation_date, valid_until, amount, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (quotation_no, customer_id, customer_id, status, quote_date, quote_date, valid_until, 0, notes, ts, ts))
+        quotation_id = cur.lastrowid
+        total = 0.0
+        for item in items:
+            product = None
+            if item.get("product_id"):
+                product = conn.execute("SELECT * FROM products WHERE id=?", (item["product_id"],)).fetchone()
+            ref = item.get("ref") or (product["ref"] if product else "")
+            description = item.get("description") or (product["description"] if product else "")
+            unit_price = float(item.get("unit_price") if item.get("unit_price") is not None else (product["unit_price"] if product else 0))
+            qty = int(item.get("qty") or 1)
+            line_total = float(item.get("total_price") if item.get("total_price") is not None else qty * unit_price)
+            total += line_total
+            conn.execute("""
+                INSERT INTO quotation_items
+                (quotation_id, product_id, ref, description, qty, unit_price, total_price, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (quotation_id, item.get("product_id"), ref, description, qty, unit_price, line_total, item.get("notes", "")))
+        conn.execute("UPDATE quotations SET amount=?, updated_at=? WHERE id=?", (total, ts, quotation_id))
+        conn.commit()
+        return {
+            "quotation": dict(conn.execute("SELECT * FROM quotations WHERE id=?", (quotation_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM quotation_items WHERE quotation_id=? ORDER BY id", (quotation_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
+
+def approve_quotation(quotation_id: int):
+    conn = db()
+    try:
+        quotation = conn.execute("SELECT * FROM quotations WHERE id=?", (quotation_id,)).fetchone()
+        if not quotation:
+            raise HTTPException(status_code=404, detail="Quotation not found")
+        existing = conn.execute("SELECT * FROM customer_orders WHERE quotation_id=?", (quotation_id,)).fetchone()
+        if existing:
+            return {
+                "customer_order": dict(existing),
+                "items": [dict(r) for r in conn.execute("SELECT * FROM customer_order_items WHERE customer_order_id=? ORDER BY id", (existing["id"],)).fetchall()],
+                "stock_items": [dict(r) for r in conn.execute("SELECT * FROM stock_items WHERE customer_order_id=? ORDER BY id", (existing["id"],)).fetchall()],
+            }
+        quotation_items = [dict(r) for r in conn.execute("SELECT * FROM quotation_items WHERE quotation_id=? ORDER BY id", (quotation_id,)).fetchall()]
+        if not quotation_items:
+            raise HTTPException(status_code=400, detail="Quotation has no items")
+        customer_id = quotation["customer_id"] if "customer_id" in quotation.keys() and quotation["customer_id"] else quotation["client_id"]
+        co_no = commercial_next_no(conn, "customer_orders", "co_no", "CO")
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO customer_orders
+            (co_no, quotation_id, customer_id, status, order_date, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (co_no, quotation_id, customer_id, "open", date.today().isoformat(), quotation["notes"] if "notes" in quotation.keys() else "", ts))
+        customer_order_id = cur.lastrowid
+        for item in quotation_items:
+            qty = int(item.get("qty") or 0)
+            co_item_cur = conn.execute("""
+                INSERT INTO customer_order_items
+                (customer_order_id, quotation_item_id, product_id, ref, description, ordered_qty,
+                 procured_qty, received_qty, delivered_qty, pending_qty, status)
+                VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+            """, (
+                customer_order_id,
+                item["id"],
+                item.get("product_id"),
+                item.get("ref", ""),
+                item.get("description", ""),
+                qty,
+                qty,
+                "pending_procurement",
+            ))
+            conn.execute("""
+                INSERT INTO stock_items
+                (product_id, ref, description, qty, customer_order_id, customer_order_item_id, co_no,
+                 customer_id, source, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                item.get("product_id"),
+                item.get("ref", ""),
+                item.get("description", ""),
+                qty,
+                customer_order_id,
+                co_item_cur.lastrowid,
+                co_no,
+                customer_id,
+                "customer_order",
+                "pending_procurement",
+                ts,
+                ts,
+            ))
+        conn.execute("UPDATE quotations SET status='approved', updated_at=? WHERE id=?", (ts, quotation_id))
+        conn.commit()
+        return {
+            "customer_order": dict(conn.execute("SELECT * FROM customer_orders WHERE id=?", (customer_order_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM customer_order_items WHERE customer_order_id=? ORDER BY id", (customer_order_id,)).fetchall()],
+            "stock_items": [dict(r) for r in conn.execute("SELECT * FROM stock_items WHERE customer_order_id=? ORDER BY id", (customer_order_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
+
+def update_customer_order_status(conn, customer_order_id: int):
+    rows = [dict(r) for r in conn.execute("SELECT * FROM customer_order_items WHERE customer_order_id=?", (customer_order_id,)).fetchall()]
+    if not rows:
+        return
+    ordered = sum(int(r.get("ordered_qty") or 0) for r in rows)
+    procured = sum(int(r.get("procured_qty") or 0) for r in rows)
+    delivered = sum(int(r.get("delivered_qty") or 0) for r in rows)
+    if delivered >= ordered:
+        status = "delivered"
+    elif delivered > 0:
+        status = "partially_delivered"
+    elif procured >= ordered:
+        status = "procured"
+    elif procured > 0:
+        status = "partially_procured"
+    else:
+        status = "open"
+    conn.execute("UPDATE customer_orders SET status=? WHERE id=?", (status, customer_order_id))
+
+def create_purchase_order_from_stock_items(supplier_id: int, stock_item_ids: list[int], notes: str = ""):
+    conn = db()
+    try:
+        if not stock_item_ids:
+            raise HTTPException(status_code=400, detail="No stock items selected")
+        po_no = commercial_next_no(conn, "purchase_orders", "po_no", "PO")
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO purchase_orders
+            (po_no, supplier_id, supplier, status, po_date, expected_date, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (po_no, supplier_id, str(supplier_id or ""), "draft", date.today().isoformat(), "", notes, ts, ts))
+        purchase_order_id = cur.lastrowid
+        touched_orders = set()
+        for stock_item_id in stock_item_ids:
+            item = conn.execute("SELECT * FROM stock_items WHERE id=?", (stock_item_id,)).fetchone()
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Stock item {stock_item_id} not found")
+            if item["status"] in {"delivered", "cancelled"}:
+                raise HTTPException(status_code=400, detail=f"Stock item {stock_item_id} cannot be ordered")
+            conn.execute("""
+                INSERT INTO purchase_order_items
+                (purchase_order_id, po_no, stock_item_id, product_id, ref, pn, description, qty, received_qty, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+            """, (
+                purchase_order_id,
+                po_no,
+                item["id"],
+                item["product_id"],
+                item["ref"],
+                item["ref"],
+                item["description"],
+                item["qty"],
+                "ordered",
+                ts,
+                ts,
+            ))
+            conn.execute("""
+                UPDATE stock_items
+                SET purchase_order_id=?, po_no=?, supplier_id=?, status='ordered', updated_at=?
+                WHERE id=?
+            """, (purchase_order_id, po_no, supplier_id, ts, item["id"]))
+            conn.execute("""
+                UPDATE customer_order_items
+                SET procured_qty=MIN(ordered_qty, COALESCE(procured_qty, 0) + ?), status='ordered'
+                WHERE id=?
+            """, (int(item["qty"] or 0), item["customer_order_item_id"]))
+            touched_orders.add(item["customer_order_id"])
+        for customer_order_id in touched_orders:
+            update_customer_order_status(conn, customer_order_id)
+        conn.commit()
+        return {
+            "purchase_order": dict(conn.execute("SELECT * FROM purchase_orders WHERE id=?", (purchase_order_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM purchase_order_items WHERE purchase_order_id=? ORDER BY id", (purchase_order_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
+
+def create_shipment_from_purchase_order_items(purchase_order_item_ids: list[int], supplier_id: int | None = None,
+                                              shipment_no: str = "", notes: str = ""):
+    conn = db()
+    try:
+        if not purchase_order_item_ids:
+            raise HTTPException(status_code=400, detail="No purchase order items selected")
+        shipment_no = shipment_no or commercial_next_no(conn, "shipments", "shipment_no", "SH")
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO shipments
+            (shipment_no, supplier_id, status, shipment_date, expected_arrival, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (shipment_no, supplier_id, "shipped", date.today().isoformat(), "", notes, ts))
+        shipment_id = cur.lastrowid
+        stock_item_ids = []
+        for poi_id in purchase_order_item_ids:
+            item = conn.execute("SELECT * FROM purchase_order_items WHERE id=?", (poi_id,)).fetchone()
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Purchase order item {poi_id} not found")
+            conn.execute("""
+                INSERT INTO shipment_items
+                (shipment_id, purchase_order_item_id, stock_item_id, ref, description, qty, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (shipment_id, item["id"], item["stock_item_id"], item["ref"] or item["pn"], item["description"], item["qty"], "shipped"))
+            stock_item_ids.append(item["stock_item_id"])
+        conn.executemany("UPDATE stock_items SET shipment_id=?, status='shipped', updated_at=? WHERE id=?", [(shipment_id, ts, sid) for sid in stock_item_ids])
+        conn.commit()
+        return {
+            "shipment": dict(conn.execute("SELECT * FROM shipments WHERE id=?", (shipment_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM shipment_items WHERE shipment_id=? ORDER BY id", (shipment_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
+
+def receive_shipment(shipment_id: int):
+    conn = db()
+    try:
+        shipment_items = [dict(r) for r in conn.execute("SELECT * FROM shipment_items WHERE shipment_id=? ORDER BY id", (shipment_id,)).fetchall()]
+        if not shipment_items:
+            raise HTTPException(status_code=400, detail="Shipment has no items")
+        reception_no = commercial_next_no(conn, "receptions", "reception_no", "RC")
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO receptions
+            (reception_no, shipment_id, received_date, status, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (reception_no, shipment_id, date.today().isoformat(), "received", "", ts))
+        reception_id = cur.lastrowid
+        touched_items = []
+        touched_co_items = []
+        for item in shipment_items:
+            conn.execute("""
+                INSERT INTO reception_items
+                (reception_id, shipment_item_id, stock_item_id, ref, description, qty, received_qty, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (reception_id, item["id"], item["stock_item_id"], item["ref"], item["description"], item["qty"], item["qty"], "received"))
+            stock_item = conn.execute("SELECT * FROM stock_items WHERE id=?", (item["stock_item_id"],)).fetchone()
+            touched_items.append(item["stock_item_id"])
+            if stock_item:
+                touched_co_items.append((int(item["qty"] or 0), stock_item["customer_order_item_id"]))
+        conn.executemany("UPDATE stock_items SET reception_id=?, status='in_stock', updated_at=? WHERE id=?", [(reception_id, ts, sid) for sid in touched_items])
+        for qty, co_item_id in touched_co_items:
+            conn.execute("""
+                UPDATE customer_order_items
+                SET received_qty=MIN(ordered_qty, COALESCE(received_qty, 0) + ?), status='in_stock'
+                WHERE id=?
+            """, (qty, co_item_id))
+        conn.execute("UPDATE shipments SET status='arrived' WHERE id=?", (shipment_id,))
+        conn.commit()
+        return {
+            "reception": dict(conn.execute("SELECT * FROM receptions WHERE id=?", (reception_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM reception_items WHERE reception_id=? ORDER BY id", (reception_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
+
+def create_delivery_order(customer_id: int, customer_order_id: int, stock_item_ids: list[int], notes: str = ""):
+    conn = db()
+    try:
+        if not stock_item_ids:
+            raise HTTPException(status_code=400, detail="No stock items selected")
+        do_no = commercial_next_no(conn, "delivery_orders", "do_no", "DO")
+        ts = now()
+        cur = conn.execute("""
+            INSERT INTO delivery_orders
+            (do_no, customer_id, customer_order_id, status, delivery_date, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (do_no, customer_id, customer_order_id, "draft", date.today().isoformat(), notes, ts))
+        delivery_order_id = cur.lastrowid
+        touched_co_items = []
+        for stock_item_id in stock_item_ids:
+            item = conn.execute("SELECT * FROM stock_items WHERE id=?", (stock_item_id,)).fetchone()
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Stock item {stock_item_id} not found")
+            if item["status"] != "in_stock":
+                raise HTTPException(status_code=400, detail="Only in-stock items can be delivered")
+            source = "reception" if item["reception_id"] else "existing_stock"
+            conn.execute("""
+                INSERT INTO delivery_order_items
+                (delivery_order_id, stock_item_id, ref, description, qty, source, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (delivery_order_id, item["id"], item["ref"], item["description"], item["qty"], source, "delivered"))
+            conn.execute("UPDATE stock_items SET delivery_order_id=?, status='delivered', updated_at=? WHERE id=?", (delivery_order_id, ts, item["id"]))
+            touched_co_items.append((int(item["qty"] or 0), item["customer_order_item_id"]))
+        for qty, co_item_id in touched_co_items:
+            conn.execute("""
+                UPDATE customer_order_items
+                SET delivered_qty=MIN(ordered_qty, COALESCE(delivered_qty, 0) + ?),
+                    pending_qty=MAX(ordered_qty - MIN(ordered_qty, COALESCE(delivered_qty, 0) + ?), 0),
+                    status='delivered'
+                WHERE id=?
+            """, (qty, qty, co_item_id))
+        update_customer_order_status(conn, customer_order_id)
+        conn.execute("UPDATE delivery_orders SET status='delivered' WHERE id=?", (delivery_order_id,))
+        conn.commit()
+        return {
+            "delivery_order": dict(conn.execute("SELECT * FROM delivery_orders WHERE id=?", (delivery_order_id,)).fetchone()),
+            "items": [dict(r) for r in conn.execute("SELECT * FROM delivery_order_items WHERE delivery_order_id=? ORDER BY id", (delivery_order_id,)).fetchall()],
+        }
+    finally:
+        conn.close()
 
 def sales_dashboard_data(conn, category: str = ""):
     sync_core_reference_tables(conn)
@@ -6548,6 +7207,97 @@ def create_unified_case(case_entry: UnifiedCaseEntryIn, request: Request):
         "customer_request": data,
         "message": "Unified case created successfully"
     }
+
+@app.get("/api/commercial/products")
+def list_commercial_products(q: str = "", product_type: str = "", active: int | None = None):
+    conn = db()
+    try:
+        clauses = []
+        params = []
+        if q:
+            clauses.append("(ref LIKE ? OR description LIKE ? OR brand LIKE ? OR model LIKE ?)")
+            like = f"%{q}%"
+            params.extend([like, like, like, like])
+        if product_type:
+            clauses.append("product_type=?")
+            params.append(product_type)
+        if active is not None:
+            clauses.append("active=?")
+            params.append(active)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        return [dict(r) for r in conn.execute(f"SELECT * FROM products {where} ORDER BY active DESC, ref, description", params).fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/commercial/products")
+def create_commercial_product(payload: dict):
+    return create_product(payload)
+
+@app.post("/api/commercial/quotations")
+def create_commercial_quotation_api(payload: dict):
+    return create_commercial_quotation(
+        customer_id=int(payload.get("customer_id") or payload.get("client_id") or 0),
+        items=payload.get("items") or [],
+        quotation_no=payload.get("quotation_no", ""),
+        status=payload.get("status", "draft"),
+        quotation_date=payload.get("quotation_date", ""),
+        valid_until=payload.get("valid_until", ""),
+        notes=payload.get("notes", ""),
+    )
+
+@app.post("/api/commercial/quotations/{quotation_id}/approve")
+def approve_commercial_quotation_api(quotation_id: int):
+    return approve_quotation(quotation_id)
+
+@app.get("/api/commercial/stock-items")
+def list_commercial_stock_items(status: str = "", customer_order_id: int | None = None, co_no: str = ""):
+    conn = db()
+    try:
+        clauses = []
+        params = []
+        if status:
+            clauses.append("status=?")
+            params.append(status)
+        if customer_order_id is not None:
+            clauses.append("customer_order_id=?")
+            params.append(customer_order_id)
+        if co_no:
+            clauses.append("co_no=?")
+            params.append(co_no)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        return [dict(r) for r in conn.execute(f"SELECT * FROM stock_items {where} ORDER BY created_at DESC, id DESC", params).fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/commercial/purchase-orders")
+def create_commercial_purchase_order_api(payload: dict):
+    return create_purchase_order_from_stock_items(
+        supplier_id=int(payload.get("supplier_id") or 0),
+        stock_item_ids=[int(item_id) for item_id in payload.get("stock_item_ids", [])],
+        notes=payload.get("notes", ""),
+    )
+
+@app.post("/api/commercial/shipments")
+def create_commercial_shipment_api(payload: dict):
+    return create_shipment_from_purchase_order_items(
+        purchase_order_item_ids=[int(item_id) for item_id in payload.get("purchase_order_item_ids", [])],
+        supplier_id=payload.get("supplier_id"),
+        shipment_no=payload.get("shipment_no", ""),
+        notes=payload.get("notes", ""),
+    )
+
+@app.post("/api/commercial/shipments/{shipment_id}/receive")
+def receive_commercial_shipment_api(shipment_id: int):
+    return receive_shipment(shipment_id)
+
+@app.post("/api/commercial/delivery-orders")
+def create_commercial_delivery_order_api(payload: dict):
+    return create_delivery_order(
+        customer_id=int(payload.get("customer_id") or 0),
+        customer_order_id=int(payload.get("customer_order_id") or 0),
+        stock_item_ids=[int(item_id) for item_id in payload.get("stock_item_ids", [])],
+        notes=payload.get("notes", ""),
+    )
 
 @app.get("/api/customer-requests")
 def list_customer_requests(q: str = ""):

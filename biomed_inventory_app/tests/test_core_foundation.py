@@ -64,6 +64,130 @@ class CoreFoundationSmokeTest(unittest.TestCase):
         self.assertEqual(len(dashboard["departments"]), 1)
         self.assertEqual(len(dashboard["equipment"]), 1)
         self.assertEqual(len(dashboard["parent_timelines"]), 1)
+        self.assertIn("service_follow_up", dashboard)
+
+    def test_service_hospital_follow_up_tracks_service_department_buckets(self):
+        m = self.main
+        client = m.create_crm_client(m.CRMClient(name="Service Hospital"), self.request)
+        equipment = m.create_equipment(
+            {
+                "client_id": client["id"],
+                "asset_tag": "SVC-EQ-1",
+                "serial_number": "SVC-SN-1",
+                "manufacturer": "GE",
+                "model": "Monitor",
+                "next_pm_date": "2026-06-25",
+                "contract_no": "CT-SVC-1",
+                "contract_end_date": "2026-07-20",
+            },
+            self.request,
+        )
+        request = m.create_customer_request(
+            m.CustomerRequestIn(
+                client_hospital="Service Hospital",
+                department="ICU",
+                contact_person="Head Nurse",
+                request_source="email",
+                lines=[m.CustomerRequestLineIn(requested_item="Delivery Item", quantity=2, item_type="new_equipment")],
+            ),
+            self.request,
+        )
+
+        conn = m.db()
+        try:
+            conn.execute(
+                "INSERT INTO service_calls (client_id, equipment_id, call_no, status, engineer, issue, opened_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (client["id"], equipment["id"], "CALL-SVC-1", "open", "Engineer A", "Follow-up call", "2026-06-20", "2026-06-20", "2026-06-20"),
+            )
+            conn.execute(
+                "INSERT INTO quotations (client_id, equipment_id, quotation_no, quote_date, status, amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (client["id"], equipment["id"], "Q-SVC-1", "2026-06-21", "sent", 1250, "2026-06-21", "2026-06-21"),
+            )
+            conn.execute(
+                "INSERT INTO equipment_recall_notices (client_id, equipment_id, notice_type, notice_no, manufacturer, affected_serial_numbers, completion_status, corrective_actions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (client["id"], equipment["id"], "FMI", "FMI-SVC-1", "GE", "SVC-SN-1", "open", "Replace kit", "2026-06-22", "2026-06-22"),
+            )
+            conn.commit()
+            follow_up = m.service_hospital_follow_up_data(conn, client["id"])
+            after_sales = m.after_sales_dashboard_data(conn)
+        finally:
+            conn.close()
+
+        self.assertEqual(follow_up["summary"]["upcoming_sales_deliveries"], 1)
+        self.assertEqual(follow_up["summary"]["calls_pending"], 1)
+        self.assertEqual(follow_up["summary"]["offers_pending"], 1)
+        self.assertEqual(follow_up["summary"]["contract_renewals_pending"], 1)
+        self.assertEqual(follow_up["summary"]["fmi_impacted_equipment"], 1)
+        self.assertEqual(follow_up["summary"]["pm_due"], 1)
+        hospital_row = next(row for row in after_sales["hospital_crm"] if row["id"] == client["id"])
+        self.assertEqual(hospital_row["service_follow_up_score"], 4)
+
+    def test_unified_sales_flow_creates_stock_only_after_quotation_approval(self):
+        m = self.main
+        client = m.create_crm_client(m.CRMClient(name="Unified Sales Hospital"), self.request)
+        product = m.create_product(
+            {
+                "ref": "USF-MON-001",
+                "description": "Patient monitor",
+                "category": "equipment",
+                "product_type": "equipment",
+                "brand": "GE",
+                "model": "B105",
+                "unit_price": 1200,
+            }
+        )
+        quotation = m.create_commercial_quotation(
+            client["id"],
+            [{"product_id": product["id"], "qty": 2}],
+            quotation_no="QT-USF-001",
+        )
+
+        conn = m.db()
+        try:
+            stock_before = conn.execute("SELECT COUNT(*) AS c FROM stock_items").fetchone()["c"]
+            quotation_items = conn.execute("SELECT COUNT(*) AS c FROM quotation_items WHERE quotation_id=?", (quotation["quotation"]["id"],)).fetchone()["c"]
+        finally:
+            conn.close()
+
+        self.assertEqual(quotation_items, 1)
+        self.assertEqual(stock_before, 0)
+
+        approved = m.approve_quotation(quotation["quotation"]["id"])
+        self.assertEqual(approved["customer_order"]["status"], "open")
+        self.assertEqual(len(approved["items"]), 1)
+        self.assertEqual(len(approved["stock_items"]), 1)
+        self.assertEqual(approved["stock_items"][0]["status"], "pending_procurement")
+        self.assertEqual(approved["stock_items"][0]["qty"], 2)
+
+        po = m.create_purchase_order_from_stock_items(44, [approved["stock_items"][0]["id"]])
+        self.assertEqual(po["purchase_order"]["supplier_id"], 44)
+        self.assertEqual(po["items"][0]["status"], "ordered")
+
+        shipment = m.create_shipment_from_purchase_order_items([po["items"][0]["id"]], supplier_id=44, shipment_no="SH-USF-001")
+        self.assertEqual(shipment["shipment"]["status"], "shipped")
+
+        reception = m.receive_shipment(shipment["shipment"]["id"])
+        self.assertEqual(reception["reception"]["status"], "received")
+
+        conn = m.db()
+        try:
+            stock_item = dict(conn.execute("SELECT * FROM stock_items WHERE id=?", (approved["stock_items"][0]["id"],)).fetchone())
+        finally:
+            conn.close()
+        self.assertEqual(stock_item["status"], "in_stock")
+
+        delivery = m.create_delivery_order(client["id"], approved["customer_order"]["id"], [stock_item["id"]], notes="Deliver approved quotation")
+        self.assertEqual(delivery["delivery_order"]["status"], "delivered")
+
+        conn = m.db()
+        try:
+            final_stock = dict(conn.execute("SELECT * FROM stock_items WHERE id=?", (stock_item["id"],)).fetchone())
+            final_order = dict(conn.execute("SELECT * FROM customer_orders WHERE id=?", (approved["customer_order"]["id"],)).fetchone())
+        finally:
+            conn.close()
+
+        self.assertEqual(final_stock["status"], "delivered")
+        self.assertEqual(final_order["status"], "delivered")
 
     def test_pending_offer_import_department_progress_search_and_bulk_edit(self):
         m = self.main
