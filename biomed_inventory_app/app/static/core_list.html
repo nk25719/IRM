@@ -51,5 +51,6 @@
     exportSelected.addEventListener("click",async()=>{if(!selected.size)return;const res=await fetch("/api/bulk-export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target:cfg.target,ids:[...selected],format:"excel"})});const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${cfg.target}_selected.xlsx`;a.click()});
     load();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

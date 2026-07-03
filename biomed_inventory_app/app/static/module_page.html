@@ -21,15 +21,35 @@
     const modules={
       "/procurement":{title:"Procurement",description:"Client orders, supplier purchase orders, shipping, reception, missing-item purchasing, and PO exports.",api:"/api/purchase-orders",cards:[["Procurement Workspace","/procurement","CO assignment, PO creation, shipping, and reception"],["PO Export","/api/export","Full Excel export with PO and received items"],["Missing Sales Items","/sales","Create PO for shortages from Sales requests"]]},
       "/equipment-registry":{title:"Equipment Registry",description:"Installed equipment, biomedical profiles, PM assets, risk, calibration, uptime, recall, and compatibility records.",api:"/api/pm-assets",cards:[["PM Assets","/pm/assets","Existing equipment registry route"],["After Sales Equipment","/after-sales/pm-tracking","PM and warranty status"],["Biomedical Reports","/reports","Calibration and equipment-history reports"]]},
-      "/financials":{title:"Financials",description:"Invoices, unpaid balances, client order exports, and financial status by hospital.",api:"/api/client-orders",cards:[["Client Orders","/procurement","Client order references and procurement handoff"],["Sales Invoices","/sales","Generate invoices only after delivery"],["CRM Financials","/crm","Client financial overview"]]},
+      "/financials":{title:"Finance",description:"Invoices, payments, customer balances, supplier balances, and financial status by hospital.",api:"/api/client-orders",cards:[["Finance Dashboard","/finance","Financial overview"],["Invoices","/finance/invoices","Issued and pending invoices"],["Payments","/finance/payments","Payment tracking"],["Customer Balances","/finance/customer-balances","Customer account balances"],["Supplier Balances","/finance/supplier-balances","Supplier balances"]]},
+      "/finance":{title:"Finance",description:"Invoices, payments, customer balances, supplier balances, and financial status by hospital.",api:"/api/client-orders",cards:[["Finance Dashboard","/finance","Financial overview"],["Invoices","/finance/invoices","Issued and pending invoices"],["Payments","/finance/payments","Payment tracking"],["Customer Balances","/finance/customer-balances","Customer account balances"],["Supplier Balances","/finance/supplier-balances","Supplier balances"]]},
       "/reports":{title:"Reports",description:"Printable, Excel, and PDF exports for warehouse, stock movement, service, PM, installation, acceptance, calibration, contract, and equipment history reports.",api:"/api/dashboard",cards:[["Warehouse Export","/api/export","Master Excel export"],["Stock Movement Report","/api/stock-movements/export","Excel stock movement report"],["Service Report","/api/biomedical/reports/service-report?format=excel","Service call report"],["PM Report","/api/pm-reports?report=completion","PM completion report"],["Calibration Certificate","/api/biomedical/reports/calibration-certificate?format=pdf","PDF calibration report"],["Contract PDF","/api/biomedical/reports/contract-pdf?format=pdf","Contract PDF export"]]},
-      "/admin":{title:"Admin",description:"Configuration, audit trail, import/export safety, and system health.",api:"/api/audit",cards:[["Audit Trail","/warehouse","Existing audit module"],["Full Export","/api/export","Backup/export"],["Import","/warehouse","Existing append/merge import"]]},
+      "/admin":{title:"Administration",description:"Customers, contacts, users, settings, imports, audit trail, and system health.",api:"/api/audit",cards:[["Administration Dashboard","/administration","Administration overview"],["Customers","/administration/customers","Customer records"],["Contacts","/administration/contacts","Contact records"],["Users","/administration/users","User administration"],["Settings","/administration/settings","System settings"]]},
+      "/administration":{title:"Administration",description:"Customers, contacts, users, settings, imports, audit trail, and system health.",api:"/api/audit",cards:[["Administration Dashboard","/administration","Administration overview"],["Customers","/administration/customers","Customer records"],["Contacts","/administration/contacts","Contact records"],["Users","/administration/users","User administration"],["Settings","/administration/settings","System settings"]]},
     };
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const cfg=modules[location.pathname]||modules["/reports"];
-    title.textContent=cfg.title;heading.textContent=cfg.title;description.textContent=cfg.description;document.title=`CMM ${cfg.title}`;
+    const sectionTitles={
+      "/finance":"Finance Dashboard",
+      "/finance/invoices":"Finance Invoices",
+      "/finance/payments":"Finance Payments",
+      "/finance/customer-balances":"Finance Customer Balances",
+      "/finance/supplier-balances":"Finance Supplier Balances",
+      "/administration":"Administration Dashboard",
+      "/administration/customers":"Administration Customers",
+      "/administration/contacts":"Administration Contacts",
+      "/administration/users":"Administration Users",
+      "/administration/settings":"Administration Settings",
+      "/reports":"Reports"
+    };
+    const currentPath=location.pathname.replace(/\/$/,"")||"/";
+    const routeRoot=location.pathname.startsWith("/finance")?"/finance":location.pathname.startsWith("/administration")?"/administration":location.pathname;
+    const cfg=modules[routeRoot]||modules["/reports"];
+    const sectionTitle=sectionTitles[currentPath]||cfg.title;
+    document.body.setAttribute("data-page-title",sectionTitle);
+    title.textContent=cfg.title;heading.textContent=sectionTitle;description.textContent=cfg.description;document.title=`CMM ${sectionTitle}`;
     cards.innerHTML=cfg.cards.map(([name,path,desc])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(desc)}</p><div class="links"><a class="primary" href="${esc(path)}">Open ${esc(name)}</a></div></article>`).join("");
     async function load(){try{const res=await fetch(cfg.api);const json=await res.json();const rows=Array.isArray(json)?json:(json&&typeof json==="object"?[json]:[]);const cols=Array.from(new Set(rows.flatMap(r=>Object.keys(r)))).slice(0,8);thead.innerHTML=`<tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=rows.slice(0,20).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td>No data yet</td></tr>`}catch(e){tbody.innerHTML=`<tr><td>${esc(e.message)}</td></tr>`}}load();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

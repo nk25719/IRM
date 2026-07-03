@@ -5,6 +5,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from app.erp_api import router as erp_router
 from app.mdmanser_api import router as mdmanser_router
+from app.quotation_api import ensure_tables as ensure_quotation_tables
+from app.quotation_api import router as quotation_router
 from pathlib import Path
 import sqlite3, os, shutil, urllib.parse, io, base64, json
 import html as html_module
@@ -33,6 +35,7 @@ app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "asse
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(mdmanser_router)
 app.include_router(erp_router)
+app.include_router(quotation_router)
 
 PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc", "/mdmanser", "/cmm", "/static/mdmanser.html"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
@@ -2425,6 +2428,7 @@ def init_db():
 
     ensure_clients_from_existing_data(conn)
     sync_core_reference_tables(conn)
+    ensure_quotation_tables(conn)
     conn.commit()
 
     count = conn.execute("SELECT COUNT(*) AS c FROM inventory").fetchone()["c"]
@@ -5539,13 +5543,13 @@ def startup():
 @app.get("/")
 def index(request: Request):
     if request.session.get("authenticated"):
-        return RedirectResponse(url="/portal", status_code=303)
+        return FileResponse(BASE_DIR / "static" / "portal.html")
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/login")
 def login_page(request: Request, error: str = ""):
     if request.session.get("authenticated"):
-        return RedirectResponse(url="/portal", status_code=303)
+        return RedirectResponse(url="/", status_code=303)
     html = (BASE_DIR / "static" / "login.html").read_text(encoding="utf-8")
     safe_error = html_module.escape(error.strip())
     error_markup = f'<div class="alert" role="alert">{safe_error}</div>' if safe_error else ""
@@ -5559,7 +5563,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         request.session["authenticated"] = True
         request.session["username"] = username
         request.session["role"] = APP_ROLE
-        return RedirectResponse(url="/portal", status_code=303)
+        return RedirectResponse(url="/", status_code=303)
     return RedirectResponse(url="/login?error=Invalid%20credentials", status_code=303)
 
 @app.get("/logout")
@@ -5568,6 +5572,7 @@ def logout(request: Request):
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/portal")
+@app.get("/home")
 def portal():
     return FileResponse(BASE_DIR / "static" / "portal.html")
 
@@ -5577,16 +5582,20 @@ def dashboard_page():
 
 @app.get("/inventory")
 @app.get("/warehouse")
-def inventory_page():
+@app.get("/warehouse/{section:path}")
+def inventory_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "index.html")
 
 @app.get("/procurement")
-def procurement_page():
+@app.get("/procurement/{section:path}")
+def procurement_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "procurement.html")
 
 @app.get("/sales")
 @app.get("/sales/{section:path}")
 def sales_page(section: str = ""):
+    if section.strip("/") == "quotations":
+        return FileResponse(BASE_DIR / "static" / "quotations.html")
     return FileResponse(BASE_DIR / "static" / "sales.html")
 
 @app.get("/equipment-registry")
@@ -5599,7 +5608,9 @@ def equipment_registry_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "equipment_database.html")
 
 @app.get("/financials")
-def financials_page():
+@app.get("/finance")
+@app.get("/finance/{section:path}")
+def financials_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "module_page.html")
 
 @app.get("/reports")
@@ -5607,7 +5618,9 @@ def reports_page():
     return FileResponse(BASE_DIR / "static" / "module_page.html")
 
 @app.get("/admin")
-def admin_page():
+@app.get("/administration")
+@app.get("/administration/{section:path}")
+def admin_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "module_page.html")
 
 @app.get("/imports")
@@ -5657,7 +5670,17 @@ def cases_page():
 def sales_cases_page():
     return RedirectResponse(url="/sales", status_code=303)
 
+@app.get("/aftersales")
 @app.get("/after-sales")
+def after_sales_dashboard_alias():
+    return FileResponse(BASE_DIR / "static" / "after_sales.html")
+
+@app.get("/aftersales/pm")
+@app.get("/after-sales/pm")
+def after_sales_pm_alias():
+    return FileResponse(BASE_DIR / "static" / "pm.html")
+
+@app.get("/aftersales/{section:path}")
 @app.get("/after-sales/{section:path}")
 def after_sales_page(section: str = ""):
     return FileResponse(BASE_DIR / "static" / "after_sales.html")

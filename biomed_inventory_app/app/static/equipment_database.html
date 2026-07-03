@@ -37,5 +37,6 @@
     async function load(){const data=await api('/api/equipment');const filtered=data.filter(matches);rows.innerHTML=filtered.map(e=>`<tr onclick="showDetail(${e.id})"><td>${esc(e.client_name)}</td><td>${esc(e.end_user)}</td><td>${esc(e.department_name)}</td><td>${esc(e.system_name)}</td><td>${esc(e.subsystem_name)}</td><td><b>${esc(e.equipment_name)}</b><span class="mini">${esc(e.equipment_family)}</span></td><td>${esc(e.manufacturer)}</td><td>${esc(e.model)}</td><td>${esc(e.serial_number)}</td><td>${esc(e.asset_tag)}</td><td>${esc(e.installation_date)}<span class="mini">${esc(e.installation_data)}</span></td><td>${badge(e.warranty_status)}<span class="mini">${esc(e.warranty_expiration||e.warranty_end)}</span></td><td>${esc(e.delivery_doc)}</td><td>${esc(e.supplies)}</td><td>${esc(e.last_pm_date)}<span class="mini">next ${esc(e.next_pm_date)} / ${esc(e.pm_frequency_days)}d</span></td><td>${badge(e.risk_classification)}</td><td>${badge(e.lifecycle_status||e.status)}</td></tr>`).join("")||'<tr><td colspan="17">No equipment found.</td></tr>';if(filtered[0])showDetail(filtered[0].id)}
     [q,risk,status].forEach(el=>el.addEventListener("input",load));load();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

@@ -144,5 +144,6 @@
     async function savePMHistory(){const payload={asset_id:Number(document.getElementById("pmHistoryAsset").value),action:document.getElementById("pmHistoryAction").value,engineer:document.getElementById("pmHistoryEngineer").value,notes:document.getElementById("pmHistoryNotes").value};if(!payload.asset_id||!payload.action){alert("Asset and action are required");return}await api("/api/pm-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});document.getElementById("pmHistoryAction").value="";document.getElementById("pmHistoryEngineer").value="";document.getElementById("pmHistoryNotes").value="";await loadPMHistory()}
     loadItemOptions().then(refreshPMSelectors).then(()=>setPMSection(sectionByPath[window.location.pathname]||"dashboard"));
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

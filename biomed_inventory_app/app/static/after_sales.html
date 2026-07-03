@@ -67,7 +67,7 @@
     </section>
   </main>
   <script>
-    const tabDefs=[["hospital-crm","Hospital CRM"],["overview","Overview"],["service-calls","Service Calls"],["pm-tracking","PM Tracking"],["contracts","Contracts"],["reports","Reports"],["warranty","Warranty PM"]];
+    const tabDefs=[["overview","Dashboard"],["service-calls","Service Calls"],["spare-parts","Spare Parts"],["reports","Reports"],["hospital-crm","Hospital CRM"],["contracts","Contracts"],["warranty","Warranty PM"]];
     const tabsEl=document.getElementById("tabs");
     let data=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
@@ -76,10 +76,11 @@
     const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
     const textRow=cells=>row(cells.map(esc));
     async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function activeSection(){const part=location.pathname.split("/")[2]||"hospital-crm";return tabDefs.some(t=>t[0]===part)?part:"hospital-crm"}
-    function setSection(section){document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===section));document.querySelectorAll(".tabs a").forEach(a=>a.classList.toggle("active",a.dataset.section===section))}
+    function activeSection(){const part=location.pathname.split("/")[2]||"overview";return tabDefs.some(t=>t[0]===part)?part:"overview"}
+    function panelForSection(section){return section==="spare-parts"?"service-calls":section}
+    function setSection(section){const panel=panelForSection(section);document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===panel));document.querySelectorAll(".tabs a").forEach(a=>a.classList.toggle("active",a.dataset.section===section))}
     function linkFields(item){return [`client_id=${item.client_id??""}`,`equipment_id=${item.equipment_id??item.id??""}`,`engineer_id=${item.engineer_id??""}`,`contract_id=${item.contract_id??""}`,`request_id=${item.request_id??""}`].map(esc).join("<br>")}
-    function renderModules(){submodules.innerHTML=data.submodules.map(m=>`<article class="card module-card"><h3>${esc(m.name)}</h3><p>${esc(m.description)}</p><div class="module-links"><a class="primary" href="${esc(m.path)}">Open ${esc(m.name)}</a><a href="${esc(m.existing_route)}">${esc(m.name)} Existing Route</a></div></article>`).join("")}
+    function renderModules(){const cards=[["Dashboard","/aftersales","Unified service, PM, warranty, and reporting overview."],["Service Calls","/aftersales/service-calls","Corrective maintenance, labor, spare parts, assignments, and history."],["Spare Parts","/aftersales/spare-parts","Spare-parts service follow-up linked to service calls and sales requests."],["Preventive Maintenance","/aftersales/pm","PM schedules, tasks, reports, and history."],["Reports","/aftersales/reports","Service, PM, engineer, client, and equipment history reports."]];submodules.innerHTML=cards.map(([name,path,description])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(description)}</p><div class="module-links"><a class="primary" href="${esc(path)}">Open ${esc(name)}</a></div></article>`).join("")}
     function renderMetrics(){const m=data.metrics;metrics.innerHTML=metric("Open service calls",m.open_service_calls)+metric("PM visits due",m.pm_visits_due)+metric("Active contracts",m.active_contracts)+metric("Expiring contracts",m.expiring_contracts)+metric("Reports pending",m.reports_pending)+metric("Engineer workload",m.engineer_workload)+metric("Warranty PM due",m.warranty_equipment_needing_pm)}
     function renderTables(){
       overviewCalls.innerHTML=data.service_calls.slice(0,8).map(c=>textRow([c.call_no,c.client_name||c.client_id,c.asset_tag||c.equipment_id||"-",c.engineer||"Unassigned",c.status,c.request_id||"-"])).join("")||textRow(["No open service calls","","","","",""]);
@@ -92,7 +93,7 @@
       warrantyRows.innerHTML=data.warranty_pm.map(p=>row([esc(p.next_pm_date),esc(p.client_name||p.hospital||"-"),esc(p.asset_tag||p.id),esc(p.engineer||"Unassigned"),badge(p.warranty_status||"active"),badge(p.timing_status),linkFields(p)])).join("")||textRow(["No warranty PM due","","","","","",""]);
     }
     async function init(){
-      tabsEl.innerHTML=tabDefs.map(([id,label])=>`<a href="/after-sales/${id}" data-section="${id}">${esc(label)}</a>`).join("");
+      tabsEl.innerHTML=tabDefs.map(([id,label])=>`<a href="${id==="overview"?"/aftersales":"/aftersales/"+id}" data-section="${id}">${esc(label)}</a>`).join("");
       document.querySelectorAll(".tabs a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();history.pushState(null,"",a.href);setSection(a.dataset.section)}));
       data=await api("/api/after-sales/dashboard");
       renderMetrics();renderModules();renderTables();setSection(activeSection());
@@ -100,5 +101,6 @@
     window.addEventListener("popstate",()=>setSection(activeSection()));
     init();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

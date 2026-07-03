@@ -34,6 +34,13 @@ RESOURCE_MAP: dict[str, tuple[Type, Type[BaseModel]]] = {
     "client_activities": (m.ClientActivity, s.ClientActivityIn),
     "client-activities": (m.ClientActivity, s.ClientActivityIn),
     "invoices": (m.Invoice, s.InvoiceIn),
+    "quotations": (m.Quotation, s.QuotationIn),
+    "quotation_items": (m.QuotationItem, s.QuotationItemIn),
+    "quotation-items": (m.QuotationItem, s.QuotationItemIn),
+    "quotation_attachments": (m.QuotationAttachment, s.QuotationAttachmentIn),
+    "quotation-attachments": (m.QuotationAttachment, s.QuotationAttachmentIn),
+    "quotation_templates": (m.QuotationTemplate, s.QuotationTemplateIn),
+    "quotation-templates": (m.QuotationTemplate, s.QuotationTemplateIn),
 }
 
 

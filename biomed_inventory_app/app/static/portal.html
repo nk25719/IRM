@@ -4,92 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1f4e78">
-  <title>CMM Home Portal</title>
+  <title>Home / Departments</title>
   <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .home-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .department-card{min-height:210px}
+    .department-card span{color:var(--accent);font-weight:800;margin-top:auto}
+  </style>
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <h1>CMM Home Portal</h1>
-        <p>Biomedical operations modules</p>
-      </div>
-      <nav class="top-actions" aria-label="Portal navigation">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/sales">Sales</a>
-        <a href="/procurement">Procurement</a>
-        <a href="/after-sales">After Sales</a>
-        <a href="/warehouse">Warehouse</a>
-        <a href="/financials">Financials</a>
-        <a href="/reports">Reports</a>
-        <a href="/admin">Admin</a>
-        <a href="/logout">Logout</a>
-      </nav>
-    </div>
-  </header>
-
+<body data-page-title="Home / Departments">
   <main class="container">
-    <section class="page-intro" aria-labelledby="portal-title">
-      <h2 id="portal-title">Select a module</h2>
-      <p>Open the main ERP modules without duplicating client or After Sales workflows.</p>
+    <section class="page-intro" aria-labelledby="home-title">
+      <h1 id="home-title">Home / Departments</h1>
+      <p>Select one department to open its dashboard.</p>
     </section>
 
-    <section class="grid" aria-label="Application modules">
-      <a class="card module-card" href="/dashboard">
-        <div class="module-icon" aria-hidden="true">D</div>
-        <h3>Dashboard</h3>
-        <p>Ongoing client matters plus client history. Open a hospital to manage Sales, After Sales, and Client Operations.</p>
-        <span>Open Dashboard</span>
-      </a>
-      <a class="card module-card" href="/warehouse">
-        <div class="module-icon" aria-hidden="true">W</div>
-        <h3>Warehouse</h3>
-        <p>Equipment, Spare Parts, Accessories, minimum stock, replenishment requests, stock transactions, and exports.</p>
-        <span>Open Warehouse</span>
-      </a>
-      <a class="card module-card" href="/procurement">
-        <div class="module-icon" aria-hidden="true">P</div>
-        <h3>Procurement</h3>
-        <p>Client orders, supplier purchase orders, shortage purchasing, shipping, reception, and procurement exports.</p>
-        <span>Open Procurement</span>
-      </a>
-      <a class="card module-card" href="/sales">
-        <div class="module-icon" aria-hidden="true">S</div>
-        <h3>Sales</h3>
-        <p>Customer requests, offers, pro formas, client orders, stock reservation, delivery notes, and invoices.</p>
-        <span>Open Sales</span>
-      </a>
-      <a class="card module-card" href="/after-sales">
+    <section class="home-grid" aria-label="Departments">
+      <a class="card module-card department-card" href="/aftersales">
         <div class="module-icon" aria-hidden="true">A</div>
         <h3>After Sales</h3>
-        <p>Service calls, preventive maintenance, contracts, warranty work, engineer workload, and reports.</p>
+        <p>Service calls, spare parts follow-up, preventive maintenance, contracts, and reports.</p>
         <span>Open After Sales</span>
       </a>
-      <a class="card module-card" href="/financials">
+      <a class="card module-card department-card" href="/sales">
+        <div class="module-icon" aria-hidden="true">S</div>
+        <h3>Sales</h3>
+        <p>Products, quotations, customer orders, commercial lifecycle tracking, and reports.</p>
+        <span>Open Sales</span>
+      </a>
+      <a class="card module-card department-card" href="/procurement">
+        <div class="module-icon" aria-hidden="true">P</div>
+        <h3>Procurement</h3>
+        <p>Purchase orders, suppliers, shipments, procurement status, and supplier reports.</p>
+        <span>Open Procurement</span>
+      </a>
+      <a class="card module-card department-card" href="/warehouse">
+        <div class="module-icon" aria-hidden="true">W</div>
+        <h3>Warehouse</h3>
+        <p>Stock items, receptions, delivery orders, stock movements, and inventory count.</p>
+        <span>Open Warehouse</span>
+      </a>
+      <a class="card module-card department-card" href="/finance">
         <div class="module-icon" aria-hidden="true">F</div>
-        <h3>Financials</h3>
-        <p>Invoices, unpaid balances, client orders, and financial status.</p>
-        <span>Open Financials</span>
+        <h3>Finance</h3>
+        <p>Invoices, payments, customer balances, supplier balances, and financial dashboard.</p>
+        <span>Open Finance</span>
       </a>
-      <a class="card module-card" href="/reports">
-        <div class="module-icon" aria-hidden="true">R</div>
-        <h3>Reports</h3>
-        <p>PDF, Excel, and printable exports across warehouse, stock, PM, service, contracts, and biomedical records.</p>
-        <span>Open Reports</span>
-      </a>
-      <a class="card module-card" href="/mdmanser-data">
+      <a class="card module-card department-card" href="/administration">
         <div class="module-icon" aria-hidden="true">M</div>
-        <h3>MDManser Data</h3>
-        <p>Browse imported CMM calendar events and historical service records from MDManser.</p>
-        <span>Open MDManser Data</span>
-      </a>
-      <a class="card module-card" href="/admin">
-        <div class="module-icon" aria-hidden="true">M</div>
-        <h3>Admin</h3>
-        <p>Audit trail, backup export, import safety, and administration tools.</p>
-        <span>Open Admin</span>
+        <h3>Administration</h3>
+        <p>Customers, contacts, users, settings, imports, audit trail, and system controls.</p>
+        <span>Open Administration</span>
       </a>
     </section>
   </main>
+  <script src="/static/app_layout.js"></script>
 </body>
 </html>

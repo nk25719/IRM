@@ -23,8 +23,10 @@
       <button data-tab="itemTracking">Item Tracking</button>
       <button data-tab="clientOrders">Client Orders</button>
       <button data-tab="purchaseOrders">Purchase Orders</button>
+      <button data-tab="suppliers">Suppliers</button>
       <button data-tab="shipping">Shipping</button>
       <button data-tab="reception">Reception</button>
+      <button data-tab="reports">Reports</button>
     </div>
 
     <section class="card">
@@ -76,6 +78,12 @@
       <div class="table-wrap"><table class="table"><thead><tr><th>Track ID</th><th>Ref.</th><th>Desc.</th><th>Qty.</th><th>CO#</th><th>PO#</th><th>Supplier</th><th>Customer</th><th>Received</th><th>Status</th></tr></thead><tbody id="poItemRows"></tbody></table></div>
     </section>
 
+    <section class="card panel" id="suppliers">
+      <h2>Suppliers</h2>
+      <p class="mini">Supplier activity is summarized from purchase orders and incoming tracked items.</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Supplier</th><th>Purchase Orders</th><th>Open Items</th><th>Latest Expected</th></tr></thead><tbody id="supplierRows"></tbody></table></div>
+    </section>
+
     <section class="card panel" id="shipping">
       <h2>Shipping</h2>
       <div class="form-grid">
@@ -97,9 +105,19 @@
       <div class="actions"><button class="primary" onclick="saveReception()">Save Reception</button><button onclick="receivePOFromReception()">Receive Reception PO</button></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>PO</th><th>CO</th><th>Item</th><th>Qty</th><th>Received Qty</th><th>Reception</th><th>Action</th></tr></thead><tbody id="receptionRows"></tbody></table></div>
     </section>
+
+    <section class="card panel" id="reports">
+      <h2>Reports</h2>
+      <div class="actions"><a class="primary" href="/api/exports/procurement">Export Procurement</a><a href="/api/export">Full ERP Export</a></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Report</th><th>Rows</th><th>Action</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+    </section>
   </main>
   <script>
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const procurementTitles={"/procurement":"Procurement Dashboard","/procurement/purchase-orders":"Procurement Purchase Orders","/procurement/suppliers":"Procurement Suppliers","/procurement/shipments":"Procurement Shipments","/procurement/reports":"Procurement Reports"};
+    const procurementRouteTabs={"/procurement":"overview","/procurement/purchase-orders":"purchaseOrders","/procurement/suppliers":"suppliers","/procurement/shipments":"shipping","/procurement/reports":"reports"};
+    const currentProcurementPath=location.pathname.replace(/\/$/,"")||"/procurement";
+    document.body.setAttribute("data-page-title", procurementTitles[currentProcurementPath] || "Procurement");
     const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("not_ordered")||l.includes("cancel")?"bad":l.includes("draft")||l.includes("partial")||l.includes("sent")||l.includes("pending")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
     const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;
     const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
@@ -165,8 +183,13 @@
       unassignedRows.innerHTML=filteredUnassigned.map(x=>row([`<input class="coPick" type="checkbox" value="${x.client_order_item_id}">`,esc(x.ref),esc(x.description),esc(x.qty),esc(x.co_no),esc(x.po_no),esc(x.supplier),esc(x.customer),badge(x.procurement_status)])).join("")||`<tr><td colspan="9">No unassigned CO items</td></tr>`;
       poRows.innerHTML=filteredPO.map(x=>row([esc(x.po_no),esc(x.supplier),badge(x.status),esc(x.po_date),esc(x.payment_terms),esc(x.expected_date),badge(x.shipping_status),badge(x.reception_status),`<button onclick='selectPO(${JSON.stringify(x).replace(/'/g,"&#039;")})'>Select</button> <a href="/api/purchase-orders/${encodeURIComponent(x.po_no)}/export" target="_blank">Download</a>`])).join("")||`<tr><td colspan="9">No purchase orders</td></tr>`;
       poItemRows.innerHTML=filteredItems.map(x=>row([esc(`POI-${x.id}`),esc(x.pn),esc(x.description),esc(x.qty),esc(x.client_order_no),esc(x.po_no),esc(x.supplier),esc(x.client_name),esc(x.received_qty),Number(x.received)===1?badge("received"):badge(x.po_status)])).join("")||`<tr><td colspan="10">No PO items</td></tr>`;
+      const supplierSummary=new Map();
+      filteredPO.forEach(p=>{const key=p.supplier||"Unassigned";const entry=supplierSummary.get(key)||{po:0,open:0,expected:""};entry.po+=1;entry.expected=p.expected_date||entry.expected;supplierSummary.set(key,entry)});
+      filteredItems.forEach(i=>{const key=i.supplier||"Unassigned";const entry=supplierSummary.get(key)||{po:0,open:0,expected:""};if(Number(i.received)!==1)entry.open+=1;supplierSummary.set(key,entry)});
+      supplierRows.innerHTML=[...supplierSummary.entries()].map(([supplier,x])=>row([esc(supplier),esc(x.po),esc(x.open),esc(x.expected)])).join("")||`<tr><td colspan="4">No supplier activity</td></tr>`;
       shippingRows.innerHTML=filteredPO.map(p=>{const open=poItems.filter(i=>i.po_no===p.po_no&&Number(i.received)!==1).length;return row([esc(p.po_no),esc(p.supplier),esc(p.expected_date),badge(p.shipping_status),esc(p.shipping_reference),esc(open)])}).join("")||`<tr><td colspan="6">No shipping rows</td></tr>`;
       receptionRows.innerHTML=filteredItems.map(x=>row([esc(x.po_no),esc(x.client_order_no),esc(x.description||x.pn),esc(x.qty),esc(x.received_qty),badge(x.reception_status),`<button onclick="receivePoNo.value='${esc(x.po_no)}';poNo.value='${esc(x.po_no)}';receivePOFromReception()">Receive PO</button>`])).join("")||`<tr><td colspan="7">No reception rows</td></tr>`;
+      reportRows.innerHTML=row(["Minimum stock alerts",esc(min.length),`<a href="/api/exports/procurement">Export</a>`])+row(["Requested shortages",esc(shortages.length),`<a href="/api/exports/procurement">Export</a>`])+row(["Incoming items",esc(incoming.length),`<a href="/api/exports/procurement">Export</a>`]);
     }
     function activateTab(tab){
       const btn=document.querySelector(`[data-tab="${tab}"]`)||document.querySelector('[data-tab="overview"]');
@@ -177,7 +200,8 @@
     }
     document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>activateTab(btn.dataset.tab)));
     category.addEventListener("change",load);filter.addEventListener("input",load);load();
-    activateTab(new URLSearchParams(location.search).get("tab") || location.hash.replace("#","") || "overview");
+    activateTab(new URLSearchParams(location.search).get("tab") || location.hash.replace("#","") || procurementRouteTabs[currentProcurementPath] || "overview");
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

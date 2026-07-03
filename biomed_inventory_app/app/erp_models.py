@@ -293,6 +293,91 @@ class Invoice(Base):
     paid_date = Column(Date)
 
 
+class Quotation(Base, TimestampMixin):
+    __tablename__ = "quotations"
+    __table_args__ = (
+        Index("ix_quotations_client_id", "client_id"),
+        Index("ix_quotations_number", "quotation_number"),
+        Index("ix_quotations_status", "status"),
+    )
+    id = Column(Integer, primary_key=True)
+    quotation_number = Column(String(120))
+    quotation_no = Column(String(120))
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    case_id = Column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(50), nullable=False, default="draft")
+    quotation_date = Column(Date)
+    quote_date = Column(Date)
+    valid_until = Column(Date)
+    currency = Column(String(12), nullable=False, default="USD")
+    subtotal = Column(Numeric(12, 2), nullable=False, default=0)
+    discount_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    vat_rate = Column(Numeric(5, 2), nullable=False, default=0)
+    vat_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    total_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    amount = Column(Numeric(12, 2), nullable=False, default=0)
+    payment_terms = Column(Text)
+    delivery_terms = Column(Text)
+    warranty_terms = Column(Text)
+    notes = Column(Text)
+
+
+class QuotationItem(Base):
+    __tablename__ = "quotation_items"
+    __table_args__ = (
+        Index("ix_quotation_items_quotation_id", "quotation_id"),
+        Index("ix_quotation_items_inventory_item_id", "inventory_item_id"),
+    )
+    id = Column(Integer, primary_key=True)
+    quotation_id = Column(Integer, ForeignKey("quotations.id", ondelete="CASCADE"), nullable=False)
+    inventory_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="SET NULL"), nullable=True)
+    item_code = Column(String(255))
+    manufacturer_part_number = Column(String(255))
+    description = Column(Text, nullable=False)
+    ai_normalized_description = Column(Text)
+    quantity = Column(Numeric(12, 2), nullable=False, default=1)
+    unit_price = Column(Numeric(12, 2), nullable=False, default=0)
+    discount_percent = Column(Numeric(5, 2), nullable=False, default=0)
+    line_total = Column(Numeric(12, 2), nullable=False, default=0)
+    warranty = Column(String(255))
+    delivery_time = Column(String(255))
+    ai_match_confidence = Column(Numeric(5, 3))
+    ai_validation_status = Column(String(40), nullable=False, default="missing_info")
+    ai_validation_notes = Column(Text)
+    product_id = Column(Integer)
+    ref = Column(String(255))
+    qty = Column(Integer)
+    total_price = Column(Numeric(12, 2), nullable=False, default=0)
+    notes = Column(Text)
+
+
+class QuotationAttachment(Base):
+    __tablename__ = "quotation_attachments"
+    __table_args__ = (Index("ix_quotation_attachments_quotation_id", "quotation_id"),)
+    id = Column(Integer, primary_key=True)
+    quotation_id = Column(Integer, ForeignKey("quotations.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    content_type = Column(String(120))
+    storage_path = Column(String(500))
+    extracted_text = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class QuotationTemplate(Base, TimestampMixin):
+    __tablename__ = "quotation_templates"
+    __table_args__ = (Index("ix_quotation_templates_default", "is_default"),)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    currency = Column(String(12), nullable=False, default="USD")
+    payment_terms = Column(Text)
+    delivery_terms = Column(Text)
+    warranty_terms = Column(Text)
+    notes = Column(Text)
+    is_default = Column(Boolean, nullable=False, default=False)
+
+
 class MDManserServiceRecord(Base):
     __tablename__ = "mdmanser_service_records"
     __table_args__ = (

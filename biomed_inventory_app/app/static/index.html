@@ -1531,7 +1531,7 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&l
 async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
 function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Warehouse":"Spare Parts Warehouse"}
 function openInventoryCategory(category){currentInventoryCategory=category==="accessories"?"accessories":"spare_parts";showPanel("inventory")}
-function showPanel(id){if(id==="po"){window.location="/procurement?tab=purchaseOrders";return}if(id==="clientOrders"){window.location="/procurement?tab=clientOrders";return}document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
 async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
 async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}&category=${currentInventoryCategory}`);renderItems(currentItems);loadDashboard()}
 async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
@@ -1867,6 +1867,29 @@ function downloadCurrentTransactionReference(){
  }
 }
 
-document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();});
+function openWarehouseRoute(){
+ const section=location.pathname.split("/")[2]||"dashboard";
+ const titles={
+   "dashboard":"Warehouse Dashboard",
+   "stock-items":"Warehouse Stock Items",
+   "receptions":"Warehouse Receptions",
+   "delivery-orders":"Warehouse Delivery Orders",
+   "stock-movement":"Warehouse Stock Movement",
+   "inventory-count":"Warehouse Inventory Count"
+ };
+ document.body.setAttribute("data-page-title",titles[section]||"Warehouse");
+ const routes={
+   "dashboard":"inventoryHub",
+   "stock-items":"cleanInventory",
+   "receptions":"po",
+   "delivery-orders":"clientOrders",
+   "stock-movement":"transaction",
+   "inventory-count":"inventory",
+ };
+ const panel=routes[section]||"inventoryHub";
+ showPanel(panel);
+}
+document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();openWarehouseRoute();});
 </script>
+<script src="/static/app_layout.js"></script>
 </body></html>

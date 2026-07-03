@@ -7,7 +7,7 @@
   <title>CMM Sales</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .grid-2{display:grid;gap:16px;grid-template-columns:360px 1fr}.form-grid{display:grid;gap:10px}input,select,textarea{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px;width:100%}textarea{min-height:90px}.actions,.tabs{display:flex;flex-wrap:wrap;gap:8px}.actions button,.actions a,.tabs button{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary,.tabs button.active{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.mini{color:var(--muted);display:block;font-size:12px}.progress{background:#e5e7eb;border-radius:999px;height:8px;overflow:hidden;width:100px}.progress i{background:var(--accent);display:block;height:100%}@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+    .grid-2{display:grid;gap:16px;grid-template-columns:360px 1fr}.form-grid{display:grid;gap:10px}input,select,textarea{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px;width:100%}textarea{min-height:90px}.actions,.tabs{display:flex;flex-wrap:wrap;gap:8px}.actions button,.actions a,.tabs button,.tabs a{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.actions .primary,.tabs button.active,.tabs a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.mini{color:var(--muted);display:block;font-size:12px}.progress{background:#e5e7eb;border-radius:999px;height:8px;overflow:hidden;width:100px}.progress i{background:var(--accent);display:block;height:100%}@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -34,7 +34,16 @@
     </section>
   </main>
   <script>
-    let activeCategory=location.hash.replace("#","")||"spare_parts";
+    const salesViews={
+      "/sales":"Sales Dashboard",
+      "/sales/quotations":"Sales Quotations",
+      "/sales/customer-orders":"Sales Customer Orders",
+      "/sales/products":"Sales Products",
+      "/sales/reports":"Sales Reports"
+    };
+    const currentSalesPath=location.pathname.replace(/\/$/,"")||"/sales";
+    document.body.setAttribute("data-page-title", salesViews[currentSalesPath] || "Sales");
+    let activeCategory=location.hash.replace("#","")||(currentSalesPath==="/sales/products"?"equipment":"spare_parts");
     const categories=[["spare_parts","Spare Parts"],["accessories","Accessories"],["equipment","Equipment"]];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
@@ -44,9 +53,10 @@
     async function setStatus(id,status){await api(`/api/customer-requests/${id}/status/${encodeURIComponent(status)}`,{method:"POST"});await loadRequests()}
     function actionButtons(r){return `<div class="actions"><button onclick="action(${r.id},'generate/quotation')">Quotation</button><button onclick="action(${r.id},'generate/pro_forma')">Pro Forma</button><button onclick="setStatus(${r.id},'approved')">Approve</button><button onclick="setStatus(${r.id},'rejected')">Reject</button><button onclick="action(${r.id},'convert-client-order')">Client Order</button><button onclick="action(${r.id},'reserve-stock')">Reserve</button><button onclick="action(${r.id},'create-po-missing')">PO Missing</button><button onclick="action(${r.id},'receive-po-items')">Receive</button><button onclick="action(${r.id},'delivery-note')">Delivery Note</button><button onclick="action(${r.id},'remove-from-stock')">Remove Stock</button><button onclick="action(${r.id},'invoice')">Invoice</button></div>`}
     function progress(p){return `<div class="progress"><i style="width:${Number(p||0)}%"></i></div><span class="mini">${Number(p||0)}%</span>`}
-    function renderTabs(){tabs.innerHTML=categories.map(([id,label])=>`<button class="${id===activeCategory?"active":""}" onclick="activeCategory='${id}';location.hash=id;loadRequests()">${label}</button>`).join("")}
+    function renderTabs(){const viewLinks=Object.entries(salesViews).map(([href,label])=>`<a class="${href===currentSalesPath?"primary":""}" href="${href}">${esc(label.replace("Sales ",""))}</a>`).join("");const categoryButtons=categories.map(([id,label])=>`<button class="${id===activeCategory?"active":""}" onclick="activeCategory='${id}';location.hash=id;loadRequests()">${label}</button>`).join("");tabs.innerHTML=viewLinks+categoryButtons}
     async function loadRequests(){renderTabs();const data=await api(`/api/sales/dashboard?category=${encodeURIComponent(activeCategory)}`);rows.innerHTML=data.requests.map(r=>`<tr><td><b>${esc(r.parent_case_reference||r.offer_reference||r.customer_request_id)}</b><span class="mini">${esc(r.offer_reference||"")}</span></td><td>${esc(r.client_name)}</td><td>${esc(r.category)}</td><td><span class="badge">${esc(r.status)}</span></td><td><span class="badge">${esc(r.stock_status)}</span></td><td><span class="badge">${esc(r.procurement_status)}</span></td><td>${progress(r.progress_percent)}</td><td>${esc(r.blocked_reason||"none")}</td><td>${esc(r.responsible_person||"")}</td><td>${esc(r.next_action||"")}</td><td>${actionButtons({id:r.customer_request_id})}</td></tr>`).join("")||`<tr><td colspan="11">No ${esc(activeCategory.replace("_"," "))} sales requests yet.</td></tr>`}
     loadRequests();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>

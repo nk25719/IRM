@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quotation Generator</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .quote-shell{display:grid;gap:16px;grid-template-columns:320px 1fr}.quote-panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}.quote-form{display:grid;gap:10px}.quote-form input,.quote-form select,.quote-form textarea,.quote-table input{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.quote-form textarea{min-height:80px}.quote-actions{display:flex;flex-wrap:wrap;gap:8px}.quote-actions button,.quote-actions a{align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font-weight:800;gap:6px;padding:9px 11px;text-decoration:none}.quote-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-table-wrap{overflow:auto}.quote-table{border-collapse:collapse;min-width:980px;width:100%}.quote-table th,.quote-table td{border-bottom:1px solid var(--line);font-size:13px;padding:8px;text-align:left;vertical-align:top}.quote-table th{background:var(--soft);color:var(--primary-dark)}.quote-status{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}.quote-status.ok{background:#dcfce7;color:#166534}.quote-status.warning{background:#fef3c7;color:#92400e}.quote-status.mismatch,.quote-status.missing_info{background:#fee2e2;color:#991b1b}.quote-list{display:grid;gap:8px;margin-top:10px}.quote-list button{background:#fff;border:1px solid var(--line);border-radius:8px;color:inherit;cursor:pointer;padding:10px;text-align:left}.quote-list button.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,78,120,.12)}.quote-summary{display:grid;gap:6px;justify-content:end;margin-top:14px}.quote-summary div{display:grid;grid-template-columns:140px 120px;gap:12px}.quote-summary strong{text-align:right}.muted-small{color:var(--muted);font-size:12px}.ai-note{color:var(--muted);font-size:12px;max-width:260px}.import-review{background:#f8fafc;border:1px solid var(--line);border-radius:8px;margin-top:10px;padding:10px}@media(max-width:980px){.quote-shell{grid-template-columns:1fr}.quote-panel{padding:12px}}
+  </style>
+</head>
+<body data-page-title="Quotation Generator">
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Quotation Generator</h1><p>Create, validate, and export customer quotations</p></div></div></header>
+  <main class="container">
+    <section class="quote-shell">
+      <aside class="quote-panel">
+        <form class="quote-form" onsubmit="createQuotation(event)">
+          <h2>Create quotation</h2>
+          <select id="clientId" required></select>
+          <input id="quotationNumber" placeholder="Quotation number">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="quotationDate" type="date">
+            <input id="validUntil" type="date">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="currency" value="USD" placeholder="Currency">
+            <select id="status"><option>draft</option><option>reviewed</option><option>sent</option><option>approved</option><option>rejected</option><option>expired</option></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="discountAmount" type="number" min="0" step="0.01" placeholder="Discount amount">
+            <input id="vatRate" type="number" min="0" step="0.01" placeholder="VAT rate %">
+          </div>
+          <textarea id="terms" placeholder="Payment, delivery, warranty, and notes"></textarea>
+          <button class="primary">Create</button>
+        </form>
+        <hr>
+        <div class="quote-actions">
+          <button onclick="loadQuotations()">Refresh</button>
+          <label class="quote-actions"><input id="uploadFile" type="file" accept=".xlsx,.xlsm,.csv,.pdf,.doc,.docx,.txt" hidden onchange="uploadImport(event)"><button onclick="uploadFile.click()">Upload file</button></label>
+        </div>
+        <div id="importReview"></div>
+        <h2>Recent quotations</h2>
+        <div id="quotationList" class="quote-list"></div>
+      </aside>
+      <section class="quote-panel">
+        <div class="quote-actions">
+          <button class="primary" onclick="saveItem()">Add item</button>
+          <button onclick="validateAI()">AI review</button>
+          <a id="excelExport" href="#">Export Excel</a>
+          <a id="pdfExport" href="#">Export PDF</a>
+        </div>
+        <p class="muted-small">AI review only suggests normalized descriptions and matches. Apply any wording changes manually after review.</p>
+        <div class="quote-table-wrap">
+          <table class="quote-table">
+            <thead><tr><th>Code</th><th>MPN</th><th>Description</th><th>Qty</th><th>Unit</th><th>Disc %</th><th>Total</th><th>AI status</th><th>Actions</th></tr></thead>
+            <tbody id="itemRows"></tbody>
+          </table>
+        </div>
+        <div class="quote-summary" id="totals"></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    let selectedQuotation=null;
+    let importedItems=[];
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());const type=res.headers.get("content-type")||"";return type.includes("json")?res.json():res.text()}
+    function today(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10)}
+    async function loadClients(){try{const clients=await api("/api/erp/clients?limit=500");clientId.innerHTML=`<option value="">Select client</option>`+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}catch(e){clientId.innerHTML=`<option value="1">Client #1</option>`}}
+    async function loadQuotations(){const rows=await api("/quotations");quotationList.innerHTML=rows.map(q=>`<button class="${selectedQuotation&&selectedQuotation.id===q.id?"active":""}" onclick="openQuotation(${q.id})"><b>${esc(q.quotation_number||q.quotation_no||q.id)}</b><span class="muted-small"> ${esc(q.status)} · ${esc(q.total_amount||0)} ${esc(q.currency||"USD")}</span></button>`).join("")||`<span class="muted-small">No quotations yet.</span>`}
+    async function openQuotation(id){selectedQuotation=await api(`/quotations/${id}`);excelExport.href=`/quotations/${id}/export/excel`;pdfExport.href=`/quotations/${id}/export/pdf`;renderItems();loadQuotations()}
+    async function createQuotation(e){e.preventDefault();const payload={client_id:Number(clientId.value),quotation_number:quotationNumber.value||null,quotation_date:quotationDate.value||today(),valid_until:validUntil.value||today(30),currency:currency.value||"USD",status:status.value,discount_amount:Number(discountAmount.value||0),vat_rate:Number(vatRate.value||0),payment_terms:terms.value,delivery_terms:terms.value,warranty_terms:terms.value,notes:terms.value,items:importedItems};selectedQuotation=await api("/quotations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});importedItems=[];importReview.innerHTML="";await openQuotation(selectedQuotation.id)}
+    function blankItem(){return {item_code:"",manufacturer_part_number:"",description:"",quantity:1,unit_price:0,discount_percent:0,line_total:0,ai_validation_status:"missing_info",ai_validation_notes:""}}
+    function rowInputs(item){return `<td><input value="${esc(item.item_code||"")}" data-field="item_code"></td><td><input value="${esc(item.manufacturer_part_number||"")}" data-field="manufacturer_part_number"></td><td><input value="${esc(item.description||"")}" data-field="description"></td><td><input type="number" step="0.01" value="${esc(item.quantity||item.qty||1)}" data-field="quantity"></td><td><input type="number" step="0.01" value="${esc(item.unit_price||0)}" data-field="unit_price"></td><td><input type="number" step="0.01" value="${esc(item.discount_percent||0)}" data-field="discount_percent"></td>`}
+    function renderItems(){const items=selectedQuotation?selectedQuotation.items:[];itemRows.innerHTML=items.map(item=>`<tr data-id="${item.id}">${rowInputs(item)}<td>${Number(item.line_total||item.total_price||0).toFixed(2)}</td><td><span class="quote-status ${esc(item.ai_validation_status||"missing_info")}">${esc(item.ai_validation_status||"missing_info")}</span><div class="ai-note">${esc(item.ai_validation_notes||"")}${item.ai_normalized_description?`<br>Suggestion: ${esc(item.ai_normalized_description)}`:""}</div></td><td><button onclick="updateItem(${item.id})">Save</button><button onclick="deleteItem(${item.id})">Delete</button></td></tr>`).join("")+`<tr data-id=""><td><input data-field="item_code"></td><td><input data-field="manufacturer_part_number"></td><td><input data-field="description" placeholder="New item description"></td><td><input data-field="quantity" type="number" step="0.01" value="1"></td><td><input data-field="unit_price" type="number" step="0.01" value="0"></td><td><input data-field="discount_percent" type="number" step="0.01" value="0"></td><td></td><td></td><td></td></tr>`;totals.innerHTML=`<div><span>Subtotal</span><strong>${Number(selectedQuotation?.subtotal||0).toFixed(2)}</strong></div><div><span>VAT</span><strong>${Number(selectedQuotation?.vat_amount||0).toFixed(2)}</strong></div><div><span>Total</span><strong>${Number(selectedQuotation?.total_amount||0).toFixed(2)} ${esc(selectedQuotation?.currency||"USD")}</strong></div>`}
+    function payloadFromRow(tr){const out={};tr.querySelectorAll("[data-field]").forEach(input=>{const field=input.dataset.field;out[field]=["quantity","unit_price","discount_percent"].includes(field)?Number(input.value||0):input.value});return out}
+    async function saveItem(){if(!selectedQuotation){alert("Create or open a quotation first.");return}const tr=[...itemRows.querySelectorAll("tr")].at(-1);const payload=payloadFromRow(tr);if(!payload.description){alert("Description is required.");return}await api(`/quotations/${selectedQuotation.id}/items`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});await openQuotation(selectedQuotation.id)}
+    async function updateItem(id){const tr=document.querySelector(`tr[data-id="${id}"]`);await api(`/quotations/${selectedQuotation.id}/items/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payloadFromRow(tr))});await openQuotation(selectedQuotation.id)}
+    async function deleteItem(id){await fetch(`/quotations/${selectedQuotation.id}/items/${id}`,{method:"DELETE"});await openQuotation(selectedQuotation.id)}
+    async function validateAI(){if(!selectedQuotation){alert("Open a quotation first.");return}await api(`/quotations/${selectedQuotation.id}/validate-ai`,{method:"POST"});await openQuotation(selectedQuotation.id)}
+    async function uploadImport(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append("file",file);const data=await api("/quotations/import",{method:"POST",body});importedItems=data.items||[];importReview.innerHTML=`<div class="import-review"><b>${esc(data.filename)}</b><div class="muted-small">${data.item_count} item(s) ready for review. They will be saved only when you create a quotation.</div>${importedItems.slice(0,5).map(i=>`<div>${esc(i.item_code||"")} ${esc(i.description)} · ${esc(i.quantity)} x ${esc(i.unit_price)}</div>`).join("")}</div>`}
+    quotationDate.value=today();validUntil.value=today(30);loadClients();loadQuotations();
+  </script>
+  <script src="/static/app_layout.js"></script>
+</body>
+</html>

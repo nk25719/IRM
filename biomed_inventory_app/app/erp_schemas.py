@@ -220,3 +220,63 @@ class InvoiceIn(ERPBase):
     total_amount: float = 0
     due_date: DateType | None = None
     paid_date: DateType | None = None
+
+
+class QuotationItemIn(ERPBase):
+    quotation_id: int
+    inventory_item_id: int | None = None
+    item_code: str | None = None
+    manufacturer_part_number: str | None = None
+    description: str
+    ai_normalized_description: str | None = None
+    quantity: float = 1
+    unit_price: float = 0
+    discount_percent: float = 0
+    line_total: float = 0
+    warranty: str | None = None
+    delivery_time: str | None = None
+    ai_match_confidence: float | None = None
+    ai_validation_status: str = "missing_info"
+    ai_validation_notes: str | None = None
+
+
+class QuotationIn(ERPBase):
+    quotation_number: str | None = None
+    quotation_no: str | None = None
+    client_id: int | None = None
+    department_id: int | None = None
+    contact_id: int | None = None
+    case_id: int | None = None
+    status: str = "draft"
+    quotation_date: DateType | None = None
+    quote_date: DateType | None = None
+    valid_until: DateType | None = None
+    currency: str = "USD"
+    subtotal: float = 0
+    discount_amount: float = 0
+    vat_rate: float = 0
+    vat_amount: float = 0
+    total_amount: float = 0
+    amount: float = 0
+    payment_terms: str | None = None
+    delivery_terms: str | None = None
+    warranty_terms: str | None = None
+    notes: str | None = None
+
+
+class QuotationAttachmentIn(ERPBase):
+    quotation_id: int
+    filename: str
+    content_type: str | None = None
+    storage_path: str | None = None
+    extracted_text: str | None = None
+
+
+class QuotationTemplateIn(ERPBase):
+    name: str
+    currency: str = "USD"
+    payment_terms: str | None = None
+    delivery_terms: str | None = None
+    warranty_terms: str | None = None
+    notes: str | None = None
+    is_default: bool = False

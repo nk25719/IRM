@@ -57,5 +57,6 @@
     commit.addEventListener("click",async()=>{if(!currentBatch)return;const data=await api("/api/imports/pending-offers/commit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({batch_id:currentBatch,create_missing_hospitals:true})});currentRows=data.results;summary.innerHTML=metric("Imported",data.imported)+metric("Errors",data.errors);commit.disabled=true;renderRows();await loadHistory()});
     renderRows();loadHistory();
   </script>
+<script src="/static/app_layout.js"></script>
 </body>
 </html>
