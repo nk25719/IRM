@@ -142,6 +142,7 @@
 
   function groupMarkup(group) {
     const active = isGroupActive(group, path);
+    const activeHref = activeLinkHref(group, path);
     return `
       <section class="app-menu-group ${active ? "open" : ""}">
         <button class="app-group-toggle" type="button" aria-expanded="${active ? "true" : "false"}">
@@ -149,7 +150,7 @@
         </button>
         <div class="app-group-links">
           ${group.links
-            .map(([label, href]) => `<a class="${isActive(href, path, group.base) ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
+            .map(([label, href]) => `<a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
             .join("")}
         </div>
       </section>
@@ -166,11 +167,12 @@
     return currentPath === base || currentPath.startsWith(`${base}/`);
   }
 
-  function isActive(href, currentPath, groupBase = "") {
-    const normalized = href.replace(/\/$/, "") || "/";
-    if (normalized === "/") return currentPath === "/";
-    if (groupBase && normalized === groupBase) return currentPath === normalized;
-    return currentPath === normalized || currentPath.startsWith(`${normalized}/`);
+  function activeLinkHref(group, currentPath) {
+    const matches = group.links
+      .map(([, href]) => href.replace(/\/$/, "") || "/")
+      .filter((href) => currentPath === href || currentPath.startsWith(`${href}/`))
+      .sort((a, b) => b.length - a.length);
+    return matches[0] || "";
   }
 
   function escapeHtml(value) {

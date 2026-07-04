@@ -272,8 +272,21 @@ function getImportValidationErrors(row) {
 
 function initialPageFromPath() {
   const path = window.location.pathname.replace(/\/$/, "");
+  if (path.endsWith("/hospital-status")) return "hospital-status";
   if (path.endsWith("/contracts")) return "contracts";
   return "dashboard";
+}
+
+function routeForPage(page) {
+  const path = window.location.pathname.replace(/\/$/, "");
+  if (path.startsWith("/aftersales/contracts") || path.startsWith("/after-sales/contracts")) {
+    if (page === "contracts") return "/aftersales/contracts";
+    if (page === "hospital-status") return "/aftersales/contracts/hospital-status";
+    return "/aftersales/contracts/dashboard";
+  }
+  if (page === "contracts") return "/pm/contracts";
+  if (page === "hospital-status") return "/pm/hospital-status";
+  return "/pm";
 }
 
 export default function App() {
@@ -525,8 +538,13 @@ export default function App() {
     setCurrentPage("hospital-detail");
   }
 
+  function navigatePage(page) {
+    setCurrentPage(page);
+    window.history.pushState(null, "", routeForPage(page));
+  }
+
   function openContractsView() {
-    setCurrentPage("contracts");
+    navigatePage("contracts");
   }
 
   function openContractDetail(contractId) {
@@ -1262,7 +1280,7 @@ export default function App() {
 
   function showOverdueQuickAction() {
     setTimingFilter("Overdue only");
-    setCurrentPage("dashboard");
+    navigatePage("dashboard");
     setQuickActionFeedback("Showing overdue equipment in the main table.");
   }
 
@@ -1306,7 +1324,7 @@ export default function App() {
 
   function handleMetricFilterSelect(nextTimingFilter) {
     setTimingFilter(nextTimingFilter);
-    setCurrentPage("dashboard");
+    navigatePage("dashboard");
     if (nextTimingFilter === "All") {
       setQuickActionFeedback("Showing all equipment in the main table.");
       return;
@@ -1351,10 +1369,10 @@ export default function App() {
           <DashboardCards metrics={metrics} timingFilter={timingFilter} onMetricFilterSelect={handleMetricFilterSelect} />
         ) : null}
         <div className="view-toggle-row">
-          <button className={`button ${currentPage === "dashboard" ? "button-primary" : ""}`} onClick={() => setCurrentPage("dashboard")}>
+          <button className={`button ${currentPage === "dashboard" ? "button-primary" : ""}`} onClick={() => navigatePage("dashboard")}>
             Dashboard
           </button>
-          <button className={`button ${currentPage === "hospital-status" ? "button-primary" : ""}`} onClick={() => setCurrentPage("hospital-status")}>
+          <button className={`button ${currentPage === "hospital-status" ? "button-primary" : ""}`} onClick={() => navigatePage("hospital-status")}>
             Hospital Equipment Status
           </button>
           <button className={`button ${currentPage === "contracts" ? "button-primary" : ""}`} onClick={openContractsView}>
