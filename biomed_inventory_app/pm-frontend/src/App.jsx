@@ -270,6 +270,12 @@ function getImportValidationErrors(row) {
   return errors;
 }
 
+function initialPageFromPath() {
+  const path = window.location.pathname.replace(/\/$/, "");
+  if (path.endsWith("/contracts")) return "contracts";
+  return "dashboard";
+}
+
 export default function App() {
   const defaultEquipmentForm = createDefaultEquipmentForm();
 
@@ -287,7 +293,7 @@ export default function App() {
   const [selectedHospitalDetail, setSelectedHospitalDetail] = useState(null);
   const [selectedContractId, setSelectedContractId] = useState(null);
   const [showContractAddEquipment, setShowContractAddEquipment] = useState(false);
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPage] = useState(initialPageFromPath);
   const [hospitalSummaryFilter, setHospitalSummaryFilter] = useState("All");
   const [bulkEquipmentText, setBulkEquipmentText] = useState("");
   const [reminderWindow, setReminderWindow] = useState("next-week");

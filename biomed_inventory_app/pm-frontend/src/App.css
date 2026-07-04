@@ -42,6 +42,11 @@ button, input, select, textarea { font: inherit; }
 .row-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
 .view-toggle-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .hidden-input { display: none; }
+.contract-tabs { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; margin: 14px 0; }
+.contract-tab { min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; color: var(--primary-dark); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 900; padding: 9px 10px; }
+.contract-tab b { min-width: 24px; border-radius: 999px; background: #e7edf6; color: var(--primary-dark); display: inline-flex; justify-content: center; padding: 2px 7px; font-size: 12px; }
+.contract-tab-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.contract-tab-active b { background: rgba(255,255,255,.18); color: #fff; }
 
 .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .metric-card-button { border: 1px solid var(--line); text-align: left; cursor: pointer; }
@@ -105,6 +110,7 @@ button, input, select, textarea { font: inherit; }
   .erp-top-actions, .actions-friendly { justify-content: stretch; }
   .status-workflow-panel { flex-direction: column; align-items: stretch; }
   .row-actions { flex-wrap: wrap; }
+  .contract-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .button { width: 100%; }
   .filters-grid, .form-grid, .detail-grid, .audit-grid { grid-template-columns: 1fr; }
   .table-wrap { border: none; overflow: visible; }

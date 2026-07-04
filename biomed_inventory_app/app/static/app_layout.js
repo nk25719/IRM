@@ -8,7 +8,8 @@
         ["Service Calls", "/aftersales/service-calls"],
         ["Spare Parts", "/aftersales/spare-parts"],
         ["Preventive Maintenance", "/aftersales/pm"],
-        ["Reports", "/aftersales/reports"],
+        ["Contracts", "/aftersales/contracts"],
+        ["Reports", "/aftersales/pm/reports"],
       ],
     },
     {

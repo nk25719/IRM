@@ -4446,15 +4446,15 @@ def after_sales_dashboard_data(conn):
         "hospital_crm": hospital_dashboard_rows(conn),
         "warranty_pm": warranty_pm[:20],
         "submodules": [
-            {"name": "Hospital CRM", "path": "/after-sales/hospital-crm", "existing_route": "/crm", "description": "Hospital follow-up for pending calls, offers, deliveries, contract renewals, FMI impact, and PM status."},
-            {"name": "Dashboard", "path": "/after-sales", "existing_route": "/after-sales", "description": "Unified workload, case pipeline, service, PM, delivery, calibration, and recall overview."},
-            {"name": "Service Calls", "path": "/after-sales/service-calls", "existing_route": "/crm", "description": "Corrective maintenance, labor, spare parts + installation, assignments, statuses, and service history."},
-            {"name": "PM Tracking", "path": "/after-sales/pm-tracking", "existing_route": "/pm", "description": "Schedules, due lists, completed PMs, engineer assignment, PM reports, and warranty PM tracking."},
-            {"name": "Contracts", "path": "/after-sales/contracts", "existing_route": "/pm/contracts", "description": "Maintenance contracts, warranty contracts, covered equipment, dates, and status."},
-            {"name": "Delivery & Installation", "path": "/after-sales/delivery-installation", "existing_route": "/equipment-registry", "description": "Delivery readiness, reception, physical delivery, installation, acceptance testing, and equipment registration."},
-            {"name": "Calibration", "path": "/after-sales/calibration", "existing_route": "/equipment-registry/calibration", "description": "Calibration history, due dates, certificates, standards used, and results."},
-            {"name": "FMI / Recall", "path": "/after-sales/fmi-recall", "existing_route": "/equipment-registry/recalls", "description": "Manufacturer notices, affected models and serials, corrective actions, and completion status."},
-            {"name": "Reports", "path": "/after-sales/reports", "existing_route": "/pm/reports", "description": "Service, PM, engineer, client, and equipment history reports."},
+            {"name": "Hospital CRM", "path": "/aftersales/hospital-crm", "existing_route": "/crm", "description": "Hospital follow-up for pending calls, offers, deliveries, contract renewals, FMI impact, and PM status."},
+            {"name": "Dashboard", "path": "/aftersales", "existing_route": "/aftersales", "description": "Unified workload, case pipeline, service, PM, delivery, calibration, and recall overview."},
+            {"name": "Service Calls", "path": "/aftersales/service-calls", "existing_route": "/crm", "description": "Corrective maintenance, labor, spare parts + installation, assignments, statuses, and service history."},
+            {"name": "PM Tracking", "path": "/aftersales/pm", "existing_route": "/aftersales/pm", "description": "Schedules, due lists, completed PMs, engineer assignment, PM reports, and warranty PM tracking."},
+            {"name": "Contracts", "path": "/aftersales/contracts", "existing_route": "/aftersales/contracts", "description": "Maintenance contracts, warranty contracts, covered equipment, dates, and status."},
+            {"name": "Delivery & Installation", "path": "/aftersales/delivery-installation", "existing_route": "/equipment-registry", "description": "Delivery readiness, reception, physical delivery, installation, acceptance testing, and equipment registration."},
+            {"name": "Calibration", "path": "/aftersales/calibration", "existing_route": "/equipment-registry/calibration", "description": "Calibration history, due dates, certificates, standards used, and results."},
+            {"name": "FMI / Recall", "path": "/aftersales/fmi-recall", "existing_route": "/equipment-registry/recalls", "description": "Manufacturer notices, affected models and serials, corrective actions, and completion status."},
+            {"name": "Reports", "path": "/aftersales/reports", "existing_route": "/aftersales/pm/reports", "description": "Service, PM, engineer, client, and equipment history reports."},
         ],
     }
 
@@ -5676,9 +5676,27 @@ def after_sales_dashboard_alias():
     return FileResponse(BASE_DIR / "static" / "after_sales.html")
 
 @app.get("/aftersales/pm")
+@app.get("/aftersales/pm/{path:path}")
 @app.get("/after-sales/pm")
-def after_sales_pm_alias():
+@app.get("/after-sales/pm/{path:path}")
+@app.get("/aftersales/pm-tracking")
+@app.get("/aftersales/pm-tracking/{path:path}")
+@app.get("/after-sales/pm-tracking")
+@app.get("/after-sales/pm-tracking/{path:path}")
+def after_sales_pm_alias(path: str = ""):
     return FileResponse(BASE_DIR / "static" / "pm.html")
+
+@app.get("/aftersales/contracts")
+@app.get("/aftersales/contracts/{path:path}")
+@app.get("/after-sales/contracts")
+@app.get("/after-sales/contracts/{path:path}")
+def after_sales_contracts_alias(path: str = ""):
+    return FileResponse(BASE_DIR / "static" / "pm" / "index.html")
+
+@app.get("/aftersales/reports")
+@app.get("/after-sales/reports")
+def after_sales_reports_alias():
+    return RedirectResponse(url="/aftersales/pm/reports", status_code=303)
 
 @app.get("/aftersales/{section:path}")
 @app.get("/after-sales/{section:path}")
