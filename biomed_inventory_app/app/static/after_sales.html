@@ -3,118 +3,224 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1f4e78">
-  <title>CMM After Sales</title>
+  <meta name="theme-color" content="#2563eb">
+  <title>After-Sales</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .after-content{padding:24px 22px 44px}.metric-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:18px}.metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:24px;margin-top:5px}.submodule-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin:18px 0}.module-card h3{color:var(--primary-dark);margin:0 0 8px}.module-card p{color:var(--muted);font-size:13px;margin:0 0 12px}.module-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}.module-links a,.tabs a{border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-weight:800;padding:8px 10px;text-decoration:none}.module-links a.primary,.tabs a.active{background:var(--primary);border-color:var(--primary);color:#fff}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.panel{display:none}.panel.active{display:block}.panel h2{color:var(--primary-dark);margin:0 0 12px}.table-wrap{overflow:auto}.after-table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.after-table th,.after-table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left;vertical-align:top}.after-table th{background:var(--soft);color:var(--primary-dark)}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.two-col{display:grid;gap:16px;grid-template-columns:1.1fr .9fr}.muted{color:var(--muted)}@media(max-width:900px){.after-content{padding:18px 14px 34px}.two-col{grid-template-columns:1fr}.tabs a{flex:1;text-align:center}}
+    .after-shell{display:grid;gap:16px}.after-tabs{align-items:center;display:flex;flex-wrap:wrap;gap:8px}.after-tabs a{background:#fff;border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-size:13px;font-weight:800;padding:9px 11px;text-decoration:none}.after-tabs a.active{background:var(--primary);border-color:var(--primary);color:#fff}.after-panel{display:none}.after-panel.active{display:block}.after-panel h2{color:var(--primary-dark);font-size:20px;margin:0 0 6px}.after-panel p{color:var(--muted);margin:0 0 14px}.after-toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.after-toolbar input,.after-toolbar select,.quote-grid input,.quote-grid select,.quote-grid textarea{border:1px solid var(--line);border-radius:10px;font:inherit;padding:10px}.after-toolbar input{min-width:min(360px,100%)}.after-table-wrap{overflow:auto}.after-table{background:#fff;border:1px solid var(--line);border-collapse:collapse;min-width:980px;width:100%}.after-table th,.after-table td{border-bottom:1px solid var(--line);font-size:13px;padding:9px 10px;text-align:left;vertical-align:top}.after-table th{background:var(--soft);color:var(--muted);font-size:12px;text-transform:uppercase}.after-table tr:hover td{background:#f8fafc}.badge{border-radius:999px;display:inline-flex;font-size:12px;font-weight:800;padding:5px 8px}.badge.open,.badge.pending,.badge.follow_up{background:#fff7ed;color:#b45309}.badge.overdue,.badge.expired,.badge.urgent{background:#fef2f2;color:#b42318}.badge.active,.badge.completed,.badge.good{background:#ecfdf3;color:#15803d}.badge.default{background:#eef2ff;color:#3730a3}.action-link,.after-button{background:#fff;border:1px solid var(--line);border-radius:9px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font:inherit;font-size:13px;font-weight:800;padding:7px 10px;text-decoration:none}.after-button.primary,.action-link.primary{background:var(--primary);border-color:var(--primary);color:#fff}.empty-state{background:#fff;border:1px dashed var(--line);border-radius:12px;color:var(--muted);padding:18px;text-align:center}.quote-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin:12px 0}.quote-grid .wide{grid-column:1/-1}.quote-workflow{display:grid;gap:12px;grid-template-columns:320px minmax(0,1fr)}.quote-import-review{background:#f8fafc;border:1px solid var(--line);border-radius:10px;margin-top:10px;padding:10px}.mini{color:var(--muted);display:block;font-size:12px}@media(max-width:900px){.quote-workflow{grid-template-columns:1fr}.after-tabs a{flex:1;text-align:center}.after-table{min-width:840px}}
   </style>
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand"><h1>After Sales</h1><p>Service, PM, contracts, and operational reports</p></div>
-      <nav class="top-actions" aria-label="After Sales navigation">
-        <a href="/portal">Portal</a><a href="/crm">History</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a>
-      </nav>
-    </div>
-  </header>
-  <main class="container after-content">
-    <section class="page-intro">
-      <h2>After Sales Dashboard</h2>
-      <p>One department workspace for corrective service, preventive maintenance, contracts, warranty work, and reports.</p>
-    </section>
-    <section id="metrics" class="metric-grid"></section>
-    <section id="submodules" class="submodule-grid" aria-label="After Sales submodules"></section>
-    <nav id="tabs" class="tabs"></nav>
-
-    <section class="panel" id="hospital-crm">
-      <h2>Hospital CRM Follow-up</h2>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Hospital</th><th>Calls Pending</th><th>Upcoming Sales</th><th>Offers Pending</th><th>Deliveries Pending</th><th>Contract Renewals</th><th>FMI Impact</th><th>PM Due</th><th>PM Overdue</th><th>Open</th></tr></thead><tbody id="hospitalCrmRows"></tbody></table></div>
-    </section>
-    <section class="panel" id="overview">
-      <div class="two-col">
-        <div>
-          <h2>Open Service Calls</h2>
-          <div class="table-wrap"><table class="after-table"><thead><tr><th>Call</th><th>Client</th><th>Equipment</th><th>Engineer</th><th>Status</th><th>Request</th></tr></thead><tbody id="overviewCalls"></tbody></table></div>
-        </div>
-        <div>
-          <h2>Engineer Workload</h2>
-          <div class="table-wrap"><table class="after-table"><thead><tr><th>Engineer</th><th>Calls</th><th>PM Due</th><th>Total</th></tr></thead><tbody id="overviewWorkload"></tbody></table></div>
-        </div>
+<body data-page-title="After-Sales">
+  <main class="after-shell">
+    <section class="page-hero">
+      <div>
+        <h1>After-Sales</h1>
+        <p>Operational view for service calls, PM, parts follow-up, contracts, warranty, installations, deliveries, FMI, quotations, and reports.</p>
       </div>
     </section>
-    <section class="panel" id="service-calls">
-      <h2>Service Calls</h2>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Type</th><th>Call</th><th>Client</th><th>Equipment</th><th>Engineer</th><th>Status</th><th>Link Fields</th></tr></thead><tbody id="serviceRows"></tbody></table></div>
+
+    <section class="card"><nav id="afterTabs" class="after-tabs" aria-label="After-Sales activity views"></nav></section>
+
+    <section class="card after-panel active" id="overview">
+      <h2>Upcoming After-Sales Activities</h2>
+      <p>Unified workflow list for pending and upcoming work across service, PM, spare parts, delivery, installation, warranty, contract, FMI, quotation, and reports.</p>
+      <div class="after-toolbar">
+        <input id="activitySearch" placeholder="Search client, equipment, reference, engineer">
+        <select id="activityTypeFilter"><option value="">All activity types</option></select>
+        <button class="after-button" type="button" onclick="renderUpcoming()">Refresh</button>
+      </div>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Activity Type</th><th>Reference</th><th>Client</th><th>Equipment</th><th>Due Date / Scheduled Date</th><th>Assigned Engineer</th><th>Status</th><th>Priority</th><th>Related Document / Link</th><th>Action</th></tr></thead><tbody id="upcomingRows"></tbody></table></div>
     </section>
-    <section class="panel" id="pm-tracking">
-      <h2>PM Tracking</h2>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Next PM</th><th>Client</th><th>Equipment</th><th>Engineer</th><th>Status</th><th>Contract</th><th>Links</th></tr></thead><tbody id="pmRows"></tbody></table></div>
+
+    <section class="card after-panel" id="service-calls">
+      <h2>Service Calls</h2><p>Open corrective service and customer follow-up calls.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Call</th><th>Client</th><th>Equipment</th><th>Engineer</th><th>Status</th><th>Priority</th><th>Issue</th><th>Action</th></tr></thead><tbody id="serviceRows"></tbody></table></div>
     </section>
-    <section class="panel" id="contracts">
-      <h2>Contracts</h2>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Contract</th><th>Client</th><th>Start</th><th>End</th><th>Status</th><th>Covered Equipment</th><th>Links</th></tr></thead><tbody id="contractRows"></tbody></table></div>
+
+    <section class="card after-panel" id="preventive-maintenance">
+      <h2>Preventive Maintenance</h2><p>Upcoming, due, and overdue PM activities.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Equipment</th><th>Client</th><th>Next PM</th><th>Engineer</th><th>Status</th><th>Contract</th><th>Action</th></tr></thead><tbody id="pmRows"></tbody></table></div>
     </section>
-    <section class="panel" id="reports">
-      <h2>Reports</h2>
-      <div class="module-links" style="margin-bottom:12px"><a class="primary" href="/aftersales/pm/reports">Open PM Reports</a><a href="/api/pm-reports?report=completion">PM Completion</a><a href="/api/pm-reports?report=engineer-assignments">Engineer Report</a><a href="/api/export">Full ERP Export</a></div>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Report</th><th>Source</th><th>Engineer</th><th>Status</th><th>Updated</th><th>Links</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+
+    <section class="card after-panel" id="spare-parts">
+      <h2>Spare Parts Follow-up</h2><p>After-Sales parts activity, service-linked parts, and pending customer follow-up.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Client</th><th>Reference</th><th>Pending Parts</th><th>Status</th><th>Action</th></tr></thead><tbody id="partsRows"></tbody></table></div>
     </section>
-    <section class="panel" id="warranty">
-      <h2>Warranty PM Tracking</h2>
-      <div class="table-wrap"><table class="after-table"><thead><tr><th>Next PM</th><th>Client</th><th>Equipment</th><th>Engineer</th><th>Warranty</th><th>PM Status</th><th>Links</th></tr></thead><tbody id="warrantyRows"></tbody></table></div>
+
+    <section class="card after-panel" id="contracts">
+      <h2>Contracts</h2><p>Contract renewal and action list.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Contract</th><th>Client</th><th>Start</th><th>End</th><th>Status</th><th>Covered Equipment</th><th>Action</th></tr></thead><tbody id="contractRows"></tbody></table></div>
+    </section>
+
+    <section class="card after-panel" id="warranty">
+      <h2>Warranty</h2><p>Warranty PM and warranty-related work.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Equipment</th><th>Client</th><th>Next PM</th><th>Engineer</th><th>Warranty</th><th>Status</th><th>Action</th></tr></thead><tbody id="warrantyRows"></tbody></table></div>
+    </section>
+
+    <section class="card after-panel" id="installations">
+      <h2>Installations</h2><p>Pending installation, acceptance, and equipment registration activity.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Reference</th><th>Client</th><th>Equipment</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="installationRows"></tbody></table></div>
+    </section>
+
+    <section class="card after-panel" id="deliveries">
+      <h2>Deliveries</h2><p>Pending After-Sales delivery and installation handoffs.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Reference</th><th>Client</th><th>Equipment</th><th>Delivery / Acceptance</th><th>Status</th><th>Action</th></tr></thead><tbody id="deliveryRows"></tbody></table></div>
+    </section>
+
+    <section class="card after-panel" id="fmi">
+      <h2>FMI / Field Modification</h2><p>Open FMI, field modification, and recall instructions.</p>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Notice</th><th>Client</th><th>Equipment</th><th>Corrective Action</th><th>Status</th><th>Action</th></tr></thead><tbody id="fmiRows"></tbody></table></div>
+    </section>
+
+    <section class="card after-panel" id="quotations">
+      <h2>After-Sales Quotations</h2>
+      <p>Import a customer request, review parts/services, finalize the quotation, and export PDF or Excel. Link context is captured in notes until a dedicated relation table is added.</p>
+      <div class="quote-workflow">
+        <aside>
+          <div class="quote-grid">
+            <label>Import PDF / Document<input id="quoteImport" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"></label>
+            <label>Client ID<input id="quoteClientId" type="number" min="1" placeholder="Client ID"></label>
+            <label>Equipment ID<input id="quoteEquipmentId" type="number" min="1" placeholder="Optional"></label>
+            <label>Service Call ID<input id="quoteServiceCallId" type="number" min="1" placeholder="Optional"></label>
+            <label>Spare Part Request ID<input id="quoteSparePartRequestId" type="number" min="1" placeholder="Optional"></label>
+            <label>Warranty Case ID<input id="quoteWarrantyCaseId" type="number" min="1" placeholder="Optional"></label>
+            <label>Status<select id="quoteStatus"><option>draft</option><option>pending</option><option>sent</option><option>approved</option></select></label>
+            <label class="wide">Requested parts/services<textarea id="quoteManualLines" placeholder="One line per requested part or service"></textarea></label>
+            <label class="wide">Notes<textarea id="quoteNotes" placeholder="Customer request, service context, warranty condition"></textarea></label>
+          </div>
+          <div class="after-toolbar">
+            <button class="after-button" type="button" onclick="importQuoteDocument()">Import / Extract</button>
+            <button class="after-button primary" type="button" onclick="createAfterSalesQuote()">Finalize Quote</button>
+          </div>
+          <div id="quoteImportReview" class="quote-import-review">No imported document yet.</div>
+        </aside>
+        <section>
+          <div class="after-toolbar">
+            <a id="quotePdfExport" class="action-link" href="/quotations" target="_blank">Export PDF</a>
+            <a id="quoteExcelExport" class="action-link" href="/quotations" target="_blank">Export Excel</a>
+            <a class="action-link primary" href="/sales/quotations">Open Full Quotation Editor</a>
+          </div>
+          <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Item Code</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Notes</th></tr></thead><tbody id="quoteLineRows"></tbody></table></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="card after-panel" id="reports">
+      <h2>Reports</h2><p>Pending service and PM report completion.</p>
+      <div class="after-toolbar"><a class="action-link primary" href="/aftersales/pm/reports">Open PM Reports</a><a class="action-link" href="/api/export">Full ERP Export</a></div>
+      <div class="after-table-wrap"><table class="after-table"><thead><tr><th>Report</th><th>Source</th><th>Engineer</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="reportRows"></tbody></table></div>
     </section>
   </main>
   <script>
-    const tabDefs=[
-      ["overview","Dashboard"],
-      ["service-calls","Service Calls"],
-      ["spare-parts","Spare Parts"],
-      ["pm","PM Tracking","/aftersales/pm",true],
-      ["contracts","Contracts","/aftersales/contracts",true],
-      ["reports","Reports","/aftersales/pm/reports",true],
-      ["hospital-crm","Hospital CRM"],
-      ["warranty","Warranty PM"],
+    const tabs=[
+      ["overview","Overview","/aftersales"],
+      ["service-calls","Service Calls","/aftersales/service-calls"],
+      ["preventive-maintenance","Preventive Maintenance","/aftersales/pm"],
+      ["spare-parts","Spare Parts","/aftersales/spare-parts"],
+      ["contracts","Contracts","/aftersales/contracts"],
+      ["warranty","Warranty","/aftersales/warranty"],
+      ["installations","Installations","/aftersales/installations"],
+      ["deliveries","Deliveries","/aftersales/deliveries"],
+      ["fmi","FMI / Field Modification","/aftersales/fmi-recall"],
+      ["quotations","Quotations","/aftersales/quotations"],
+      ["reports","Reports","/aftersales/reports"],
     ];
-    const tabsEl=document.getElementById("tabs");
-    let data=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const badge=v=>{const t=String(v||"");const l=t.toLowerCase();const cls=l.includes("overdue")||l.includes("expired")||l.includes("open")?"bad":l.includes("active")||l.includes("completed")?"good":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
-    const metric=(label,value)=>`<article class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></article>`;
-    const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
-    const textRow=cells=>row(cells.map(esc));
-    async function api(url){const res=await fetch(url);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function activeSection(){const part=location.pathname.split("/")[2]||"overview";return tabDefs.some(t=>t[0]===part)?part:"overview"}
-    function panelForSection(section){return section==="spare-parts"?"service-calls":section}
-    function setSection(section){const panel=panelForSection(section);document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===panel));document.querySelectorAll(".tabs a").forEach(a=>a.classList.toggle("active",a.dataset.section===section))}
-    function linkFields(item){return [`client_id=${item.client_id??""}`,`equipment_id=${item.equipment_id??item.id??""}`,`engineer_id=${item.engineer_id??""}`,`contract_id=${item.contract_id??""}`,`request_id=${item.request_id??""}`].map(esc).join("<br>")}
-    function renderModules(){const cards=[["Dashboard","/aftersales","Unified service, PM, warranty, and reporting overview."],["Service Calls","/aftersales/service-calls","Corrective maintenance, labor, spare parts, assignments, and history."],["Spare Parts","/aftersales/spare-parts","Spare-parts service follow-up linked to service calls and sales requests."],["PM Tracking","/aftersales/pm","PM schedules, tasks, reports, and history."],["Contracts","/aftersales/contracts","Maintenance contracts, warranty contracts, covered equipment, and renewal status."],["Reports","/aftersales/pm/reports","Service, PM, engineer, client, and equipment history reports."]];submodules.innerHTML=cards.map(([name,path,description])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(description)}</p><div class="module-links"><a class="primary" href="${esc(path)}">Open ${esc(name)}</a></div></article>`).join("")}
-    function renderMetrics(){const m=data.metrics;metrics.innerHTML=metric("Open service calls",m.open_service_calls)+metric("PM visits due",m.pm_visits_due)+metric("Active contracts",m.active_contracts)+metric("Expiring contracts",m.expiring_contracts)+metric("Reports pending",m.reports_pending)+metric("Engineer workload",m.engineer_workload)+metric("Warranty PM due",m.warranty_equipment_needing_pm)}
-    function renderTables(){
-      overviewCalls.innerHTML=data.service_calls.slice(0,8).map(c=>textRow([c.call_no,c.client_name||c.client_id,c.asset_tag||c.equipment_id||"-",c.engineer||"Unassigned",c.status,c.request_id||"-"])).join("")||textRow(["No open service calls","","","","",""]);
-      overviewWorkload.innerHTML=data.engineer_workload.map(w=>textRow([w.engineer,w.open_service_calls,w.pm_due,w.total])).join("")||textRow(["No workload yet","","",""]);
-      serviceRows.innerHTML=data.service_calls.map(c=>row([esc(c.issue||"Corrective / labor / spare-part call"),esc(c.call_no),esc(c.client_name||c.client_id||"-"),esc(c.asset_tag||c.equipment_id||"-"),esc(c.engineer||"Unassigned"),badge(c.status),linkFields(c)])).join("")||textRow(["No service calls","","","","","",""]);
-      hospitalCrmRows.innerHTML=data.hospital_crm.map(h=>row([esc(h.name),badge(h.pending_calls),esc(h.open_sales_orders),badge(h.pending_offers),badge(h.pending_deliveries),badge(h.contract_renewals_pending),badge(h.fmi_impacted_equipment),badge(h.pm_due),badge(h.pm_overdue),`<a class="badge" href="/crm/client/${h.id}#service-follow-up">Open ${esc(h.name)} CRM</a>`])).join("")||textRow(["No hospitals","","","","","","","","",""]);
-      pmRows.innerHTML=data.pm_due.map(p=>row([esc(p.next_pm_date),esc(p.client_name||p.hospital||"-"),esc(p.asset_tag||p.id),esc(p.engineer||"Unassigned"),badge(p.timing_status),esc(p.contract_no||"-"),linkFields(p)])).join("")||textRow(["No PM visits due","","","","","",""]);
-      contractRows.innerHTML=data.contracts.map(c=>row([esc(c.contract_no),esc(c.hospital||c.client_id||"-"),esc(c.contract_start_date||"-"),esc(c.contract_end_date||"-"),badge(c.status),esc(c.equipment_count),linkFields(c)])).join("")||textRow(["No contracts","","","","","",""]);
-      reportRows.innerHTML=data.reports_pending.map(r=>row([esc(r.report_type),esc(r.title||r.source_id),esc(r.engineer||"Unassigned"),badge(r.status),esc(r.updated_at||"-"),linkFields(r)])).join("")||textRow(["No pending reports","","","","",""]);
-      warrantyRows.innerHTML=data.warranty_pm.map(p=>row([esc(p.next_pm_date),esc(p.client_name||p.hospital||"-"),esc(p.asset_tag||p.id),esc(p.engineer||"Unassigned"),badge(p.warranty_status||"active"),badge(p.timing_status),linkFields(p)])).join("")||textRow(["No warranty PM due","","","","","",""]);
+    const badge=v=>{const t=String(v||"pending").replace(/\s+/g,"_");const l=t.toLowerCase();const cls=l.includes("overdue")||l.includes("expired")||l.includes("urgent")?"overdue":l.includes("active")||l.includes("completed")||l.includes("closed")?"active":l.includes("open")?"open":l.includes("pending")||l.includes("follow")?"pending":"default";return `<span class="badge ${cls}">${esc(String(v||"pending").replace(/_/g," "))}</span>`};
+    const row=cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join("")}</tr>`;
+    const empty=cols=>`<tr><td colspan="${cols}"><div class="empty-state">No upcoming activities found.</div></td></tr>`;
+    let dashboard={metrics:{},service_calls:[],pm_due:[],contracts:[],delivery_installation:[],recalls:[],reports_pending:[],warranty_pm:[],hospital_crm:[],case_pipeline:[],calibrations:[]};
+    let importedQuoteItems=[];
+    let selectedQuote=null;
+
+    async function api(url,options){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function currentTab(){const path=location.pathname.replace(/\/$/,"")||"/aftersales";const found=tabs.find(([, ,href])=>href.replace(/\/$/,"")===path);return found?found[0]:"overview"}
+    function setTab(id,push=false){document.querySelectorAll(".after-panel").forEach(p=>p.classList.toggle("active",p.id===id));document.querySelectorAll(".after-tabs a").forEach(a=>a.classList.toggle("active",a.dataset.tab===id));if(push){const tab=tabs.find(t=>t[0]===id);if(tab)history.pushState(null,"",tab[2])}}
+    function link(url,label="Open"){return `<a class="action-link" href="${esc(url)}">${esc(label)}</a>`}
+    function ref(value,fallback="-"){return esc(value||fallback)}
+    function activity(type,reference,client,equipment,date,engineer,status,priority,doc,action,search=""){return{type,reference,client,equipment,date,engineer,status,priority,doc,action,search:[type,reference,client,equipment,date,engineer,status,priority,search].join(" ").toLowerCase()}}
+    function buildActivities(){
+      const list=[];
+      dashboard.service_calls.forEach(c=>list.push(activity("Pending service call",c.call_no,c.client_name||c.client_id,c.asset_tag||c.serial_number||c.equipment_id,c.opened_at||c.created_at,c.engineer||"Unassigned",c.status,c.priority||"normal",link(`/crm/client/${c.client_id||""}`,"Client"),link("/aftersales/service-calls","Review"),c.issue)));
+      dashboard.pm_due.forEach(p=>list.push(activity("Upcoming preventive maintenance",p.asset_tag||`PM-${p.id}`,p.client_name||p.hospital,p.asset_tag||p.model||p.serial_number,p.next_pm_date,p.engineer||"Unassigned",p.timing_status,p.priority||"normal",link("/aftersales/pm","PM"),link("/aftersales/pm","Schedule"),p.contract_no)));
+      dashboard.hospital_crm.filter(h=>Number(h.open_spare_parts_orders||0)>0).forEach(h=>list.push(activity("Spare parts follow-up",`SP-${h.id}`,h.name,"Spare parts",h.updated_at||"",h.primary_engineer||"Unassigned","pending",h.urgent_items_count?"urgent":"normal",link(`/crm/client/${h.id}`,"Client"),link("/aftersales/spare-parts","Follow up"))));
+      dashboard.hospital_crm.filter(h=>Number(h.pending_installations_deliveries||0)>0).forEach(h=>list.push(activity("Pending delivery",`DLV-${h.id}`,h.name,"Delivery / installation",h.updated_at||"",h.primary_engineer||"Unassigned","pending",h.urgent_items_count?"urgent":"normal",link(`/crm/client/${h.id}`,"Client"),link("/aftersales/deliveries","Review"))));
+      dashboard.delivery_installation.forEach(d=>list.push(activity("Installation",d.bid_no||`INST-${d.id}`,d.client_name||d.client_id,d.description||d.model||d.manufacturer,d.updated_at,d.engineer||"Unassigned",d.installation_status||d.acceptance_status||"pending",d.priority||"normal",link("/equipment-database","Equipment"),link("/aftersales/installations","Review"))));
+      dashboard.warranty_pm.forEach(w=>list.push(activity("Warranty work",w.asset_tag||`W-${w.id}`,w.client_name||w.hospital,w.asset_tag||w.model,w.next_pm_date,w.engineer||"Unassigned",w.warranty_status||"active",w.priority||"normal",link("/aftersales/warranty","Warranty"),link("/aftersales/warranty","Review"))));
+      dashboard.contracts.filter(c=>["expiring_soon","expired"].includes(c.status)).forEach(c=>list.push(activity("Contract renewal/action",c.contract_no,c.hospital||c.client_id,`${c.equipment_count||0} equipment`,c.contract_end_date,"Contracts",c.status,c.status==="expired"?"urgent":"normal",link("/aftersales/contracts","Contracts"),link("/aftersales/contracts","Renew"))));
+      dashboard.recalls.forEach(r=>list.push(activity("FMI / field modification instructions",r.notice_no||r.notice_type||`FMI-${r.id}`,r.client_name||r.client_id,r.asset_tag||r.model||r.serial_number,r.updated_at,r.responsible_person||"Service",r.completion_status||"open",r.priority||"normal",link("/aftersales/fmi-recall","FMI"),link("/aftersales/fmi-recall","Review"),r.corrective_action)));
+      dashboard.hospital_crm.filter(h=>Number(h.pending_offers||0)>0).forEach(h=>list.push(activity("Customer quotation follow-up",`QT-${h.id}`,h.name,"After-Sales quote",h.updated_at||"",h.primary_engineer||"Sales / Service", "follow_up","normal",link("/sales/quotations","Quotations"),link("/aftersales/quotations","Quote"))));
+      dashboard.reports_pending.forEach(r=>list.push(activity("Report completion",r.title||r.report_type,r.client_id||"",r.equipment_id||"",r.updated_at,r.engineer||"Unassigned",r.status||"pending","normal",link("/aftersales/reports","Reports"),link("/aftersales/reports","Complete"))));
+      dashboard.calibrations.forEach(c=>list.push(activity("Calibration follow-up",c.certificate_no||`CAL-${c.id}`,c.client_name||c.client_id,c.asset_tag||c.model||c.serial_number,c.next_due_date,c.engineer||"Unassigned",c.result||"due","normal",link("/equipment-registry/calibration","Calibration"),link("/aftersales/warranty","Review"))));
+      return list.sort((a,b)=>String(a.date||"9999").localeCompare(String(b.date||"9999")));
+    }
+    function renderUpcoming(){
+      const q=activitySearch.value.trim().toLowerCase(), type=activityTypeFilter.value;
+      const rows=buildActivities().filter(a=>(!q||a.search.includes(q))&&(!type||a.type===type));
+      upcomingRows.innerHTML=rows.map(a=>row([ref(a.type),ref(a.reference),ref(a.client),ref(a.equipment),ref(a.date),ref(a.engineer),badge(a.status),badge(a.priority),a.doc,a.action])).join("")||empty(10);
+    }
+    function renderSimpleTables(){
+      serviceRows.innerHTML=dashboard.service_calls.map(c=>row([ref(c.call_no),ref(c.client_name||c.client_id),ref(c.asset_tag||c.serial_number||c.equipment_id),ref(c.engineer||"Unassigned"),badge(c.status),badge(c.priority||"normal"),ref(c.issue),link("/aftersales/service-calls","Open")])).join("")||empty(8);
+      pmRows.innerHTML=dashboard.pm_due.map(p=>row([ref(p.asset_tag||p.model||p.id),ref(p.client_name||p.hospital),ref(p.next_pm_date),ref(p.engineer||"Unassigned"),badge(p.timing_status),ref(p.contract_no),link("/aftersales/pm","Open PM")])).join("")||empty(7);
+      partsRows.innerHTML=dashboard.hospital_crm.filter(h=>Number(h.open_spare_parts_orders||0)>0).map(h=>row([ref(h.name),ref(h.client_order_refs||`Client ${h.id}`),ref(h.open_spare_parts_orders),badge("pending"),link(`/crm/client/${h.id}`,"Open Client")])).join("")||empty(5);
+      contractRows.innerHTML=dashboard.contracts.map(c=>row([ref(c.contract_no),ref(c.hospital||c.client_id),ref(c.contract_start_date),ref(c.contract_end_date),badge(c.status),ref(c.equipment_count),link("/aftersales/contracts","Open")])).join("")||empty(7);
+      warrantyRows.innerHTML=dashboard.warranty_pm.map(w=>row([ref(w.asset_tag||w.model||w.id),ref(w.client_name||w.hospital),ref(w.next_pm_date),ref(w.engineer||"Unassigned"),badge(w.warranty_status||"active"),badge(w.timing_status),link("/aftersales/warranty","Open")])).join("")||empty(7);
+      installationRows.innerHTML=dashboard.delivery_installation.map(d=>row([ref(d.bid_no||`INST-${d.id}`),ref(d.client_name||d.client_id),ref(d.description||d.model||d.manufacturer),badge(d.installation_status||"pending"),ref(d.updated_at),link("/equipment-database","Open Equipment")])).join("")||empty(6);
+      deliveryRows.innerHTML=dashboard.delivery_installation.map(d=>row([ref(d.bid_no||`DLV-${d.id}`),ref(d.client_name||d.client_id),ref(d.description||d.model||d.manufacturer),ref(d.acceptance_status||d.delivery_status||"pending"),badge(d.installation_status||"pending"),link("/aftersales/deliveries","Open")])).join("")||empty(6);
+      fmiRows.innerHTML=dashboard.recalls.map(r=>row([ref(r.notice_no||r.notice_type||`FMI-${r.id}`),ref(r.client_name||r.client_id),ref(r.asset_tag||r.model||r.serial_number),ref(r.corrective_action),badge(r.completion_status||"open"),link("/equipment-registry/recalls","Open")])).join("")||empty(6);
+      reportRows.innerHTML=dashboard.reports_pending.map(r=>row([ref(r.report_type),ref(r.title||r.source_id),ref(r.engineer||"Unassigned"),badge(r.status),ref(r.updated_at),link("/aftersales/reports","Complete")])).join("")||empty(6);
+    }
+    function renderTabs(){
+      afterTabs.innerHTML=tabs.map(([id,label,href])=>`<a href="${href}" data-tab="${id}">${esc(label)}</a>`).join("");
+      afterTabs.querySelectorAll("a").forEach(a=>a.addEventListener("click",event=>{event.preventDefault();setTab(a.dataset.tab,true)}));
+    }
+    function fillActivityTypes(){
+      const types=[...new Set(buildActivities().map(a=>a.type))].sort();
+      activityTypeFilter.innerHTML=`<option value="">All activity types</option>`+types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
+    }
+    async function importQuoteDocument(){
+      const file=quoteImport.files[0];
+      if(!file){alert("Choose a PDF or document first.");return}
+      const body=new FormData();body.append("file",file);
+      const data=await api("/quotations/import",{method:"POST",body});
+      importedQuoteItems=data.items||[];
+      quoteImportReview.innerHTML=`<b>${esc(data.filename||file.name)}</b><span class="mini">${esc(data.item_count||importedQuoteItems.length)} item(s) extracted. Review before finalizing.</span>`;
+      renderQuoteLines();
+    }
+    function manualQuoteItems(){
+      return quoteManualLines.value.split("\n").map(line=>line.trim()).filter(Boolean).map(line=>({description:line,quantity:1,unit_price:0,notes:"Entered manually"}));
+    }
+    function renderQuoteLines(){
+      const rows=[...importedQuoteItems,...manualQuoteItems()];
+      quoteLineRows.innerHTML=rows.map(i=>row([ref(i.item_code||i.manufacturer_part_number),ref(i.description),ref(i.quantity||1),ref(i.unit_price||0),ref(i.notes||i.ai_validation_notes)])).join("")||empty(5);
+    }
+    async function createAfterSalesQuote(){
+      const items=[...importedQuoteItems,...manualQuoteItems()];
+      if(!Number(quoteClientId.value)){alert("Client ID is required.");return}
+      if(!items.length){alert("Import a document or enter requested parts/services first.");return}
+      const links=`After-Sales links: equipment_id=${quoteEquipmentId.value||""}; service_call_id=${quoteServiceCallId.value||""}; spare_part_request_id=${quoteSparePartRequestId.value||""}; warranty_case_id=${quoteWarrantyCaseId.value||""}`;
+      selectedQuote=await api("/quotations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_id:Number(quoteClientId.value),status:quoteStatus.value,currency:"USD",notes:[quoteNotes.value,links].filter(Boolean).join("\\n"),items})});
+      quotePdfExport.href=`/quotations/${selectedQuote.id}/export/pdf`;
+      quoteExcelExport.href=`/quotations/${selectedQuote.id}/export/excel`;
+      quoteImportReview.innerHTML=`<b>Quote finalized</b><span class="mini">Quotation ${esc(selectedQuote.quotation_number||selectedQuote.quotation_no||selectedQuote.id)} is ready for export.</span>`;
     }
     async function init(){
-      tabsEl.innerHTML=tabDefs.map(([id,label,href])=>`<a href="${href|| (id==="overview"?"/aftersales":"/aftersales/"+id)}" data-section="${id}">${esc(label)}</a>`).join("");
-      renderModules();
-      setSection(activeSection());
+      renderTabs();
+      setTab(currentTab());
       try{
-        data=await api("/api/after-sales/dashboard");
-        renderMetrics();renderTables();setSection(activeSection());
+        dashboard=await api("/api/after-sales/dashboard");
+        fillActivityTypes();renderUpcoming();renderSimpleTables();renderQuoteLines();
       }catch(error){
-        console.error("After Sales dashboard failed to load",error);
-        metrics.innerHTML=metric("Dashboard data","Unavailable");
+        console.error(error);
+        upcomingRows.innerHTML=empty(10);
       }
+      activitySearch.addEventListener("input",renderUpcoming);
+      activityTypeFilter.addEventListener("change",renderUpcoming);
+      quoteManualLines.addEventListener("input",renderQuoteLines);
+      window.addEventListener("popstate",()=>setTab(currentTab()));
     }
     init();
   </script>
-<script src="/static/app_layout.js"></script>
+  <script src="/static/app_layout.js"></script>
 </body>
 </html>

@@ -4,7 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from app.erp_api import router as erp_router
-from app.mdmanser_api import router as mdmanser_router
 from app.quotation_api import ensure_tables as ensure_quotation_tables
 from app.quotation_api import router as quotation_router
 from pathlib import Path
@@ -29,15 +28,14 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "admin123")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me")
 APP_ROLE = os.getenv("APP_ROLE", "admin")
 
-app = FastAPI(title="Biomedical Inventory ERP", version="1.2.0")
+app = FastAPI(title="Biomedical Warehouse ERP", version="1.2.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-app.include_router(mdmanser_router)
 app.include_router(erp_router)
 app.include_router(quotation_router)
 
-PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc", "/mdmanser", "/cmm", "/static/mdmanser.html"}
+PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -45,8 +43,6 @@ PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico"
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
     if path in PUBLIC_PATHS:
-        return await call_next(request)
-    if path.startswith("/api/erp/mdmanser"):
         return await call_next(request)
     if path.startswith("/static") and path.lower().endswith(PUBLIC_STATIC_SUFFIXES):
         return await call_next(request)
@@ -4557,12 +4553,14 @@ def hospital_dashboard_rows(conn):
             WHERE client_id=? AND COALESCE(case_type, '') != ''
             ORDER BY activity_type
         """, (client_id, client_id)).fetchall()]
-        modality_rows = [r["modality"] for r in conn.execute("""
-            SELECT DISTINCT COALESCE(em.modality, a.equipment_family, '') AS modality
+        equipment_model_cols = {r["name"] for r in conn.execute("PRAGMA table_info(equipment_models)").fetchall()}
+        model_modality_expr = "em.modality" if "modality" in equipment_model_cols else "''"
+        modality_rows = [r["modality"] for r in conn.execute(f"""
+            SELECT DISTINCT COALESCE({model_modality_expr}, a.equipment_family, '') AS modality
             FROM equipment e
             LEFT JOIN pm_assets a ON a.id=e.pm_asset_id
             LEFT JOIN equipment_models em ON em.id=e.equipment_model_id
-            WHERE e.client_id=? AND COALESCE(COALESCE(em.modality, a.equipment_family), '') != ''
+            WHERE e.client_id=? AND COALESCE(COALESCE({model_modality_expr}, a.equipment_family), '') != ''
             ORDER BY modality
         """, (client_id,)).fetchall()]
         client_order_refs = [r["client_order_no"] for r in conn.execute("""
@@ -5627,19 +5625,6 @@ def admin_page(section: str = ""):
 @app.get("/admin/imports")
 def imports_page():
     return FileResponse(BASE_DIR / "static" / "imports.html")
-
-@app.get("/mdmanser")
-def mdmanser_page():
-    return RedirectResponse(url="/static/mdmanser.html", status_code=303)
-
-@app.get("/mdmanser-data")
-@app.get("/mdmanser/data")
-def mdmanser_data_page():
-    return FileResponse(BASE_DIR / "static" / "mdmanser_data.html")
-
-@app.get("/cmm")
-def cmm_page():
-    return RedirectResponse(url="/static/mdmanser.html", status_code=303)
 
 @app.get("/crm")
 def crm_page():
@@ -8547,7 +8532,7 @@ async def import_pm_assets(file: UploadFile = File(...)):
             "last_pm_date": val(row, ["last_pm_date", "Last PM Date", "lastPmDate"]),
             "status": val(row, ["status", "Status"], "Upcoming") or "Upcoming",
             "notes": val(row, ["notes", "Notes", "Comments"]),
-            "linked_inventory_pn": val(row, ["linked_inventory_pn", "Linked Inventory PN", "PN", "Part Number"]),
+            "linked_inventory_pn": val(row, ["linked_inventory_pn", "Linked Warehouse PN", "Linked Inventory PN", "PN", "Part Number"]),
             "barcode": val(row, ["barcode", "Barcode"]),
         }
         existing = conn.execute("SELECT id FROM pm_assets WHERE asset_tag=?", (asset_tag,)).fetchone()
@@ -8681,7 +8666,7 @@ def list_items(q: str = "", status: str = "", location: str = "", category: str 
 @app.get("/api/inventory/{category}")
 def list_inventory_category(category: str, q: str = "", status: str = "", location: str = "", limit: int = 1000):
     if category not in {"spare-parts", "spare_parts", "accessories"}:
-        raise HTTPException(status_code=404, detail="Inventory category not found")
+        raise HTTPException(status_code=404, detail="Warehouse category not found")
     normalized = "spare_parts" if category in {"spare-parts", "spare_parts"} else "accessories"
     return list_items(q=q, status=status, location=location, category=normalized, limit=limit)
 

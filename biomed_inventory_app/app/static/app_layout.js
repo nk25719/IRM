@@ -1,178 +1,250 @@
 (function () {
-  const departments = [
-    {
-      label: "After Sales",
-      base: "/aftersales",
-      links: [
-        ["Dashboard", "/aftersales"],
-        ["Service Calls", "/aftersales/service-calls"],
-        ["Spare Parts", "/aftersales/spare-parts"],
-        ["Preventive Maintenance", "/aftersales/pm"],
-        ["Contracts", "/aftersales/contracts"],
-        ["Reports", "/aftersales/pm/reports"],
-      ],
-    },
-    {
-      label: "Sales",
-      base: "/sales",
-      links: [
-        ["Dashboard", "/sales"],
-        ["Quotations", "/sales/quotations"],
-        ["Customer Orders", "/sales/customer-orders"],
-        ["Products", "/sales/products"],
-        ["Reports", "/sales/reports"],
-      ],
-    },
-    {
-      label: "Procurement",
-      base: "/procurement",
-      links: [
-        ["Dashboard", "/procurement"],
-        ["Purchase Orders", "/procurement/purchase-orders"],
-        ["Suppliers", "/procurement/suppliers"],
-        ["Shipments", "/procurement/shipments"],
-        ["Reports", "/procurement/reports"],
-      ],
-    },
-    {
-      label: "Warehouse",
-      base: "/warehouse",
-      links: [
-        ["Dashboard", "/warehouse"],
-        ["Stock Items", "/warehouse/stock-items"],
-        ["Receptions", "/warehouse/receptions"],
-        ["Delivery Orders", "/warehouse/delivery-orders"],
-        ["Stock Movement", "/warehouse/stock-movement"],
-        ["Warehouse Count", "/warehouse/inventory-count"],
-      ],
-    },
-    {
-      label: "Finance",
-      base: "/finance",
-      links: [
-        ["Dashboard", "/finance"],
-        ["Invoices", "/finance/invoices"],
-        ["Payments", "/finance/payments"],
-        ["Customer Balances", "/finance/customer-balances"],
-        ["Supplier Balances", "/finance/supplier-balances"],
-      ],
-    },
-    {
-      label: "Administration",
-      base: "/administration",
-      links: [
-        ["Dashboard", "/administration"],
-        ["Customers", "/administration/customers"],
-        ["Contacts", "/administration/contacts"],
-        ["Users", "/administration/users"],
-        ["Settings", "/administration/settings"],
-      ],
-    },
+  const modules = [
+    { label: "Home", href: "/", icon: "H", match: ["/", "/home", "/portal"] },
+    { label: "Dashboard", href: "/dashboard", icon: "D" },
+    { label: "Sales", href: "/sales", icon: "S" },
+    { label: "Procurement", href: "/procurement", icon: "P" },
+    { label: "Warehouse", href: "/warehouse", icon: "W", match: ["/warehouse", "/inventory"] },
+    { label: "After-Sales", href: "/aftersales", icon: "A", match: ["/aftersales", "/after-sales"] },
+    { label: "Training & Demo", href: "/aftersales/training-demo", icon: "T" },
+    { label: "Clients", href: "/clients", icon: "C", match: ["/clients", "/crm"] },
+    { label: "Products", href: "/sales/products", icon: "R" },
   ];
 
-  const path = canonicalPath(window.location.pathname.replace(/\/$/, "") || "/");
-  const isHome = path === "/" || path === "/home" || path === "/portal";
-  const oldTopbar = document.querySelector(".topbar");
-  if (oldTopbar) oldTopbar.classList.add("legacy-topbar-hidden");
-  document.querySelectorAll("body > header").forEach((header) => {
-    header.classList.add("legacy-topbar-hidden");
-  });
+  const subnav = {
+    "/dashboard": [
+      ["By Customer", "/dashboard#customer"],
+      ["After-Sales", "/dashboard#after-sales"],
+      ["Sales Pipeline", "/dashboard#sales-pipeline"],
+      ["Procurement", "/dashboard#procurement"],
+    ],
+    "/sales": [
+      ["Dashboard", "/sales"],
+      ["Quotations", "/sales/quotations"],
+      ["Customer Orders", "/sales/customer-orders"],
+      ["Products", "/sales/products"],
+      ["Reports", "/sales/reports"],
+    ],
+    "/procurement": [
+      ["Dashboard", "/procurement"],
+      ["Purchase Orders", "/procurement/purchase-orders"],
+      ["Suppliers", "/procurement/suppliers"],
+      ["Shipments", "/procurement/shipments"],
+      ["Reports", "/procurement/reports"],
+    ],
+    "/warehouse": [
+      ["Dashboard", "/warehouse"],
+      ["Stock Items", "/warehouse/stock-items"],
+      ["Receptions", "/warehouse/receptions"],
+      ["Delivery Orders", "/warehouse/delivery-orders"],
+      ["Minimum Stock Alerts", "/warehouse/minimum-stock"],
+      ["Stock Movement", "/warehouse/stock-movement"],
+      ["Warehouse Count", "/warehouse/inventory-count"],
+    ],
+    "/aftersales": [
+      ["Overview", "/aftersales"],
+      ["Service Cases", "/aftersales/service-calls"],
+      ["Preventive Maintenance", "/aftersales/pm"],
+      ["Spare Parts", "/aftersales/spare-parts"],
+      ["Contracts", "/aftersales/contracts"],
+      ["Warranty", "/aftersales/warranty"],
+      ["Installations", "/aftersales/installations"],
+      ["Deliveries", "/aftersales/deliveries"],
+      ["FMI / Field Modification", "/aftersales/fmi-recall"],
+      ["Quotations", "/aftersales/quotations"],
+      ["Training & Demo", "/aftersales/training-demo"],
+      ["Reports", "/aftersales/reports"],
+    ],
+  };
 
-  const pageTitle =
-    document.querySelector("[data-page-title]")?.getAttribute("data-page-title") ||
-    document.querySelector(".brand h1")?.textContent ||
-    document.querySelector("h1")?.textContent ||
-    document.title ||
-    "CMM ERP";
+  const rawPath = window.location.pathname.replace(/\/$/, "") || "/";
+  const path = canonicalPath(rawPath);
+  const isHome = path === "/";
+  const activeModule = findActiveModule(path);
+  const pageTitle = getPageTitle(isHome, activeModule);
+  const breadcrumb = isHome ? "ERM / Home" : `ERM / ${activeModule.label}`;
+  const backTarget = getBackTarget(path, activeModule);
+  const showBack = Boolean(backTarget);
 
-  const layout = document.createElement("div");
-  layout.className = "app-layout-shell";
-  layout.innerHTML = `
-    <header class="app-layout-header">
-      <button class="app-menu-button" type="button" aria-label="Open navigation menu" aria-expanded="false">☰</button>
-      <div class="app-layout-title">
-        <strong>${escapeHtml(isHome ? "Home / Departments" : pageTitle)}</strong>
-        <span>${escapeHtml(isHome ? "Select a department" : activeDepartmentLabel(path))}</span>
-      </div>
-      ${isHome ? "" : '<a class="app-home-button" href="/">Home</a>'}
-    </header>
-    <div class="app-menu-backdrop" hidden></div>
-    <aside class="app-side-menu" aria-label="Main navigation" aria-hidden="true">
-      <div class="app-side-head">
-        <strong>Navigation</strong>
-        <button type="button" class="app-menu-close" aria-label="Close navigation menu">×</button>
-      </div>
-      <a class="app-menu-home ${isHome ? "active" : ""}" href="/">Home</a>
-      <nav class="app-menu-groups">
-        ${departments.map(groupMarkup).join("")}
+  hideLegacyChrome();
+
+  const shell = document.createElement("div");
+  shell.className = "erp-shell";
+  shell.innerHTML = `
+    <aside class="erp-sidebar" aria-label="Primary navigation">
+      <a class="erp-brand" href="/">
+        <span class="erp-brand-mark">IR</span>
+        <span><strong>IRM ERM</strong><small>Operations Suite</small></span>
+      </a>
+      <nav class="erp-nav">
+        ${modules.map((module) => navItem(module, module === activeModule)).join("")}
       </nav>
     </aside>
+    <div class="erp-mobile-backdrop" hidden></div>
+    <header class="erp-topbar">
+      <button class="erp-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+      ${showBack ? `<button class="erp-back-button" type="button" data-back-target="${escapeHtml(backTarget)}">← Back</button>` : ""}
+      <div class="erp-title-block">
+        <div class="erp-breadcrumb">${escapeHtml(breadcrumb)}</div>
+        <h1>${escapeHtml(pageTitle)}</h1>
+      </div>
+      <label class="erp-search" aria-label="Search">
+        <span>⌕</span>
+        <input type="search" placeholder="Search clients, CO#, PO#, stock..." />
+      </label>
+      <a class="erp-user" href="/logout" title="Logout" aria-label="Current user logout">
+        <span>NK</span>
+      </a>
+    </header>
   `;
-  document.body.insertBefore(layout, document.body.firstChild);
-  document.body.classList.add("app-layout-active");
-  if (isHome) document.body.classList.add("app-home-page");
+  document.body.insertBefore(shell, document.body.firstChild);
+  document.body.classList.add("erp-layout-active");
+  if (isHome) document.body.classList.add("erp-home-page");
 
-  const menu = layout.querySelector(".app-side-menu");
-  const backdrop = layout.querySelector(".app-menu-backdrop");
-  const openButton = layout.querySelector(".app-menu-button");
-  const closeButton = layout.querySelector(".app-menu-close");
+  const menuButton = shell.querySelector(".erp-menu-toggle");
+  const sidebar = shell.querySelector(".erp-sidebar");
+  const backdrop = shell.querySelector(".erp-mobile-backdrop");
+  const backButton = shell.querySelector(".erp-back-button");
+  menuButton.addEventListener("click", () => setSidebar(!sidebar.classList.contains("open")));
+  backdrop.addEventListener("click", () => setSidebar(false));
+  if (backButton) {
+    backButton.addEventListener("click", () => {
+      const target = backButton.getAttribute("data-back-target") || "/";
+      if (window.history.length > 1 && document.referrer && sameOrigin(document.referrer)) {
+        window.history.back();
+        return;
+      }
+      window.location.href = target;
+    });
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setSidebar(false);
+  });
 
-  function setMenu(open) {
-    menu.classList.toggle("open", open);
-    menu.setAttribute("aria-hidden", String(!open));
-    openButton.setAttribute("aria-expanded", String(open));
-    backdrop.hidden = !open;
-    document.body.classList.toggle("app-menu-open", open);
+  addSubnav(activeModule, path);
+
+  function addSubnav(module, currentPath) {
+    const links = subnav[module.href];
+    if (!links || isHome) return;
+    const main = document.querySelector("main");
+    if (!main || main.querySelector(".erp-page-tabs") || main.querySelector(".after-tabs")) return;
+    const activeHref = activeSubnavHref(links, currentPath);
+    const tabs = document.createElement("nav");
+    tabs.className = "erp-page-tabs";
+    tabs.setAttribute("aria-label", `${module.label} sections`);
+    tabs.innerHTML = links
+      .map(([label, href]) => `<a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
+      .join("");
+    main.insertBefore(tabs, main.firstElementChild);
   }
 
-  openButton.addEventListener("click", () => setMenu(!menu.classList.contains("open")));
-  closeButton.addEventListener("click", () => setMenu(false));
-  backdrop.addEventListener("click", () => setMenu(false));
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setMenu(false);
-  });
-  menu.querySelectorAll(".app-group-toggle").forEach((button) => {
-    button.addEventListener("click", () => {
-      const group = button.closest(".app-menu-group");
-      const open = !group.classList.contains("open");
-      group.classList.toggle("open", open);
-      button.setAttribute("aria-expanded", String(open));
-    });
-  });
+  function setSidebar(open) {
+    sidebar.classList.toggle("open", open);
+    menuButton.setAttribute("aria-expanded", String(open));
+    backdrop.hidden = !open;
+    document.body.classList.toggle("erp-menu-open", open);
+  }
 
-  function groupMarkup(group) {
-    const active = isGroupActive(group, path);
-    const activeHref = activeLinkHref(group, path);
+  function navItem(module, active) {
     return `
-      <section class="app-menu-group ${active ? "open" : ""}">
-        <button class="app-group-toggle" type="button" aria-expanded="${active ? "true" : "false"}">
-          <span>${escapeHtml(group.label)}</span><span aria-hidden="true">⌄</span>
-        </button>
-        <div class="app-group-links">
-          ${group.links
-            .map(([label, href]) => `<a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
-            .join("")}
-        </div>
-      </section>
+      <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}">
+        <span>${escapeHtml(module.icon)}</span>
+        <strong>${escapeHtml(module.label)}</strong>
+      </a>
     `;
   }
 
-  function activeDepartmentLabel(currentPath) {
-    const group = departments.find((item) => isGroupActive(item, currentPath));
-    return group ? group.label : "ERP";
+  function isActive(module, currentPath) {
+    const matches = module.match || [module.href];
+    return matches.some((value) => {
+      const normalized = canonicalPath(value.replace(/\/$/, "") || "/");
+      return currentPath === normalized || (normalized !== "/" && currentPath.startsWith(`${normalized}/`));
+    });
   }
 
-  function isGroupActive(group, currentPath) {
-    const base = group.base.replace(/\/$/, "") || "/";
-    return currentPath === base || currentPath.startsWith(`${base}/`);
+  function findActiveModule(currentPath) {
+    return modules
+      .map((module) => ({ module, score: activeScore(module, currentPath) }))
+      .filter((item) => item.score >= 0)
+      .sort((a, b) => b.score - a.score)[0]?.module || modules[0];
   }
 
-  function activeLinkHref(group, currentPath) {
-    const matches = group.links
-      .map(([, href]) => href.replace(/\/$/, "") || "/")
-      .filter((href) => currentPath === href || currentPath.startsWith(`${href}/`))
-      .sort((a, b) => b.length - a.length);
-    return matches[0] || "";
+  function activeScore(module, currentPath) {
+    const matches = module.match || [module.href];
+    return matches.reduce((best, value) => {
+      const normalized = canonicalPath(value.replace(/\/$/, "") || "/");
+      const matched = currentPath === normalized || (normalized !== "/" && currentPath.startsWith(`${normalized}/`));
+      return matched ? Math.max(best, normalized.length) : best;
+    }, -1);
+  }
+
+  function activeSubnavHref(links, currentPath) {
+    return links
+      .map(([, href]) => href)
+      .filter((href) => {
+        const base = canonicalPath(href.split("#")[0].replace(/\/$/, "") || "/");
+        return currentPath === base || (base !== "/" && currentPath.startsWith(`${base}/`));
+      })
+      .sort((a, b) => b.split("#")[0].length - a.split("#")[0].length)[0] || "";
+  }
+
+  function getBackTarget(currentPath, module) {
+    const mainPages = new Set([
+      "/",
+      "/dashboard",
+      "/sales",
+      "/procurement",
+      "/warehouse",
+      "/aftersales",
+      "/aftersales/training-demo",
+      "/clients",
+      "/sales/products",
+    ]);
+    if (mainPages.has(currentPath)) return "";
+    if (currentPath.startsWith("/crm/client/")) return "/clients";
+    if (currentPath.startsWith("/sales/quotations")) return "/sales";
+    if (currentPath.startsWith("/sales/customer-orders")) return "/sales";
+    if (currentPath.startsWith("/procurement/")) return "/procurement";
+    if (currentPath.startsWith("/warehouse/")) return "/warehouse";
+    if (currentPath.startsWith("/aftersales/")) return "/aftersales";
+    if (currentPath.startsWith("/equipment")) return "/clients";
+    if (currentPath.startsWith("/imports")) return "/dashboard";
+    return module.href === currentPath ? "" : module.href;
+  }
+
+  function sameOrigin(url) {
+    try {
+      return new URL(url).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  function getPageTitle(home, module) {
+    if (home) return "Home";
+    return (
+      document.body.getAttribute("data-page-title") ||
+      document.querySelector("[data-page-title]")?.getAttribute("data-page-title") ||
+      document.querySelector(".brand h1")?.textContent ||
+      document.querySelector("h1")?.textContent ||
+      document.title ||
+      module.label
+    ).replace(/\bInventory\b/g, "Warehouse");
+  }
+
+  function hideLegacyChrome() {
+    document.querySelectorAll(".topbar, body > header, .burger, .drawer, .drawer-backdrop, .pm-burger, .pm-sidebar").forEach((node) => {
+      node.classList.add("legacy-topbar-hidden");
+    });
+  }
+
+  function canonicalPath(value) {
+    if (value === "/portal" || value === "/home") return "/";
+    if (value === "/after-sales" || value.startsWith("/after-sales/")) return value.replace("/after-sales", "/aftersales");
+    if (value === "/financials" || value.startsWith("/financials/")) return value.replace("/financials", "/finance");
+    if (value === "/admin" || value.startsWith("/admin/")) return value.replace("/admin", "/administration");
+    if (value === "/inventory" || value.startsWith("/inventory/")) return value.replace("/inventory", "/warehouse");
+    return value;
   }
 
   function escapeHtml(value) {
@@ -183,19 +255,5 @@
       '"': "&quot;",
       "'": "&#039;",
     }[char]));
-  }
-
-  function canonicalPath(value) {
-    if (value === "/portal" || value === "/home") return "/";
-    if (value === "/after-sales" || value.startsWith("/after-sales/")) {
-      return value.replace("/after-sales", "/aftersales");
-    }
-    if (value === "/financials" || value.startsWith("/financials/")) {
-      return value.replace("/financials", "/finance");
-    }
-    if (value === "/admin" || value.startsWith("/admin/")) {
-      return value.replace("/admin", "/administration");
-    }
-    return value;
   }
 })();

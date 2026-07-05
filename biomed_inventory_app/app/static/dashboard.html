@@ -7,7 +7,7 @@
   <title>CMM Dashboard</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar input,.toolbar select,.column-filter{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px;width:min(430px,100%)}.column-filter{font-size:12px;min-width:110px;padding:7px;width:100%}.toolbar a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:9px 11px;text-decoration:none}.toolbar a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.filter-row th{background:#fff;padding:6px}.table tbody tr{cursor:pointer}.table tbody tr:hover{background:#f8fbfd}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;margin:1px 0;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.mini{color:var(--muted);display:block;font-size:12px;margin-top:3px}.search-results{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.08);display:none;max-height:260px;overflow:auto;position:absolute;width:min(520px,calc(100vw - 44px));z-index:10}.search-box{position:relative}.search-results a{border:0;border-bottom:1px solid var(--line);border-radius:0;color:var(--ink);display:block;font-weight:700;padding:10px;text-decoration:none}.search-results a:hover{background:var(--soft)}.actions{display:flex;gap:7px;flex-wrap:wrap}.actions a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:7px 9px;text-decoration:none}.actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}.toolbar input,.toolbar select,.column-filter{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px;width:min(430px,100%)}.column-filter{font-size:12px;min-width:110px;padding:7px;width:100%}.toolbar a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:9px 11px;text-decoration:none}.toolbar a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:10px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.filter-row th{background:#fff;padding:6px}.table tbody tr{cursor:pointer}.table tbody tr:hover{background:#f8fbfd}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;margin:1px 0;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.mini{color:var(--muted);display:block;font-size:12px;margin-top:3px}.search-results{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 28px rgba(15,23,42,.08);display:none;max-height:260px;overflow:auto;position:absolute;width:min(520px,calc(100vw - 44px));z-index:10}.search-box{position:relative}.search-results a{border:0;border-bottom:1px solid var(--line);border-radius:0;color:var(--ink);display:block;font-weight:700;padding:10px;text-decoration:none}.search-results a:hover{background:var(--soft)}.actions{display:flex;gap:7px;flex-wrap:wrap}.actions a{border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:7px 9px;text-decoration:none}.actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.command-center{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin:0 0 16px}.command-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.command-card small{color:var(--muted);display:block;font-size:12px;font-weight:800;text-transform:uppercase}.command-card strong{color:var(--primary-dark);display:block;font-size:28px;line-height:1;margin:8px 0}.command-card p{color:var(--muted);font-size:13px;margin:0}
   </style>
 </head>
 <body>
@@ -20,6 +20,24 @@
     </div>
   </header>
   <main class="container">
+    <section class="page-hero">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Command center for customer visits, After-Sales activity, Sales pipeline, and Procurement pressure.</p>
+      </div>
+    </section>
+    <section class="dashboard-tabs" aria-label="Dashboard views">
+      <button class="active" type="button" data-dashboard-tab="customer">By Customer</button>
+      <button type="button" data-dashboard-tab="after-sales">After-Sales</button>
+      <button type="button" data-dashboard-tab="sales-pipeline">Sales Pipeline</button>
+      <button type="button" data-dashboard-tab="procurement">Procurement</button>
+    </section>
+    <section class="command-center" aria-label="Customer command center">
+      <article class="command-card"><small>Customers</small><strong id="dashCustomers">--</strong><p>Active client records in this view.</p></article>
+      <article class="command-card"><small>Open Cases</small><strong id="dashCases">--</strong><p>Service, sales, and operational cases.</p></article>
+      <article class="command-card"><small>Pending COs</small><strong id="dashCOs">--</strong><p>Customer orders needing action.</p></article>
+      <article class="command-card"><small>Pending Procurement</small><strong id="dashProcurement">--</strong><p>POs, shipments, and reception items.</p></article>
+    </section>
     <section class="card">
       <div class="toolbar">
         <input id="filter" placeholder="Filter clients / hospitals">
@@ -62,7 +80,7 @@
   </main>
   <script>
     const rowsEl=document.getElementById("rows"), filterEl=document.getElementById("filter"), globalSearch=document.getElementById("globalSearch"), searchResults=document.getElementById("searchResults"), activityFilter=document.getElementById("activityFilter"), modalityFilter=document.getElementById("modalityFilter"), clientOrderFilter=document.getElementById("clientOrderFilter"), purchaseOrderFilter=document.getElementById("purchaseOrderFilter");
-    let hospitals=[];
+    let hospitals=[], activeDashboardTab="customer";
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("expired")||l.includes("urgent")||l.includes("blocked")||l.includes("overdue")||l.includes("bad")?"bad":l.includes("active")||l.includes("good")||l==="0"?"good":l.includes("pending")||l.includes("soon")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
     const cell=(label,value)=>`<span class="mini">${esc(label)}</span>${esc(value??0)}`;
@@ -108,12 +126,16 @@
         <td><div class="actions"><a class="primary" href="/crm/client/${esc(h.id)}">Open</a><a href="/sales">Request</a><a href="/aftersales/pm">PM</a><a href="/crm">History</a></div></td>
       </tr>`).join("")||`<tr><td colspan="11">No hospitals found.</td></tr>`;
       rowsEl.querySelectorAll("tr[data-href]").forEach(tr=>tr.addEventListener("click",e=>{if(e.target.closest("a"))return;location.href=tr.dataset.href}));
+      updateCommandCards(data);
     }
+    function updateCommandCards(data){dashCustomers.textContent=data.length;dashCases.textContent=data.reduce((sum,h)=>sum+Number(h.open_cases||0),0);dashCOs.textContent=data.reduce((sum,h)=>sum+Number(h.open_sales_orders||0),0);dashProcurement.textContent=data.reduce((sum,h)=>sum+Number(h.pending_procurement||0),0)}
+    function setDashboardTab(tab){activeDashboardTab=tab;document.querySelectorAll("[data-dashboard-tab]").forEach(b=>b.classList.toggle("active",b.dataset.dashboardTab===tab));activityFilter.value="";if(tab==="after-sales")activityFilter.value=[...activityFilter.options].find(o=>/service|pm|after/i.test(o.value))?.value||"";if(tab==="sales-pipeline")activityFilter.value=[...activityFilter.options].find(o=>/sales|offer|quotation/i.test(o.value))?.value||"";if(tab==="procurement")purchaseOrderFilter.focus();render()}
     let searchTimer=null;
     globalSearch.addEventListener("input",()=>{clearTimeout(searchTimer);const q=globalSearch.value.trim();if(!q){searchResults.style.display="none";return}searchTimer=setTimeout(async()=>{const res=await fetch(`/api/search?q=${encodeURIComponent(q)}`);const data=await res.json();searchResults.innerHTML=(data.results||[]).map(r=>`<a href="${esc(r.url||"/dashboard")}"><b>${esc(r.label)}</b><span class="mini">${esc(r.type)} ${r.reference?`· ${r.reference}`:""}</span></a>`).join("")||`<a>No results</a>`;searchResults.style.display="block"},220)});
     document.addEventListener("click",e=>{if(!e.target.closest(".search-box"))searchResults.style.display="none"});
     [filterEl,activityFilter,modalityFilter,clientOrderFilter,purchaseOrderFilter].forEach(el=>{el.addEventListener("input",render);el.addEventListener("change",render)});
     document.querySelectorAll(".column-filter").forEach(el=>el.addEventListener("input",render));
+    document.querySelectorAll("[data-dashboard-tab]").forEach(button=>button.addEventListener("click",()=>setDashboardTab(button.dataset.dashboardTab)));
     load();
   </script>
 <script src="/static/app_layout.js"></script>

@@ -1320,7 +1320,6 @@ left:-90vw;
   <button onclick="window.location='/reports'">Reports</button>
   <button onclick="window.location='/admin'">Admin</button>
   <button onclick="window.location='/imports'">Imports</button>
-  <button onclick="window.location='/mdmanser-data'">MDManser Data</button>
   <div class="drawer-section">Warehouse Views</div>
   <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Warehouse Home</button>
   <button onclick="window.location='/equipment-database'">Equipment Database</button>
@@ -1341,8 +1340,25 @@ left:-90vw;
 
 
 <section class="card panel active" id="inventoryHub">
-<h2>Warehouse</h2>
-<p class="small">Open one warehouse view or create replenishment requests from minimum stock alerts.</p>
+<div class="page-hero">
+  <div>
+    <h2>Warehouse</h2>
+    <p class="small">Stock items are tracked after Customer Order approval, with CO and PO references for fulfillment.</p>
+  </div>
+  <button class="secondary" onclick="openForm()">Add Stock Item</button>
+</div>
+<div class="warehouse-kpi-grid">
+  <div class="metric-card"><small>Total Stock Items</small><strong id="warehouseTotalStock">--</strong><span class="small">Tracked warehouse rows</span></div>
+  <div class="metric-card"><small>Pending Reception</small><strong id="warehousePendingReception">--</strong><span class="small">PO or shipment items due in</span></div>
+  <div class="metric-card"><small>Pending Delivery</small><strong id="warehousePendingDelivery">--</strong><span class="small">Customer orders waiting out</span></div>
+  <div class="metric-card"><small>Below Minimum Stock</small><strong id="warehouseBelowMinimum">--</strong><span class="small">Needs replenishment review</span></div>
+</div>
+<div class="warehouse-tabs" aria-label="Warehouse tabs">
+  <button class="active" type="button" onclick="showPanel('cleanInventory')">Stock Items</button>
+  <button type="button" onclick="showPanel('po')">Receptions</button>
+  <button type="button" onclick="showPanel('clientOrders')">Delivery Orders</button>
+  <button type="button" onclick="showPanel('minimumStock')">Minimum Stock Alerts</button>
+</div>
 <div class="inventory-hub-grid">
   <button class="inventory-hub-box" type="button" onclick="window.location='/equipment-database'">
     <b>Equipment Database</b>
@@ -1531,8 +1547,8 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&l
 async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
 function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Warehouse":"Spare Parts Warehouse"}
 function openInventoryCategory(category){currentInventoryCategory=category==="accessories"?"accessories":"spare_parts";showPanel("inventory")}
-function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
-async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];document.getElementById("metrics").innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.warehouse-tabs button').forEach(b=>b.classList.remove('active'));const tabMap={cleanInventory:0,po:1,clientOrders:2,minimumStock:3};const tabIndex=tabMap[id];if(tabIndex!==undefined){const tab=document.querySelectorAll('.warehouse-tabs button')[tabIndex];if(tab)tab.classList.add('active')}if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
+async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];const drawerMetrics=document.getElementById("metrics");if(drawerMetrics)drawerMetrics.innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");const total=document.getElementById("warehouseTotalStock"),reception=document.getElementById("warehousePendingReception"),delivery=document.getElementById("warehousePendingDelivery"),below=document.getElementById("warehouseBelowMinimum");if(total)total.textContent=esc(d.total_records??0);if(reception)reception.textContent=esc(d.purchase_orders??0);if(delivery)delivery.textContent=esc(d.client_orders??0);if(below)below.textContent=esc(d.below_minimum_stock??d.mismatches??0);document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
 async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}&category=${currentInventoryCategory}`);renderItems(currentItems);loadDashboard()}
 async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
 function googleLookupUrl(pn,description){const q=`${pn||""} ${description||""} biomedical spare part GE Healthcare`.trim();return`https://www.google.com/search?q=${encodeURIComponent(q)}`}
@@ -1875,7 +1891,8 @@ function openWarehouseRoute(){
    "receptions":"Warehouse Receptions",
    "delivery-orders":"Warehouse Delivery Orders",
    "stock-movement":"Warehouse Stock Movement",
-   "inventory-count":"Warehouse Inventory Count"
+   "inventory-count":"Warehouse Count",
+   "minimum-stock":"Minimum Stock Alerts"
  };
  document.body.setAttribute("data-page-title",titles[section]||"Warehouse");
  const routes={
@@ -1883,6 +1900,7 @@ function openWarehouseRoute(){
    "stock-items":"cleanInventory",
    "receptions":"po",
    "delivery-orders":"clientOrders",
+   "minimum-stock":"minimumStock",
    "stock-movement":"transaction",
    "inventory-count":"inventory",
  };

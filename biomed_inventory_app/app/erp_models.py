@@ -80,7 +80,6 @@ class Equipment(Base):
         Index("ix_equipment_client_id", "client_id"),
         Index("ix_equipment_department_id", "department_id"),
         Index("ix_equipment_serial_number", "serial_number"),
-        Index("ix_equipment_mdmanser_serial_number", "mdmanser_serial_number"),
     )
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
@@ -102,9 +101,6 @@ class Equipment(Base):
     next_pm_date = Column(Date)
     calibration_required = Column(Boolean, nullable=False, default=False)
     calibration_due_date = Column(Date)
-    mdmanser_serial_number = Column(String(255))
-    mdmanser_report_reference = Column(String(120))
-    mdmanser_source_row_hash = Column(String(64))
 
 
 class Contract(Base):
@@ -142,14 +138,12 @@ class Case(Base, TimestampMixin):
         Index("ix_cases_client_id", "client_id"),
         Index("ix_cases_department_id", "department_id"),
         Index("ix_cases_parent_case_reference", "parent_case_reference"),
-        Index("ix_cases_mdmanser_report_number", "mdmanser_report_number"),
     )
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="SET NULL"), nullable=True)
     parent_case_reference = Column(String(120), nullable=False)
-    mdmanser_report_number = Column(String(120))
     case_type = Column(String(80), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text)
@@ -164,14 +158,12 @@ class ServiceCall(Base):
     __table_args__ = (
         Index("ix_service_calls_client_id", "client_id"),
         Index("ix_service_calls_case_id", "case_id"),
-        Index("ix_service_calls_mdmanser_report_number", "mdmanser_report_number"),
     )
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="SET NULL"), nullable=True)
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
-    mdmanser_report_number = Column(String(120))
     call_type = Column(String(120), nullable=False, default="service")
     call_type_2 = Column(String(120))
     priority = Column(String(50), nullable=False, default="normal")
@@ -377,104 +369,3 @@ class QuotationTemplate(Base, TimestampMixin):
     notes = Column(Text)
     is_default = Column(Boolean, nullable=False, default=False)
 
-
-class MDManserServiceRecord(Base):
-    __tablename__ = "mdmanser_service_records"
-    __table_args__ = (
-        Index("ix_mdmanser_service_records_report_number", "report_number"),
-        Index("ix_mdmanser_service_records_serial_number", "serial_number"),
-        Index("ix_mdmanser_service_records_institution", "institution"),
-        Index("ix_mdmanser_service_records_engineer_name", "engineer_name"),
-        Index("ix_mdmanser_service_records_source_row_hash", "source_row_hash"),
-    )
-    id = Column(Integer, primary_key=True)
-    report_number = Column(String(120))
-    engineer_name = Column(String(255))
-    supplier = Column(String(255))
-    product_type = Column(String(255))
-    model = Column(String(255))
-    serial_number = Column(String(255))
-    institution = Column(String(255))
-    unit_status = Column(String(120))
-    department = Column(String(255))
-    address = Column(Text)
-    city = Column(String(120))
-    country = Column(String(120))
-    phone_work = Column(String(120))
-    phone_mobile = Column(String(120))
-    phone = Column(String(120))
-    email = Column(String(255))
-    sold_by = Column(String(255))
-    order_number = Column(String(120))
-    shipping_date = Column(Date)
-    install_by = Column(String(255))
-    installation_date = Column(Date)
-    warranty_ends = Column(Date)
-    call_reasons = Column(Text)
-    call_type_1 = Column(String(255))
-    call_type_2 = Column(String(255))
-    visit_date = Column(Date)
-    completed_date = Column(Date)
-    call_by = Column(String(255))
-    received_by = Column(String(255))
-    call_date = Column(Date)
-    call_time = Column(String(40))
-    visit_time = Column(String(40))
-    completed_time = Column(String(40))
-    source_file = Column(String(255))
-    source_table_index = Column(Integer)
-    source_row_hash = Column(String(64), unique=True, nullable=False)
-    imported_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class MDManserSyncLog(Base):
-    __tablename__ = "mdmanser_sync_logs"
-    id = Column(Integer, primary_key=True)
-    sync_type = Column(String(80), nullable=False)
-    direction = Column(String(20), nullable=False)
-    endpoint = Column(String(255))
-    status = Column(String(80))
-    status_code = Column(Integer)
-    request_summary = Column(Text)
-    response_summary = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class MDManserCalendarEvent(Base):
-    __tablename__ = "mdmanser_calendar_events"
-    __table_args__ = (
-        Index("ix_mdmanser_calendar_events_source_event_key", "source_event_key"),
-        Index("ix_mdmanser_calendar_events_start_date", "start_date"),
-        Index("ix_mdmanser_calendar_events_engineer_name", "engineer_name"),
-        Index("ix_mdmanser_calendar_events_contract_reference", "contract_reference"),
-        Index("ix_mdmanser_calendar_events_mapped_client_id", "mapped_client_id"),
-    )
-    id = Column(Integer, primary_key=True)
-    source = Column(String(80))
-    source_event_key = Column(String(64), unique=True)
-    event_type = Column(String(80))
-    title = Column(String(255))
-    engineer_name = Column(String(255))
-    call_reasons = Column(Text)
-    contract_reference = Column(String(120))
-    client_name = Column(String(255))
-    equipment_name = Column(String(255))
-    start_date = Column(Date)
-    end_date = Column(Date)
-    raw_payload = Column(Text)
-    mapped_client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
-    mapped_equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="SET NULL"), nullable=True)
-    mapped_case_id = Column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
-    imported_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class MDManserCaseLink(Base):
-    __tablename__ = "mdmanser_case_links"
-    __table_args__ = (Index("ix_mdmanser_case_links_report", "mdmanser_report_number"),)
-    id = Column(Integer, primary_key=True)
-    mdmanser_report_number = Column(String(120), nullable=False)
-    case_id = Column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
-    service_call_id = Column(Integer, ForeignKey("service_calls.id", ondelete="SET NULL"), nullable=True)
-    equipment_id = Column(Integer, ForeignKey("equipment.id", ondelete="SET NULL"), nullable=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
-    last_synced_at = Column(DateTime(timezone=True))

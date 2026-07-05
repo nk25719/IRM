@@ -3,61 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1f4e78">
-  <title>Home / Departments</title>
+  <meta name="theme-color" content="#2563eb">
+  <title>Home</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .home-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-    .department-card{min-height:210px}
-    .department-card span{color:var(--accent);font-weight:800;margin-top:auto}
+    .home-actions{display:flex;gap:10px;flex-wrap:wrap}.home-actions a{border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-weight:800;padding:10px 12px;text-decoration:none}.home-actions a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.home-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:18px}.home-grid .module-card{min-height:150px}.snapshot-card p{color:var(--muted);margin:8px 0 0}.snapshot-card .status-badge{margin-top:12px}.home-section-title{color:var(--primary-dark);font-size:18px;margin:24px 0 12px}
   </style>
 </head>
-<body data-page-title="Home / Departments">
-  <main class="container">
-    <section class="page-intro" aria-labelledby="home-title">
-      <h1 id="home-title">Home / Departments</h1>
-      <p>Select one department to open its dashboard.</p>
+<body data-page-title="Home">
+  <main>
+    <section class="page-hero">
+      <div>
+        <h1>Good morning, Nagham</h1>
+        <p>Track the commercial and operations flow from quotation to customer delivery.</p>
+      </div>
+      <div class="home-actions">
+        <a class="primary" href="/sales/quotations">New Quotation</a>
+        <a href="/dashboard">Open Dashboard</a>
+      </div>
     </section>
 
-    <section class="home-grid" aria-label="Departments">
-      <a class="card module-card department-card" href="/aftersales">
-        <div class="module-icon" aria-hidden="true">A</div>
-        <h3>After Sales</h3>
-        <p>Service calls, spare parts follow-up, preventive maintenance, contracts, and reports.</p>
-        <span>Open After Sales</span>
+    <section class="pipeline-card" aria-labelledby="pipeline-title">
+      <div class="page-hero">
+        <div>
+          <h2 id="pipeline-title">Sales-to-Delivery Pipeline</h2>
+          <p>Quotation to delivery handoff across Sales, Procurement, Warehouse, and After-Sales.</p>
+        </div>
+      </div>
+      <div class="pipeline-track">
+        <a class="pipeline-step" href="/sales/quotations"><small>Step 01</small><strong>Quotation</strong><span>Offer prepared and validated</span></a>
+        <a class="pipeline-step" href="/sales/customer-orders"><small>Step 02</small><strong>Customer Order</strong><span>Approved demand enters tracking</span></a>
+        <a class="pipeline-step" href="/procurement/purchase-orders"><small>Step 03</small><strong>Purchase Order</strong><span>Supplier order linked to CO</span></a>
+        <a class="pipeline-step" href="/procurement/shipments"><small>Step 04</small><strong>Shipment</strong><span>Inbound shipment progress</span></a>
+        <a class="pipeline-step" href="/warehouse/receptions"><small>Step 05</small><strong>Reception</strong><span>Received and stock matched</span></a>
+        <a class="pipeline-step" href="/warehouse/delivery-orders"><small>Step 06</small><strong>Delivery</strong><span>Issued to customer or site</span></a>
+      </div>
+    </section>
+
+    <section class="snapshot-grid" aria-label="Operational snapshots">
+      <a class="snapshot-card" href="/sales/customer-orders">
+        <small>Pending Customer Orders</small>
+        <strong id="pendingCustomerOrders">--</strong>
+        <p>COs waiting for stock, PO, reception, or delivery action.</p>
+        <span class="status-badge pending">Needs follow-up</span>
       </a>
-      <a class="card module-card department-card" href="/sales">
-        <div class="module-icon" aria-hidden="true">S</div>
-        <h3>Sales</h3>
-        <p>Products, quotations, customer orders, commercial lifecycle tracking, and reports.</p>
-        <span>Open Sales</span>
+      <a class="snapshot-card" href="/procurement/shipments">
+        <small>Upcoming Shipments</small>
+        <strong id="upcomingShipments">--</strong>
+        <p>Expected inbound shipments and supplier logistics updates.</p>
+        <span class="status-badge good">Inbound</span>
       </a>
-      <a class="card module-card department-card" href="/procurement">
-        <div class="module-icon" aria-hidden="true">P</div>
-        <h3>Procurement</h3>
-        <p>Purchase orders, suppliers, shipments, procurement status, and supplier reports.</p>
-        <span>Open Procurement</span>
+      <a class="snapshot-card" href="/aftersales/service-calls">
+        <small>Open After-Sales Cases</small>
+        <strong id="openAfterSalesCases">--</strong>
+        <p>Service cases, PM actions, and customer follow-up activity.</p>
+        <span class="status-badge bad">Open cases</span>
       </a>
-      <a class="card module-card department-card" href="/warehouse">
-        <div class="module-icon" aria-hidden="true">W</div>
-        <h3>Warehouse</h3>
-        <p>Stock items, receptions, delivery orders, stock movements, and warehouse count.</p>
-        <span>Open Warehouse</span>
-      </a>
-      <a class="card module-card department-card" href="/finance">
-        <div class="module-icon" aria-hidden="true">F</div>
-        <h3>Finance</h3>
-        <p>Invoices, payments, customer balances, supplier balances, and financial dashboard.</p>
-        <span>Open Finance</span>
-      </a>
-      <a class="card module-card department-card" href="/administration">
-        <div class="module-icon" aria-hidden="true">M</div>
-        <h3>Administration</h3>
-        <p>Customers, contacts, users, settings, imports, audit trail, and system controls.</p>
-        <span>Open Administration</span>
+      <a class="snapshot-card" href="/procurement/purchase-orders">
+        <small>Pending Purchase Orders</small>
+        <strong id="pendingPurchaseOrders">--</strong>
+        <p>POs awaiting supplier, shipment, or reception progress.</p>
+        <span class="status-badge pending">Procurement</span>
       </a>
     </section>
+
+    <h2 class="home-section-title">ERM Modules</h2>
+    <section class="home-grid" aria-label="ERM modules">
+      <a class="card module-card" href="/dashboard"><div class="module-icon">D</div><h3>Dashboard</h3><p>Tabbed command center by customer, After-Sales, Sales pipeline, and Procurement.</p></a>
+      <a class="card module-card" href="/sales"><div class="module-icon">S</div><h3>Sales</h3><p>Quotations and customer orders with status tracking.</p></a>
+      <a class="card module-card" href="/procurement"><div class="module-icon">P</div><h3>Procurement</h3><p>POs, linked COs, shipments, receptions, and replenishment requests.</p></a>
+      <a class="card module-card" href="/warehouse"><div class="module-icon">W</div><h3>Warehouse</h3><p>Stock items, receptions, delivery orders, movement, and minimum stock alerts.</p></a>
+      <a class="card module-card" href="/aftersales"><div class="module-icon">A</div><h3>After-Sales</h3><p>Service cases, scheduled PM, contracts, spare parts, training, demo, and consignment.</p></a>
+      <a class="card module-card" href="/clients"><div class="module-icon">C</div><h3>Clients</h3><p>Client records, command center cards, contacts, departments, and history.</p></a>
+      <a class="card module-card" href="/sales/products"><div class="module-icon">R</div><h3>Products</h3><p>Commercial portfolio separated from warehouse stock items.</p></a>
+      <a class="card module-card" href="/aftersales/training-demo"><div class="module-icon">T</div><h3>Training & Demo</h3><p>Training, demonstration, and consignment stock activity.</p></a>
+    </section>
   </main>
+  <script>
+    async function loadHomeSnapshots(){
+      try{
+        const [sales, procurement, cases] = await Promise.all([
+          fetch("/api/sales/dashboard").then(r=>r.ok?r.json():{}).catch(()=>({})),
+          fetch("/api/procurement/dashboard").then(r=>r.ok?r.json():{}).catch(()=>({})),
+          fetch("/api/after-sales/dashboard").then(r=>r.ok?r.json():{}).catch(()=>({})),
+        ]);
+        pendingCustomerOrders.textContent = sales.pending_customer_orders ?? sales.open_customer_orders ?? sales.open_sales_orders ?? "--";
+        upcomingShipments.textContent = procurement.upcoming_shipments ?? procurement.pending_shipments ?? "--";
+        openAfterSalesCases.textContent = cases.open_cases ?? cases.open_service_cases ?? cases.open_service_calls ?? "--";
+        pendingPurchaseOrders.textContent = procurement.pending_purchase_orders ?? procurement.open_purchase_orders ?? "--";
+      }catch(error){
+        console.warn("Home snapshots unavailable", error);
+      }
+    }
+    loadHomeSnapshots();
+  </script>
   <script src="/static/app_layout.js"></script>
 </body>
 </html>

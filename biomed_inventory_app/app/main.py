@@ -5,7 +5,6 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import legacy_main
 from app.erp_api import router as erp_router
-from app.mdmanser_api import router as mdmanser_router
 from app.quotation_api import router as quotation_router
 from app.routers import (
     aftersales_api,
@@ -33,8 +32,6 @@ async def auth_middleware(request: Request, call_next):
     path = request.url.path
     if path in legacy_main.PUBLIC_PATHS:
         return await call_next(request)
-    if path.startswith("/api/erp/mdmanser"):
-        return await call_next(request)
     if path.startswith("/static") and path.lower().endswith(legacy_main.PUBLIC_STATIC_SUFFIXES):
         return await call_next(request)
 
@@ -48,7 +45,6 @@ async def auth_middleware(request: Request, call_next):
 
 app.add_middleware(SessionMiddleware, secret_key=legacy_main.SESSION_SECRET, https_only=False)
 
-app.include_router(mdmanser_router)
 app.include_router(erp_router)
 app.include_router(quotation_router)
 app.include_router(web_pages.router)

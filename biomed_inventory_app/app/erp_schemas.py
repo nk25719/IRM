@@ -75,9 +75,6 @@ class EquipmentIn(ERPBase):
     next_pm_date: DateType | None = None
     calibration_required: bool = False
     calibration_due_date: DateType | None = None
-    mdmanser_serial_number: str | None = None
-    mdmanser_report_reference: str | None = None
-    mdmanser_source_row_hash: str | None = None
 
 
 class ContractIn(ERPBase):
@@ -107,7 +104,6 @@ class CaseIn(ERPBase):
     department_id: int | None = None
     equipment_id: int | None = None
     parent_case_reference: str
-    mdmanser_report_number: str | None = None
     case_type: str
     title: str
     description: str | None = None
@@ -122,7 +118,6 @@ class ServiceCallIn(ERPBase):
     department_id: int | None = None
     equipment_id: int | None = None
     case_id: int | None = None
-    mdmanser_report_number: str | None = None
     call_type: str = "service"
     call_type_2: str | None = None
     priority: str = "normal"
