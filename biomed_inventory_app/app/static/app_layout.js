@@ -127,7 +127,7 @@
     const links = subnav[module.href];
     if (!links || isHome) return;
     const main = document.querySelector("main");
-    if (!main || main.querySelector(".erp-page-tabs") || main.querySelector(".after-tabs")) return;
+    if (!main || main.querySelector(".erp-page-tabs") || main.querySelector(".after-tabs") || main.querySelector(".tabs")) return;
     const activeHref = activeSubnavHref(links, currentPath);
     const tabs = document.createElement("nav");
     tabs.className = "erp-page-tabs";
