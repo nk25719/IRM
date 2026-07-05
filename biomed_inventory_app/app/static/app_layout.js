@@ -43,7 +43,7 @@
         ["Receptions", "/warehouse/receptions"],
         ["Delivery Orders", "/warehouse/delivery-orders"],
         ["Stock Movement", "/warehouse/stock-movement"],
-        ["Inventory Count", "/warehouse/inventory-count"],
+        ["Warehouse Count", "/warehouse/inventory-count"],
       ],
     },
     {

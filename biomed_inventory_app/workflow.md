@@ -14,7 +14,17 @@ Edit files:
 * backend/API/database logic: `app/main.py`
 * dependencies: `requirements.txt`
 
-## 2. Test locally
+## 2. Build 
+
+// check docker file 
+cd /Users/naghamkheir/Repos/IRM/biomed_inventory_app
+ls. 
+
+// build 
+docker build -t cmm-inventory . 
+
+
+## 3. Test locally
 
 ```bash
 docker build -t cmm-inventory .
@@ -29,7 +39,7 @@ http://127.0.0.1:8080
 
 Test the change.
 
-## 3. Deploy online
+## 4. Deploy online
 
 When it works locally:
 
@@ -40,7 +50,7 @@ gcloud run deploy cmm-inventory \
   --allow-unauthenticated
 ```
 
-## 4. Verify live app
+## 5. Verify live app
 
 Open:
 
@@ -48,7 +58,7 @@ Open:
 https://cmm-inventory-979683804007.us-central1.run.app
 ```
 
-## 5. Best practice
+## 6. Best practice
 
 Before editing, make a backup:
 
