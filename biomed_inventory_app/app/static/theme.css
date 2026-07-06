@@ -38,6 +38,8 @@ body.app-layout-active .legacy-topbar-hidden {
   display: none !important;
 }
 
+body.erp-layout-active > header,
+body.erp-layout-active .topbar,
 body.erp-layout-active .burger,
 body.erp-layout-active .drawer,
 body.erp-layout-active .drawer-backdrop,

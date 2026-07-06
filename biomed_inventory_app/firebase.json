@@ -20,6 +20,34 @@
     ],
     "rewrites": [
       {
+        "source": "/login",
+        "run": {
+          "serviceId": "cmm-inventory",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/logout",
+        "run": {
+          "serviceId": "cmm-inventory",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api{,/**}",
+        "run": {
+          "serviceId": "cmm-inventory",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/quotations{,/**}",
+        "run": {
+          "serviceId": "cmm-inventory",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/home",
         "destination": "/index.html"
       },

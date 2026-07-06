@@ -7,15 +7,14 @@
   <title>CMM ERP Module</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .module-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:18px 0}.module-card h3{color:var(--primary-dark);margin:0 0 8px}.module-card p{color:var(--muted);margin:0 0 12px}.links{display:flex;flex-wrap:wrap;gap:8px}.links a{border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-weight:800;padding:8px 10px;text-decoration:none}.links a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left}.table th{background:var(--soft);color:var(--primary-dark)}
+    .module-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:18px 0}.module-card h3{color:var(--primary-dark);margin:0 0 8px}.module-card p{color:var(--muted);margin:0 0 12px}.links{display:flex;flex-wrap:wrap;gap:8px}.links a{border:1px solid var(--line);border-radius:10px;color:var(--primary-dark);font-weight:800;padding:8px 10px;text-decoration:none}.links a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:13px;padding:10px;text-align:left}.table th{background:var(--soft);color:var(--primary-dark)}.status-note{color:var(--muted);font-size:13px;margin:0 0 12px}
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1 id="title">ERP Module</h1><p id="subtitle">Clean module entry point preserving existing routes</p></div><nav class="top-actions"><a href="/">Home</a><a href="/clients">Clients</a><a href="/aftersales">After Sales</a><a href="/warehouse">Warehouse</a><a href="/logout">Logout</a></nav></div></header>
   <main class="container">
     <section class="page-intro"><h2 id="heading">Module</h2><p id="description"></p></section>
     <section id="cards" class="module-grid"></section>
-    <section class="card"><h2 id="dataTitle">Available Data</h2><div class="table-wrap"><table class="table"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
+    <section class="card"><h2 id="dataTitle">Available Data</h2><p class="status-note" id="statusNote">Loading module data...</p><div class="table-wrap"><table class="table"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div></section>
   </main>
   <script>
     const modules={
@@ -44,9 +43,9 @@
     const cfg=modules[routeRoot]||modules["/reports"];
     const sectionTitle=sectionTitles[currentPath]||cfg.title;
     document.body.setAttribute("data-page-title",sectionTitle);
-    title.textContent=cfg.title;heading.textContent=sectionTitle;description.textContent=cfg.description;document.title=`CMM ${sectionTitle}`;
+    heading.textContent=sectionTitle;description.textContent=cfg.description;document.title=`CMM ${sectionTitle}`;
     cards.innerHTML=cfg.cards.map(([name,path,desc])=>`<article class="card module-card"><h3>${esc(name)}</h3><p>${esc(desc)}</p><div class="links"><a class="primary" href="${esc(path)}">Open ${esc(name)}</a></div></article>`).join("");
-    async function load(){try{const res=await fetch(cfg.api);const json=await res.json();const rows=Array.isArray(json)?json:(json&&typeof json==="object"?[json]:[]);const cols=Array.from(new Set(rows.flatMap(r=>Object.keys(r)))).slice(0,8);thead.innerHTML=`<tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=rows.slice(0,20).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td>No data yet</td></tr>`}catch(e){tbody.innerHTML=`<tr><td>${esc(e.message)}</td></tr>`}}load();
+    async function load(){try{const res=await fetch(cfg.api,{credentials:"same-origin"});if(res.status===401||res.status===403)throw new Error("Sign in to load live module data.");if(!res.ok)throw new Error(`Unable to load data (${res.status})`);const json=await res.json();const rows=Array.isArray(json)?json:(json&&typeof json==="object"?[json]:[]);const cols=Array.from(new Set(rows.flatMap(r=>Object.keys(r)))).slice(0,8);thead.innerHTML=`<tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>`;tbody.innerHTML=rows.slice(0,20).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c])}</td>`).join("")}</tr>`).join("")||`<tr><td>No data yet</td></tr>`;statusNote.textContent=`Showing ${Math.min(rows.length,20)} of ${rows.length} records.`}catch(e){statusNote.textContent=e.message;tbody.innerHTML=`<tr><td>${esc(e.message)}</td></tr>`}}load();
   </script>
 <script src="/static/app_layout.js"></script>
 </body>

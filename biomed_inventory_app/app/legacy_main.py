@@ -5549,7 +5549,7 @@ def export_rows_response(title: str, rows: list[dict], fmt: str = "excel", notes
 @app.get("/")
 def index(request: Request):
     if request.session.get("authenticated"):
-        return FileResponse(BASE_DIR / "static" / "portal.html")
+        return FileResponse(BASE_DIR / "static" / "index.html")
     return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/login")
@@ -5580,13 +5580,14 @@ def logout(request: Request):
 @app.get("/portal")
 @app.get("/home")
 def portal():
-    return FileResponse(BASE_DIR / "static" / "portal.html")
+    return FileResponse(BASE_DIR / "static" / "index.html")
 
 @app.get("/dashboard")
 def dashboard_page():
     return FileResponse(BASE_DIR / "static" / "dashboard.html")
 
 @app.get("/inventory")
+@app.get("/inventory/{section:path}")
 @app.get("/warehouse")
 @app.get("/warehouse/{section:path}")
 def inventory_page(section: str = ""):
