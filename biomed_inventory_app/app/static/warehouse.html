@@ -1,0 +1,1913 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Biomedical Warehouse ERP v4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1f4e78" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<script src="https://unpkg.com/html5-qrcode" defer></script>
+<style>
+/* ============================================================
+   MOBILE-FIRST CSS - Base styles for phones
+   ============================================================ */
+
+:root {
+  --bg: #f5f7fb;
+  --card: #fff;
+  --ink: #14213d;
+  --muted: #637083;
+  --primary: #1f4e78;
+  --accent: #0f766e;
+  --danger: #b42318;
+  --warning: #b54708;
+  --line: #d7dde8;
+  --shadow-sm: 0 2px 8px rgba(18, 38, 63, 0.08);
+  --shadow-md: 0 4px 16px rgba(18, 38, 63, 0.12);
+  --shadow-lg: 0 8px 24px rgba(18, 38, 63, 0.16);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================================
+   HEADER - Compact mobile header
+   ============================================================ */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background: linear-gradient(135deg, #102a43, #1f4e78);
+  color: white;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-md);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+header p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+
+main {
+  padding: 12px;
+  padding-bottom: 80px; /* Space for bottom nav */
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   CARDS & CONTENT BLOCKS
+   ============================================================ */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+}
+
+.card h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.card p {
+  margin: 0 0 12px 0;
+}
+
+.panel {
+  display: none;
+}
+
+.panel.active {
+  display: block;
+}
+
+.inventory-hub-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.inventory-hub-box {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 14px;
+  text-align: left;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-hub-box span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.inventory-hub-box b {
+  color: var(--primary);
+  font-size: 18px;
+}
+
+.drawer-section {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin: 14px 0 4px;
+  text-transform: uppercase;
+}
+
+.warehouse-link-panel {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.view-nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.view-nav h2 {
+  margin: 0;
+}
+
+/* ============================================================
+   INVENTORY CARDS (MOBILE-OPTIMIZED)
+   ============================================================ */
+
+.inventory-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 10px;
+}
+
+.inventory-card-header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.inventory-card-photo {
+  width: 60px;
+  height: 60px;
+  min-width: 60px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f0f0f0;
+  border: 1px solid var(--line);
+}
+
+.inventory-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.inventory-card-pn {
+  font-weight: 700;
+  font-size: 15px;
+  word-break: break-all;
+}
+
+.inventory-card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.3;
+  margin: 2px 0;
+}
+
+.inventory-card-location {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.inventory-card-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e7edf6;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+.inventory-card-status.MATCHED {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.inventory-card-status.MISMATCH {
+  background: #fee4e2;
+  color: var(--danger);
+}
+
+.inventory-card-status.MISSING_FROM_SHELF {
+  background: #fee4e2;
+  color: var(--danger);
+}
+
+.inventory-card-status.FOUND_NOT_IN_ERP {
+  background: #fff4d6;
+  color: var(--warning);
+}
+
+.inventory-card-qty {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.qty-item {
+  text-align: center;
+}
+
+.qty-item-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.qty-item-value {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--primary);
+}
+
+.inventory-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.inventory-card-qtybox {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  gap: 6px;
+  align-items: center;
+}
+
+.inventory-card-qtybox button {
+  min-height: 44px;
+  padding: 0;
+}
+
+.inventory-card-qtybox input {
+  text-align: center;
+}
+
+/* ============================================================
+   BUTTONS & TOUCH TARGETS
+   ============================================================ */
+
+button, .button {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  background: var(--primary);
+  color: white;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button:active { 
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button.secondary { background: var(--accent); }
+button.light { background: #e7edf6; color: var(--ink); }
+button.danger { background: var(--danger); }
+button.warning { background: var(--warning); }
+
+a.button {
+  text-decoration: none;
+  display: inline-flex;
+}
+
+/* ============================================================
+   FORMS & INPUTS
+   ============================================================ */
+
+input, select, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 16px;
+  font-family: inherit;
+  background: white;
+  color: var(--ink);
+  min-height: 44px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(31, 78, 120, 0.1);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ============================================================
+   SEARCH & TOOLBAR
+   ============================================================ */
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+  background: white;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+.toolbar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.toolbar-actions button {
+  min-height: 44px;
+}
+
+/* ============================================================
+   TABLES (DESKTOP ONLY)
+   ============================================================ */
+
+.table-wrap {
+  display: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 13px;
+}
+
+th {
+  background: #eaf1f8;
+  color: #102a43;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  font-weight: 700;
+}
+
+/* ============================================================
+   MODALS & OVERLAYS
+   ============================================================ */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  z-index: 50;
+  animation: slideUp 0.3s ease;
+}
+
+.modal.open {
+  display: flex;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-card {
+  background: white;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-card h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.wide {
+  grid-column: span 1;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.actions button {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* ============================================================
+   SCANNER BOX
+   ============================================================ */
+
+#scannerBox {
+  display: none;
+  margin: 12px 0;
+  border: 2px dashed var(--primary);
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+#scannerBox.active {
+  display: block;
+}
+
+#reader {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   DRAWER (MOBILE MENU)
+   ============================================================ */
+
+.burger {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
+  background: var(--primary);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.drawer {
+  position: fixed;
+  left: -100vw;
+  top: 0;
+  bottom: 0;
+  width: 85vw;
+  background: white;
+  z-index: 40;
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+  overflow-y: auto;
+  transition: left 0.3s ease;
+  border-right: 1px solid var(--line);
+}
+
+.drawer.open {
+  left: 0;
+}
+
+.drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 35;
+}
+
+.drawer-backdrop.open {
+  display: block;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.drawer button {
+  width: 100%;
+  margin: 6px 0;
+  text-align: left;
+  padding: 12px;
+  min-height: 48px;
+  background: #f5f7fb;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drawer button:active {
+  background: #e7edf6;
+}
+
+.drawer-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.drawer-metric {
+  background: #f5f7fb;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.drawer-metric span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.drawer-metric b {
+  display: block;
+  font-size: 18px;
+  color: var(--primary);
+}
+
+/* ============================================================
+   BOTTOM NAVIGATION (MOBILE)
+   ============================================================ */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  z-index: 25;
+  box-shadow: 0 -2px 8px rgba(18, 38, 63, 0.08);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  min-height: 60px;
+  cursor: pointer;
+  border: none;
+  background: white;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.nav-item.active {
+  color: var(--primary);
+}
+
+.nav-icon {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+/* ============================================================
+   FLOATING ACTION BUTTON (FAB)
+   ============================================================ */
+
+.fab {
+  position: fixed;
+  bottom: 76px;
+  right: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  z-index: 26;
+  transition: all 0.2s ease;
+}
+
+.fab:active {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   METRICS & DASHBOARD
+   ============================================================ */
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.metric {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.metric b {
+  display: block;
+  font-size: 18px;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.metric span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ============================================================
+   STATUS INDICATORS
+   ============================================================ */
+
+.status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: #e7edf6;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   SMALL TEXT & HELPERS
+   ============================================================ */
+
+.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 12px 0;
+}
+
+/* ============================================================
+   LOOKUP ROWS
+   ============================================================ */
+
+.lookup-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lookup-row a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* ============================================================
+   QUANTITY BOX
+   ============================================================ */
+
+.qtybox {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px 60px;
+  gap: 6px;
+  align-items: center;
+}
+
+.qtybox input {
+  text-align: center;
+  min-height: 44px;
+}
+
+.qtybox button {
+  min-height: 44px;
+  padding: 0;
+}
+
+/* ============================================================
+   TRANSACTION & PO LINES
+   ============================================================ */
+
+.tx-line, .po-line {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+/* ============================================================
+   RESPONSIVE LAYOUT - TABLET (768px+)
+   ============================================================ */
+
+@media (min-width: 768px) {
+  main {
+    padding-bottom: 20px;
+  }
+
+  .toolbar {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    padding: 16px;
+  }
+
+  .toolbar-actions {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-grid.wide {
+    grid-column: span 2;
+  }
+
+  .wide {
+    grid-column: span 1;
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .fab {
+    display: none;
+  }
+
+  .inventory-card-actions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE LAYOUT - DESKTOP (1024px+)
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  header {
+    padding: 14px 20px;
+  }
+
+  header h1 {
+    font-size: 22px;
+  }
+
+  main {
+    padding: 20px;
+    margin-left: 320px;
+    padding-left: 24px;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(200px, 1.5fr) repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .form-grid.wide {
+    grid-column: span 3;
+  }
+
+  .wide {
+    grid-column: span 3;
+  }
+
+  .actions {
+    justify-content: flex-end;
+  }
+
+  .actions button {
+    flex: 0 1 auto;
+    min-width: auto;
+  }
+
+  /* Show table view on desktop */
+  .inventory-card {
+    display: none;
+  }
+
+  .table-wrap {
+    display: block;
+    max-height: 650px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+
+  .table-wrap table {
+    min-width: 1200px;
+  }
+
+  .burger {
+    display: flex;
+  }
+
+  .drawer {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    min-height: 100vh;
+    border-right: 1px solid var(--line);
+  }
+
+  .drawer-backdrop {
+    display: none !important;
+  }
+
+  .modal {
+    align-items: center;
+    padding: 16px;
+  }
+
+  .modal-card {
+    width: min(900px, 90%);
+    max-height: 90vh;
+    border-radius: 20px;
+  }
+
+  .inventory-card-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+body{
+line-height:1.4;
+}
+
+header{
+padding:18px 16px;
+position:sticky;
+top:0;
+z-index:15;
+box-shadow:0 4px 18px rgba(0,0,0,.12);
+}
+
+header p{
+font-size:14px;
+max-width:850px;
+}
+
+main{
+padding:14px;
+}
+
+.card{
+border-radius:16px;
+}
+
+.toolbar{
+grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+}
+
+.compact-toolbar{
+margin-top:10px;
+}
+
+.table-wrap{
+background:white;
+border-radius:16px;
+overflow:auto;
+}
+
+th{
+font-size:12px;
+letter-spacing:.3px;
+}
+
+td{
+font-size:13px;
+}
+
+button{
+transition:.15s ease;
+}
+
+button:hover{
+transform:translateY(-1px);
+opacity:.96;
+}
+
+.tabs{
+position:sticky;
+top:82px;
+z-index:10;
+background:var(--bg);
+padding-bottom:8px;
+}
+
+.tabs button{
+border-radius:999px;
+padding:10px 16px;
+}
+
+.metric{
+text-align:center;
+padding:18px 10px;
+}
+
+.metric b{
+font-size:28px;
+}
+
+.qtybox{
+align-items:center;
+}
+
+.qtybox button{
+padding:8px 10px;
+min-height:auto;
+}
+
+.modal-card{
+border-radius:20px;
+}
+
+@media(max-width:900px){
+
+header{
+padding:14px;
+}
+
+header h1{
+font-size:24px;
+}
+
+.tabs{
+top:74px;
+overflow:auto;
+padding-bottom:10px;
+}
+
+.tabs button{
+white-space:nowrap;
+width:auto;
+flex:0 0 auto;
+}
+
+.toolbar{
+grid-template-columns:1fr;
+gap:8px;
+}
+
+.table-wrap{
+overflow:visible;
+background:transparent;
+border:none;
+}
+
+tr{
+padding:12px;
+border-radius:18px;
+}
+
+td{
+grid-template-columns:110px 1fr;
+padding:5px 0;
+}
+
+td.actions-cell{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+}
+
+td.actions-cell button,
+td.actions-cell a{
+width:100%;
+text-align:center;
+}
+
+.qtybox{
+grid-template-columns:48px 1fr 48px;
+}
+
+.qtybox input{
+width:100%;
+text-align:center;
+}
+
+.modal{
+padding:10px;
+}
+
+.modal-card{
+padding:16px;
+max-height:96vh;
+}
+
+.form-grid{
+gap:10px;
+}
+
+.photo-thumb{
+width:64px;
+height:64px;
+}
+
+}
+
+
+#cleanInventory h2{
+margin-top:0;
+}
+#cleanInventory table{
+min-width:760px;
+}
+#cleanItems td[data-label="Minimum Stock"]{
+font-size:15px;
+}
+@media(max-width:900px){
+#cleanInventory table{
+min-width:unset;
+}
+#cleanInventory tr{
+border-left:5px solid var(--primary);
+}
+#cleanItems td[data-label="Minimum Stock"] b{
+font-size:20px;
+color:var(--primary);
+}
+}
+
+.tx-line,.po-line{
+background:#f8fafc;
+border:1px solid var(--line);
+border-radius:16px;
+padding:12px;
+margin-bottom:10px;
+}
+@media(max-width:900px){
+.tx-line,.po-line{
+display:block;
+}
+.tx-line label,.po-line label{
+display:block;
+margin-bottom:10px;
+}
+}
+
+.burger{
+position:fixed;
+left:16px;
+top:88px;
+z-index:1000;
+display:flex;
+align-items:center;
+justify-content:center;
+width:48px;
+height:48px;
+border-radius:50%;
+box-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+
+.drawer{
+position:fixed;
+left:-320px;
+top:0;
+bottom:0;
+width:300px;
+background:#ffffff;
+z-index:999;
+box-shadow:12px 0 35px rgba(0,0,0,.18);
+padding:16px;
+transition:.2s ease;
+overflow-y:auto;
+border-right:1px solid var(--line);
+}
+
+.drawer.open{
+left:0;
+}
+
+.drawer-backdrop{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(15,23,42,.35);
+z-index:35;
+}
+
+.drawer-backdrop.open{
+display:block;
+}
+
+.drawer-header{
+display:flex;
+align-items:center;
+justify-content:space-between;
+margin-bottom:12px;
+font-size:18px;
+}
+
+.drawer button{
+width:100%;
+margin:5px 0;
+text-align:left;
+}
+
+.drawer-metrics{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-bottom:12px;
+}
+
+.drawer-metric{
+background:#f5f7fb;
+border:1px solid var(--line);
+border-radius:12px;
+padding:10px;
+}
+
+.drawer-metric span{
+display:block;
+font-size:11px;
+color:var(--muted);
+}
+
+.drawer-metric b{
+display:block;
+font-size:18px;
+margin-top:4px;
+}
+
+main{
+padding-left:0;
+}
+
+@media(max-width:900px){
+.burger{
+top:80px;
+left:12px;
+}
+main{
+padding-left:12px;
+padding-top:70px;
+}
+.drawer{
+width:86vw;
+left:-90vw;
+}
+}
+
+</style>
+</head>
+<body>
+<header><div style='display:flex;justify-content:space-between;gap:12px;align-items:flex-start'><div><h1>CMM Warehouse</h1><p>Equipment, spare parts, accessories, minimum stock, stock control, barcode transactions, and audit history.</p></div><div style='display:flex;gap:10px;align-items:center'><a href='/portal' style='color:white;font-weight:700;text-decoration:none'>Home</a><a href='/procurement' style='color:white;font-weight:700;text-decoration:none'>Procurement</a><a href='/logout' style='color:white;font-weight:700;text-decoration:none'>Logout</a></div></div></header>
+<main>
+
+<button class="burger" onclick="toggleDrawer()">☰</button>
+<aside id="drawer" class="drawer">
+  <div class="drawer-header">
+    <b>Warehouse Menu</b>
+    <button class="light" onclick="toggleDrawer()">×</button>
+  </div>
+  <div class="drawer-metrics" id="metrics"></div>
+  <hr>
+  <div class="drawer-section">ERP Pages</div>
+  <button onclick="window.location='/'">Home</button>
+  <button onclick="window.location='/dashboard'">Dashboard</button>
+  <button onclick="window.location='/crm'">Dashboard History</button>
+  <button onclick="window.location='/sales'">Sales</button>
+  <button onclick="window.location='/procurement'">Procurement</button>
+  <button onclick="window.location='/warehouse'">Warehouse</button>
+  <button onclick="window.location='/aftersales'">After Sales</button>
+  <button onclick="window.location='/aftersales/pm'">PM</button>
+  <button onclick="window.location='/finance'">Finance</button>
+  <button onclick="window.location='/reports'">Reports</button>
+  <button onclick="window.location='/administration'">Administration</button>
+  <button onclick="window.location='/imports'">Imports</button>
+  <div class="drawer-section">Warehouse Views</div>
+  <button onclick="showPanel('inventoryHub');toggleDrawer(false)">Warehouse Home</button>
+  <button onclick="window.location='/equipment-database'">Equipment Database</button>
+  <button onclick="openInventoryCategory('spare_parts');toggleDrawer(false)">Spare Parts</button>
+  <button onclick="openInventoryCategory('accessories');toggleDrawer(false)">Accessories</button>
+  <button onclick="showPanel('minimumStock');toggleDrawer(false)">Minimum Stock</button>
+  <div class="drawer-section">Operations</div>
+  <button onclick="showPanel('cleanInventory');toggleDrawer(false)">Clean Stock View</button>
+  <button onclick="showPanel('transaction');toggleDrawer(false)">In / Out Transactions</button>
+  <button onclick="window.location='/procurement?tab=clientOrders'">Client Orders in ERP</button>
+  <button onclick="window.location='/procurement?tab=purchaseOrders'">Purchase Orders in ERP</button>
+  <button onclick="showPanel('history');toggleDrawer(false)">Audit History</button>
+  <div class="drawer-section">Outputs</div>
+  <button class="light" onclick="showPanel('inventoryReports');toggleDrawer(false)">Reports / Exports</button>
+  <button class="light" onclick="window.open('/api/qr-labels','_blank')">Generate QR Labels</button>
+</aside>
+<div id="drawerBackdrop" class="drawer-backdrop" onclick="toggleDrawer(false)"></div>
+
+
+<section class="card panel active" id="inventoryHub">
+<div class="page-hero">
+  <div>
+    <h2>Warehouse</h2>
+    <p class="small">Stock items are tracked after Customer Order approval, with CO and PO references for fulfillment.</p>
+  </div>
+  <button class="secondary" onclick="openForm()">Add Stock Item</button>
+</div>
+<div class="warehouse-kpi-grid">
+  <div class="metric-card"><small>Total Stock Items</small><strong id="warehouseTotalStock">--</strong><span class="small">Tracked warehouse rows</span></div>
+  <div class="metric-card"><small>Pending Reception</small><strong id="warehousePendingReception">--</strong><span class="small">PO or shipment items due in</span></div>
+  <div class="metric-card"><small>Pending Delivery</small><strong id="warehousePendingDelivery">--</strong><span class="small">Customer orders waiting out</span></div>
+  <div class="metric-card"><small>Below Minimum Stock</small><strong id="warehouseBelowMinimum">--</strong><span class="small">Needs replenishment review</span></div>
+</div>
+<div class="warehouse-tabs" aria-label="Warehouse tabs">
+  <button class="active" type="button" onclick="showPanel('cleanInventory')">Stock Items</button>
+  <button type="button" onclick="showPanel('po')">Receptions</button>
+  <button type="button" onclick="showPanel('clientOrders')">Delivery Orders</button>
+  <button type="button" onclick="showPanel('minimumStock')">Minimum Stock Alerts</button>
+</div>
+<div class="inventory-hub-grid">
+  <button class="inventory-hub-box" type="button" onclick="window.location='/equipment-database'">
+    <b>Equipment Database</b>
+    <span>Equipment database with systems, subsystems, end user, installation, warranty, delivery documents, supplies, PM, and service history.</span>
+  </button>
+  <button class="inventory-hub-box" type="button" onclick="openInventoryCategory('spare_parts')">
+    <b>Spare Parts</b>
+    <span>Current spare-parts stock view with PN, barcode, description, location, expected and physical quantities, status, photo, and notes.</span>
+  </button>
+  <button class="inventory-hub-box" type="button" onclick="openInventoryCategory('accessories')">
+    <b>Accessories</b>
+    <span>Accessory stock view using the same fields and controls as spare parts.</span>
+  </button>
+  <button class="inventory-hub-box" type="button" onclick="showPanel('minimumStock')">
+    <b>Minimum Stock</b>
+    <span>Low-stock warehouse items with one-click replenishment requests for Procurement.</span>
+  </button>
+</div>
+</section>
+
+<section class="card panel" id="minimumStock">
+<div class="view-nav"><h2>Minimum Stock</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Items below their minimum stock level can be sent to Procurement as replenishment requests.</p>
+<div class="toolbar">
+<input id="minimumStockSearch" placeholder="Search PN, description, location..." />
+<button onclick="loadMinimumStock()">Search Minimum Stock</button>
+<button class="light" onclick="window.location='/procurement'">Open Procurement</button>
+</div>
+<div class="table-wrap"><table><thead><tr><th>PN</th><th>Description</th><th>Location</th><th>Current</th><th>Minimum</th><th>Suggested Replenishment</th><th>Action</th></tr></thead><tbody id="minimumStockRows"></tbody></table></div>
+</section>
+
+<section class="card panel" id="cleanInventory">
+<div class="view-nav"><h2>Clean Warehouse View</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Simple stock view showing expected quantity only, without audit/reconciliation editing fields.</p>
+
+<div class="toolbar">
+<input id="cleanSearch" placeholder="Search PN, barcode, description..." />
+<input id="cleanLocation" placeholder="Location e.g. C4" />
+<button onclick="loadCleanInventory()">Search Clean Stock</button>
+<button class="warning" onclick="startCleanScanner()">Scan Clean Stock Barcode</button>
+<button class="light" onclick="window.open('/api/qr-labels','_blank')">QR Labels</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Photo</th>
+<th>PN</th>
+<th>Description</th>
+<th>Minimum Stock</th>
+<th>Barcode</th>
+<th>Location</th>
+<th>QR</th>
+</tr>
+</thead>
+<tbody id="cleanItems"></tbody>
+</table>
+</div>
+</section>
+
+
+<section class="card panel" id="inventory">
+<div class="view-nav"><h2 id="inventoryTitle">Spare Parts Warehouse</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<div class="toolbar">
+<input id="search" placeholder="Search PN, barcode, description, family..." />
+<select id="status"><option value="">All statuses</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select>
+<input id="location" placeholder="Location e.g. C4" />
+<button onclick="loadItems()">Search Audit Stock</button><button class="warning" onclick="startSearchScanner()">Scan Audit Barcode</button><button class="warning" onclick="startAuditScanner()">Quick Scan PN/Description</button><button class="secondary" onclick="openForm()">Add Item</button><button class="light" onclick="downloadExcel()">Export Excel</button><button class="light" onclick="syncExport()">Sync Warehouse</button><button class="secondary" onclick="approveAudit()">Approve Audit → Minimum Stock</button>
+</div>
+<div id="scannerBox"><div id="reader"></div><div class="actions"><button class="light" onclick="stopScanner()">Stop Scanner</button></div></div>
+
+<div class="toolbar compact-toolbar">
+<select id="report">
+<option value="">Master Warehouse</option>
+<option value="missing">Missing from Shelf</option>
+<option value="found">Found not in ERP</option>
+<option value="stale">Dead / Stale Warehouse Stock</option>
+<option value="mismatch">Quantity Mismatches</option>
+<option value="multi-location">Present in Multiple Locations</option>
+</select>
+<button onclick="loadReport()">Open Report</button>
+<input type="file" id="excelFile" accept=".xlsx,.xls" />
+<button class="light" onclick="uploadExcel()">Import Excel</button>
+<span class="small" id="syncInfo"></span>
+</div>
+
+<div class="table-wrap"><table><thead><tr><th>Photo</th><th>PN</th><th>Barcode</th><th>Description</th><th>Location</th><th>Minimum Stock</th><th>Physical Qty</th><th>Quick Qty</th><th>Diff</th><th>Status</th><th>Action</th></tr></thead><tbody id="items"></tbody></table></div>
+</section>
+
+
+<section class="card panel" id="transaction">
+<div class="view-nav"><h2>Stock Transaction In / Out</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Use Purchase Order for IN transactions and Client Order for OUT transactions. Add multiple items using the plus button.</p>
+
+<div class="form-grid">
+<label>Direction
+<select id="txDirection" onchange="updateTransactionReferenceFields()">
+<option value="IN">IN - Receive / Purchase</option>
+<option value="OUT">OUT - Issue / Client Order</option>
+</select>
+</label>
+
+<label id="txPOLabel">Purchase Order No. for IN<input id="txPO" placeholder="PO-2026-001" /></label>
+<label id="txClientOrderLabel">Client Order No. for OUT<input id="txClientOrder" placeholder="CO-2026-001" /></label>
+<label id="txClientNameLabel">Client / Hospital Name<input id="txClientName" placeholder="Hospital / customer name" /></label>
+
+<label class="wide">Transaction Notes<textarea id="txNotes"></textarea></label>
+</div>
+
+<h3>Transaction Items</h3>
+<div id="txLines"></div>
+
+<div class="actions">
+<button class="light" onclick="addTxLine()">+ Add Item</button>
+<button class="warning" onclick="startTxScanner()">Scan Transaction Barcode</button>
+<button onclick="saveBulkTransaction()">Save Bulk Transaction</button>
+<button class="light" onclick="downloadCurrentTransactionReference()">Download PO/CO Excel</button>
+</div>
+
+<h3>Recent Transactions</h3>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>PN</th><th>Barcode</th><th>Direction</th><th>Qty</th><th>Old Qty</th><th>New Qty</th><th>PO</th><th>Client Order</th><th>Client</th><th>Notes</th></tr></thead><tbody id="transactions"></tbody></table></div>
+</section>
+
+<section class="card panel" id="po">
+<div class="view-nav"><h2>Purchase Orders</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Purchase order tracking now lives in Procurement.</p>
+<div class="warehouse-link-panel"><button onclick="window.location='/procurement?tab=purchaseOrders'">Open Purchase Orders in ERP</button><button class="light" onclick="window.location='/procurement?tab=shipping'">Open Shipping</button><button class="light" onclick="window.location='/procurement?tab=reception'">Open Reception</button></div>
+</section>
+
+<section class="card panel" id="clientOrders">
+<div class="view-nav"><h2>Client Orders</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Client order tracking now lives in Procurement.</p>
+<div class="warehouse-link-panel"><button onclick="window.location='/procurement?tab=clientOrders'">Open Client Orders in ERP</button><button class="light" onclick="window.location='/sales'">Open Sales</button></div>
+</section>
+
+<section class="card panel" id="inventoryReports">
+<div class="view-nav"><h2>Reports / Exports</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<p class="small">Warehouse reports and Excel exports for stock, transactions, purchase orders, client orders, and audit history.</p>
+<div class="grid">
+<button onclick="downloadExcel()">Download Master Excel Export</button>
+<button class="light" onclick="syncExport()">Sync Warehouse Export</button>
+<button class="secondary" onclick="loadReportFromMenu('missing')">Missing from Shelf</button>
+<button class="secondary" onclick="loadReportFromMenu('found')">Found not in ERP</button>
+<button class="secondary" onclick="loadReportFromMenu('stale')">Dead / Stale Warehouse Stock</button>
+<button class="secondary" onclick="loadReportFromMenu('mismatch')">Quantity Mismatches</button>
+<button class="secondary" onclick="loadReportFromMenu('multi-location')">Multiple Locations</button>
+<button class="light" onclick="window.open('/api/qr-labels','_blank')">QR Labels</button>
+</div>
+</section>
+
+<section class="card panel" id="history">
+<div class="view-nav"><h2>Audit Trail / History</h2><button class="light" onclick="showPanel('inventoryHub')">Back to Warehouse</button></div>
+<button onclick="loadAudit()">Refresh History</button>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Item ID</th><th>Action</th><th>Old</th><th>New</th><th>Notes</th></tr></thead><tbody id="audit"></tbody></table></div>
+</section>
+</main>
+
+<div class="modal" id="modal"><div class="modal-card">
+<h2 id="modalTitle">Add Warehouse Item</h2><input type="hidden" id="itemId" />
+<div class="form-grid">
+<label>PN<input id="pn" /></label>
+<label>Barcode<div class="lookup-row"><input id="barcode" /><button type="button" class="warning" onclick="startFormScanner()">Scan</button></div></label>
+<label>Location<input id="itemLocation" /></label>
+<label class="wide">Description<input id="description" /></label>
+<label>Minimum Stock<input id="systemQty" type="number" value="0" /></label><label>Physical Qty<input id="physicalQty" type="number" value="0" /></label><label>Device Family<input id="family" /></label>
+<label>Status<select id="itemStatus"><option value="">Auto</option><option value="MATCHED">Matched</option><option value="MISMATCH">Mismatch</option><option value="MISSING_FROM_SHELF">Missing from shelf</option><option value="FOUND_NOT_IN_ERP">Found not in ERP</option></select></label>
+<label>Warehouse Type<select id="itemCategory"><option value="spare_parts">Spare part</option><option value="accessories">Accessory</option></select></label>
+<label>Photo Upload<input id="photoFile" type="file" accept="image/*" capture="environment" /></label><label>Photo URL<input id="photoUrl" /></label>
+<label class="wide">Lookup<div class="lookup-row"><button type="button" class="light" onclick="openLookup()">Search description online</button><a id="lookupLink" href="#" target="_blank" rel="noopener">Open lookup</a></div></label>
+<label class="wide">Notes<textarea id="notes"></textarea></label>
+</div><div class="actions"><button class="light" onclick="closeForm()">Cancel</button><button onclick="saveItem()">Save</button></div>
+</div></div>
+
+<script>
+let currentItems=[],html5QrCode=null,scanTarget="search",currentInventoryCategory="spare_parts";
+function toggleDrawer(force){
+ const drawer=document.getElementById("drawer");
+ const backdrop=document.getElementById("drawerBackdrop");
+ const open = force === undefined ? !drawer.classList.contains("open") : force;
+ drawer.classList.toggle("open", open);
+ backdrop.classList.toggle("open", open);
+}
+
+function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]))}
+async function api(url,options={}){const res=await fetch(url,options);if(!res.ok)throw new Error(await res.text());return res.json()}
+function inventoryCategoryLabel(){return currentInventoryCategory==="accessories"?"Accessories Warehouse":"Spare Parts Warehouse"}
+function openInventoryCategory(category){currentInventoryCategory=category==="accessories"?"accessories":"spare_parts";showPanel("inventory")}
+function showPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.warehouse-tabs button').forEach(b=>b.classList.remove('active'));const tabMap={cleanInventory:0,po:1,clientOrders:2,minimumStock:3};const tabIndex=tabMap[id];if(tabIndex!==undefined){const tab=document.querySelectorAll('.warehouse-tabs button')[tabIndex];if(tab)tab.classList.add('active')}if(id==='inventoryHub')loadDashboard();if(id==='minimumStock')loadMinimumStock();if(id==='cleanInventory')loadCleanInventory();if(id==='inventory'){document.getElementById("inventoryTitle").textContent=inventoryCategoryLabel();loadItems()}if(id==='transaction')loadTransactions();if(id==='history')loadAudit()}
+async function loadDashboard(){const d=await api("/api/dashboard");const metrics=[["Records",d.total_records],["Unique PN",d.unique_pn],["Locations",d.locations],["Mismatches",d.mismatches],["Multi-location",d.present_in_two_places],["Transactions",d.transactions],["POs",d.purchase_orders],["Client Orders",d.client_orders],["Audit Events",d.audit_events],["Photos",d.with_photos],["Barcodes",d.with_barcodes]];const drawerMetrics=document.getElementById("metrics");if(drawerMetrics)drawerMetrics.innerHTML=metrics.map(m=>`<div class="drawer-metric"><span>${esc(m[0])}</span><b>${esc(m[1]??0)}</b></div>`).join("");const total=document.getElementById("warehouseTotalStock"),reception=document.getElementById("warehousePendingReception"),delivery=document.getElementById("warehousePendingDelivery"),below=document.getElementById("warehouseBelowMinimum");if(total)total.textContent=esc(d.total_records??0);if(reception)reception.textContent=esc(d.purchase_orders??0);if(delivery)delivery.textContent=esc(d.client_orders??0);if(below)below.textContent=esc(d.below_minimum_stock??d.mismatches??0);document.getElementById("syncInfo").textContent=d.excel_path?`Excel: ${d.excel_path}`:""}
+async function loadItems(){const q=encodeURIComponent(document.getElementById("search").value),status=encodeURIComponent(document.getElementById("status").value),location=encodeURIComponent(document.getElementById("location").value);currentItems=await api(`/api/items?q=${q}&status=${status}&location=${location}&category=${currentInventoryCategory}`);renderItems(currentItems);loadDashboard()}
+async function loadReport(){const report=document.getElementById("report").value;if(!report)return loadItems();currentItems=await api(`/api/report/${report}`);renderItems(currentItems)}
+function googleLookupUrl(pn,description){const q=`${pn||""} ${description||""} biomedical spare part GE Healthcare`.trim();return`https://www.google.com/search?q=${encodeURIComponent(q)}`}
+
+async function loadMinimumStock(){
+ const d=await api("/api/procurement/dashboard");
+ const q=(document.getElementById("minimumStockSearch")?.value||"").toLowerCase();
+ const rows=(d.minimum_stock_alerts||[]).filter(x=>!q||[x.pn,x.description,x.location,x.supplier].join(" ").toLowerCase().includes(q));
+ document.getElementById("minimumStockRows").innerHTML=rows.map(x=>`<tr>
+  <td>${esc(x.pn)}</td><td>${esc(x.description)}</td><td>${esc(x.location)}</td>
+  <td>${esc(x.current_quantity)}</td><td>${esc(x.minimum_quantity)}</td><td>${esc(x.suggested_reorder_quantity)}</td>
+  <td><button onclick="requestReplenishment(${Number(x.id)},${Number(x.suggested_reorder_quantity)||1})">Request Replenishment</button></td>
+ </tr>`).join("")||`<tr><td colspan="7">No items below minimum stock.</td></tr>`;
+}
+
+async function requestReplenishment(itemId,qty){
+ const supplier=prompt("Supplier for replenishment request (optional)")||"";
+ const res=await api("/api/warehouse/replenishment-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({inventory_item_id:itemId,requested_qty:qty,supplier,notes:"Created from Warehouse minimum stock"})});
+ await loadMinimumStock();
+ alert(res.message||"Replenishment request created");
+}
+
+async function loadCleanInventory(){
+ const q=encodeURIComponent(document.getElementById("cleanSearch").value);
+ const location=encodeURIComponent(document.getElementById("cleanLocation").value);
+ const rows=await api(`/api/clean-inventory?q=${q}&location=${location}&category=${currentInventoryCategory}`);
+ document.getElementById("cleanItems").innerHTML=rows.map(item=>{
+   const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";
+   return `<tr>
+    <td data-label="Photo">${photo}</td>
+    <td data-label="PN"><b>${esc(item.pn)}</b></td>
+    <td data-label="Description">${esc(item.description)}</td>
+    <td data-label="Minimum Stock"><b>${esc(item.expected_qty)}</b></td>
+    <td data-label="Barcode">${esc(item.barcode)}</td>
+    <td data-label="Location">${esc(item.location)}</td>
+    
+   </tr>`;
+ }).join("");
+}
+
+async function startCleanScanner(){
+ scanTarget="clean";
+ await startScanner();
+}
+
+async function startAuditScanner(){
+ scanTarget="auditQuick";
+ await startScanner();
+}
+
+function renderItems(items){document.getElementById("items").innerHTML=items.map(item=>{const lookup=item.lookup_url||googleLookupUrl(item.pn,item.description);const photo=item.photo_url?`<a href="${esc(item.photo_url)}" target="_blank"><img class="photo-thumb" src="${esc(item.photo_url)}" /></a>`:"";return`<tr><td data-label="Photo">${photo}</td><td data-label="PN"><b>${esc(item.pn)}</b></td><td data-label="Barcode">${esc(item.barcode)}</td><td data-label="Description">${esc(item.description)}</td><td data-label="Location">${esc(item.location)}</td><td data-label="Minimum Stock">${esc(item.system_qty)}</td><td data-label="Physical">${esc(item.physical_qty)}</td><td data-label="Quick Qty"><div class="qtybox"><button class="light" onclick="quickQty(${item.id},${Number(item.physical_qty)-1})">-</button><input id="qty${item.id}" type="number" value="${esc(item.physical_qty)}"><button class="light" onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value)+1)">+</button><button onclick="quickQty(${item.id},Number(document.getElementById('qty${item.id}').value))">Save</button></div></td><td data-label="Diff">${esc(item.difference)}</td><td data-label="Status"><span class="status ${esc(item.status)}">${esc(item.status)}</span></td><td class="actions-cell"><button class="light" onclick='openForm(${JSON.stringify(item)})'>Edit</button><button class="danger" onclick='deleteItem(${item.id})'>Delete</button><a href="${esc(lookup)}" target="_blank">Lookup</a></td></tr>`}).join("")}
+async function quickQty(id, qty){if(qty<0){alert("Quantity cannot be negative");return}await api(`/api/items/${id}/quantity`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({physical_qty:qty,reason:"Quick edit from warehouse table"})});await loadItems()}
+function updateLookupLink(){document.getElementById("lookupLink").href=googleLookupUrl(document.getElementById("pn").value,document.getElementById("description").value)}
+function openLookup(){updateLookupLink();window.open(document.getElementById("lookupLink").href,"_blank","noopener")}
+function openForm(item=null){document.getElementById("modal").classList.add("open");document.getElementById("modalTitle").textContent=item?"Edit Warehouse Item":"Add Warehouse Item";document.getElementById("itemId").value=item?.id||"";document.getElementById("pn").value=item?.pn||"";document.getElementById("barcode").value=item?.barcode||"";document.getElementById("description").value=item?.description||"";document.getElementById("itemLocation").value=item?.location||"";document.getElementById("systemQty").value=item?.system_qty||0;document.getElementById("physicalQty").value=item?.physical_qty||0;document.getElementById("family").value=item?.device_family||"";document.getElementById("itemStatus").value=item?.status||"";document.getElementById("itemCategory").value=item?.item_category||currentInventoryCategory;document.getElementById("notes").value=item?.notes||"";document.getElementById("photoUrl").value=item?.photo_url||"";document.getElementById("photoFile").value="";updateLookupLink()}
+function closeForm(){document.getElementById("modal").classList.remove("open")}
+async function saveItem(){const id=document.getElementById("itemId").value;const payload={pn:document.getElementById("pn").value,barcode:document.getElementById("barcode").value,description:document.getElementById("description").value,location:document.getElementById("itemLocation").value,system_qty:Number(document.getElementById("systemQty").value||0),physical_qty:Number(document.getElementById("physicalQty").value||0),device_family:document.getElementById("family").value,status:document.getElementById("itemStatus").value,item_category:document.getElementById("itemCategory").value,notes:document.getElementById("notes").value,photo_url:document.getElementById("photoUrl").value};const result=await api(id?`/api/items/${id}`:"/api/items",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});currentInventoryCategory=payload.item_category;const itemId=id||result.id;const photo=document.getElementById("photoFile").files[0];if(photo&&itemId){const form=new FormData();form.append("file",photo);await fetch(`/api/items/${itemId}/photo`,{method:"POST",body:form})}closeForm();await loadItems()}
+async function deleteItem(id){if(!confirm("Delete this item?"))return;await api(`/api/items/${id}`,{method:"DELETE"});await loadItems()}
+async function uploadExcel(){const file=document.getElementById("excelFile").files[0];if(!file)return alert("Choose an Excel file first.");const form=new FormData();form.append("file",file);await fetch("/api/import",{method:"POST",body:form});await loadItems();alert("Excel imported.")}
+async function syncExport(){await api("/api/sync/export",{method:"POST"});await loadDashboard();alert("Excel synced/exported.")}
+function downloadExcel(){window.location="/api/export"}
+function updateTransactionReferenceFields(){
+ const dir=document.getElementById("txDirection").value;
+ document.getElementById("txPOLabel").style.display = dir==="IN" ? "block" : "none";
+ document.getElementById("txClientOrderLabel").style.display = dir==="OUT" ? "block" : "none";
+ document.getElementById("txClientNameLabel").style.display = dir==="OUT" ? "block" : "none";
+}
+async function saveTransaction(){
+ const dir=document.getElementById("txDirection").value;
+ const payload={
+   barcode_or_pn:document.getElementById("txBarcode").value,
+   qty:Number(document.getElementById("txQty").value||1),
+   direction:dir,
+   purchase_order_no:dir==="IN" ? document.getElementById("txPO").value : "",
+   client_order_no:dir==="OUT" ? document.getElementById("txClientOrder").value : "",
+   client_name:dir==="OUT" ? document.getElementById("txClientName").value : "",
+   notes:document.getElementById("txNotes").value
+ };
+ if(dir==="IN" && !payload.purchase_order_no){alert("IN transaction requires a Purchase Order number");return}
+ if(dir==="OUT" && !payload.client_order_no){alert("OUT transaction requires a Client Order number");return}
+ await api("/api/transactions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ document.getElementById("txBarcode").value="";document.getElementById("txNotes").value="";
+ await loadItems();await loadTransactions();await loadDashboard();
+ alert("Transaction saved")
+}
+async function loadTransactions(){
+ const rows=await api("/api/transactions");
+ document.getElementById("transactions").innerHTML=rows.map(r=>`<tr><td>${esc(r.created_at)}</td><td>${esc(r.pn)}</td><td>${esc(r.barcode)}</td><td>${esc(r.direction)}</td><td>${esc(r.qty)}</td><td>${esc(r.old_qty)}</td><td>${esc(r.new_qty)}</td><td>${esc(r.purchase_order_no)}</td><td>${esc(r.client_order_no)}</td><td>${esc(r.client_name)}</td><td>${esc(r.notes)}</td></tr>`).join("")
+}
+async function savePO(){
+ const payload={po_no:document.getElementById("poNo").value,supplier:document.getElementById("poSupplier").value,status:document.getElementById("poStatus").value,expected_date:document.getElementById("poDate").value,notes:document.getElementById("poNotes").value};
+ const res=await api("/api/purchase-orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ await loadPOs(); await loadItems();
+ alert(`PO saved. Auto-received items: ${res.auto_received_items ?? 0}`);
+}
+async function addPOItem(){
+ const payload={
+   po_no:document.getElementById("poItemNo").value || document.getElementById("poNo").value,
+   pn:document.getElementById("poItemPN").value,
+   description:document.getElementById("poItemDesc").value,
+   qty:Number(document.getElementById("poItemQty").value || 1),
+   location:document.getElementById("poItemLocation").value,
+   barcode:document.getElementById("poItemBarcode").value,
+   device_family:document.getElementById("poItemFamily").value,
+   notes:document.getElementById("poItemNotes").value
+ };
+ if(!payload.po_no || !payload.pn){alert("PO No. and PN are required");return}
+ await api("/api/purchase-orders/items",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+ document.getElementById("poItemPN").value="";document.getElementById("poItemDesc").value="";document.getElementById("poItemQty").value=1;document.getElementById("poItemBarcode").value="";document.getElementById("poItemNotes").value="";
+ await loadPOs();
+ alert("Item added to PO");
+}
+async function bulkAddPOItems(){
+ const po_no=document.getElementById("bulkPoNo").value || document.getElementById("poNo").value || document.getElementById("poItemNo").value;
+ const text=document.getElementById("bulkPoItems").value;
+ if(!po_no){alert("PO No. is required");return}
+ if(!text.trim()){alert("Paste items first");return}
+ const res=await api("/api/purchase-orders/items/bulk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({po_no,text})});
+ document.getElementById("bulkPoNo").value=po_no;
+ document.getElementById("poNo").value=po_no;
+ document.getElementById("poItemNo").value=po_no;
+ document.getElementById("bulkPoItems").value="";
+ await loadPOs();
+ const errorText=res.errors && res.errors.length ? "\nErrors:\n"+res.errors.join("\n") : "";
+ alert(`Bulk add complete. Added: ${res.added}${errorText}`);
+}
+async function receivePO(){
+ const po=document.getElementById("poNo").value;
+ if(!po){alert("Enter/select a PO number first");return}
+ const res=await api(`/api/purchase-orders/${encodeURIComponent(po)}/receive`,{method:"POST"});
+ await loadPOs(); await loadItems();
+ alert(`PO received. Items added to stock: ${res.auto_received_items}`);
+}
+async function deletePOItem(id){
+ if(!confirm("Delete this PO item?"))return;
+ await api(`/api/purchase-orders/items/${id}`,{method:"DELETE"});
+ await loadPOs();
+}
+async function loadPOs(){
+ const rows=await api("/api/purchase-orders");
+ document.getElementById("pos").innerHTML=rows.map(r=>`<tr><td>${esc(r.po_no)}</td><td>${esc(r.supplier)}</td><td>${esc(r.status)}</td><td>${esc(r.expected_date)}</td><td>${esc(r.notes)}</td><td>${esc(r.updated_at)}</td><td><button class="light" onclick="selectPO('${esc(r.po_no)}','${esc(r.supplier)}','${esc(r.status)}','${esc(r.expected_date)}','${esc(r.notes)}')">Select</button><a href="/api/purchase-orders/${encodeURIComponent(r.po_no)}/export" target="_blank">Download</a></td></tr>`).join("");
+ const items=await api("/api/purchase-orders/items/all");
+ document.getElementById("poItems").innerHTML=items.map(i=>`<tr><td>${esc(i.po_no)}</td><td>${esc(i.pn)}</td><td>${esc(i.description)}</td><td>${esc(i.qty)}</td><td>${esc(i.received_qty)}</td><td>${esc(i.location)}</td><td>${esc(i.barcode)}</td><td>${Number(i.received)===1?"YES":"NO"}</td><td>${Number(i.received)===1?"":`<button class="danger" onclick="deletePOItem(${i.id})">Delete</button>`}</td></tr>`).join("");
+}
+function selectPO(po,supplier,status,date,notes){
+ document.getElementById("poNo").value=po;document.getElementById("poItemNo").value=po;
+ document.getElementById("poSupplier").value=supplier;document.getElementById("poStatus").value=status;
+ document.getElementById("poDate").value=date;document.getElementById("poNotes").value=notes;
+}
+async function loadClientOrders(){
+ const rows=await api("/api/client-orders");
+ document.getElementById("clientOrdersRows").innerHTML=rows.map(r=>`<tr><td>${esc(r.client_order_no)}</td><td>${esc(r.client_name)}</td><td>${esc(r.status)}</td><td>${esc(r.expected_date)}</td><td>${esc(r.notes)}</td><td>${esc(r.updated_at)}</td><td><a href="/api/client-orders/${encodeURIComponent(r.client_order_no)}/export" target="_blank">Download</a></td></tr>`).join("");
+}
+async function loadReportFromMenu(name){
+ document.getElementById("report").value=name;
+ showPanel("inventory");
+ await loadReport();
+}
+async function loadAudit(){const rows=await api("/api/audit");document.getElementById("audit").innerHTML=rows.map(r=>`<tr><td>${esc(r.created_at)}</td><td>${esc(r.item_id)}</td><td>${esc(r.action)}</td><td>${esc(r.old_value)}</td><td>${esc(r.new_value)}</td><td>${esc(r.notes)}</td></tr>`).join("")}
+async function startSearchScanner(){scanTarget="search";await startScanner()}async function startFormScanner(){scanTarget="form";await startScanner()}async function startTxScanner(){alert('For bulk transactions, please select items from the dropdown. Barcode-to-line selection can be added in the next upgrade.');}
+async function startScanner(){document.getElementById("scannerBox").style.display="block";if(!window.Html5Qrcode){alert("Scanner library did not load. Use manual entry.");return}if(html5QrCode)await stopScanner();html5QrCode=new Html5Qrcode("reader");const onSuccess=async decoded=>{if(scanTarget==="form"){
+ document.getElementById("barcode").value=decoded;
+}else if(scanTarget==="tx"){
+ alert('For bulk transactions, select items from the dropdown. Barcode-to-line selection can be added later.');
+}else if(scanTarget==="clean"){
+ document.getElementById("cleanSearch").value=decoded;
+ showPanel('cleanInventory');
+ await loadCleanInventory();
+}else if(scanTarget==="auditQuick"){
+ document.getElementById("search").value=decoded;
+ showPanel('inventory');
+ await loadItems();
+ const found=currentItems && currentItems.length ? currentItems[0] : null;
+ if(found){
+   alert(`Found:\nPN: ${found.pn}\nDescription: ${found.description}\nLocation: ${found.location}\nPhysical Qty: ${found.physical_qty}`);
+ }else{
+   alert('No matching item found for this scan.');
+ }
+}else{
+ document.getElementById("search").value=decoded;
+ await loadItems();
+}
+await stopScanner()};try{await html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:160}},onSuccess)}catch(err){alert("Camera scanner could not start. Use manual barcode entry.")}}
+async function stopScanner(){if(html5QrCode){try{await html5QrCode.stop();await html5QrCode.clear()}catch(e){}html5QrCode=null}document.getElementById("scannerBox").style.display="none"}
+
+let itemOptionsCache=[];
+
+async function loadItemOptions(){
+ itemOptionsCache=await api("/api/item-options?limit=1000");
+ return itemOptionsCache;
+}
+
+function itemOptionHTML(){
+ return itemOptionsCache.map(i=>`<option value="${i.id}">${esc(i.pn)} — ${esc(i.description)} — Loc: ${esc(i.location)} — Qty: ${esc(i.physical_qty)}</option>`).join("");
+}
+
+async function ensureOptions(){
+ if(!itemOptionsCache.length){await loadItemOptions();}
+}
+
+async function addTxLine(){
+ await ensureOptions();
+ const container=document.getElementById("txLines");
+ const id=`txline_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+ const div=document.createElement("div");
+ div.className="form-grid tx-line";
+ div.id=id;
+ div.innerHTML=`
+  <label class="wide">Item
+   <select class="txItem">${itemOptionHTML()}</select>
+  </label>
+  <label>Qty<input class="txQtyLine" type="number" min="1" value="1" /></label>
+  <label><span>&nbsp;</span><button type="button" class="danger" onclick="document.getElementById('${id}').remove()">Remove</button></label>
+ `;
+ container.appendChild(div);
+}
+
+async function saveBulkTransaction(){
+ const dir=document.getElementById("txDirection").value;
+ const purchase_order_no=dir==="IN" ? document.getElementById("txPO").value : "";
+ const client_order_no=dir==="OUT" ? document.getElementById("txClientOrder").value : "";
+ const client_name=dir==="OUT" ? document.getElementById("txClientName").value : "";
+ const notes=document.getElementById("txNotes").value;
+
+ if(dir==="IN" && !purchase_order_no){alert("IN transaction requires Purchase Order number");return}
+ if(dir==="OUT" && !client_order_no){alert("OUT transaction requires Client Order number");return}
+
+ const lines=[...document.querySelectorAll(".tx-line")].map(line=>({
+   item_id:Number(line.querySelector(".txItem").value),
+   qty:Number(line.querySelector(".txQtyLine").value || 1)
+ }));
+
+ if(!lines.length){alert("Add at least one item");return}
+
+ const res=await api("/api/transactions/bulk",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({direction:dir,purchase_order_no,client_order_no,client_name,notes,lines})
+ });
+
+ document.getElementById("txLines").innerHTML="";
+ await addTxLine();
+ await loadItems();
+ await loadCleanInventory();
+ await loadTransactions();
+ await loadDashboard();
+
+ const errors=res.errors&&res.errors.length ? "\nErrors:\n"+res.errors.join("\n") : "";
+ alert(`Bulk transaction saved. Processed: ${res.processed}${errors}`);
+}
+
+async function addPOLine(){
+ await ensureOptions();
+ const container=document.getElementById("poLines");
+ const id=`poline_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+ const div=document.createElement("div");
+ div.className="form-grid po-line";
+ div.id=id;
+ div.innerHTML=`
+  <label class="wide">Item
+   <select class="poItemSelect">${itemOptionHTML()}</select>
+  </label>
+  <label>Qty<input class="poQtyLine" type="number" min="1" value="1" /></label>
+  <label><span>&nbsp;</span><button type="button" class="danger" onclick="document.getElementById('${id}').remove()">Remove</button></label>
+ `;
+ container.appendChild(div);
+}
+
+async function savePOLines(){
+ const po_no=document.getElementById("poNo").value || document.getElementById("poItemNo")?.value;
+ if(!po_no){alert("Enter/select a PO number first");return}
+ await ensureOptions();
+
+ const rows=[...document.querySelectorAll(".po-line")];
+ if(!rows.length){alert("Add at least one PO item");return}
+
+ let added=0;
+ for(const row of rows){
+   const itemId=Number(row.querySelector(".poItemSelect").value);
+   const qty=Number(row.querySelector(".poQtyLine").value || 1);
+   const item=itemOptionsCache.find(x=>Number(x.id)===itemId);
+   if(!item) continue;
+   await api("/api/purchase-orders/items",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+       po_no,
+       pn:item.pn,
+       description:item.description,
+       qty,
+       location:item.location,
+       barcode:item.barcode,
+       device_family:"",
+       notes:"Added from dropdown selection"
+     })
+   });
+   added++;
+ }
+ document.getElementById("poLines").innerHTML="";
+ await addPOLine();
+ await loadPOs();
+ alert(`Added ${added} item(s) to PO`);
+}
+
+async function approveAudit(){
+ if(!confirm("This will set Minimum Stock = approved Physical Qty for ALL warehouse items and generate a mismatch report. Continue?")) return;
+ const res=await api("/api/audit/approve-physical-as-expected",{method:"POST"});
+ await loadItems();
+ await loadCleanInventory();
+ await loadDashboard();
+ alert(`Audit approved. Items updated: ${res.approved_items}. Mismatches before approval: ${res.mismatch_count}. The mismatch report is ready to download.`);
+ window.open("/api/audit/mismatch-report","_blank");
+}
+
+
+function downloadPO(){
+ const po=document.getElementById("poNo").value;
+ if(!po){alert("Enter/select a PO number first");return}
+ window.location=`/api/purchase-orders/${encodeURIComponent(po)}/export`;
+}
+
+function downloadCurrentTransactionReference(){
+ const dir=document.getElementById("txDirection").value;
+ if(dir==="IN"){
+   const po=document.getElementById("txPO").value;
+   if(!po){alert("Enter Purchase Order number first");return}
+   window.location=`/api/purchase-orders/${encodeURIComponent(po)}/export`;
+ }else{
+   const co=document.getElementById("txClientOrder").value;
+   if(!co){alert("Enter Client Order number first");return}
+   window.location=`/api/client-orders/${encodeURIComponent(co)}/export`;
+ }
+}
+
+function openWarehouseRoute(){
+ const section=location.pathname.split("/")[2]||"dashboard";
+ const titles={
+   "dashboard":"Warehouse Dashboard",
+   "stock-items":"Warehouse Stock Items",
+   "receptions":"Warehouse Receptions",
+   "delivery-orders":"Warehouse Delivery Orders",
+   "stock-movement":"Warehouse Stock Movement",
+   "inventory-count":"Warehouse Count",
+   "minimum-stock":"Minimum Stock Alerts"
+ };
+ document.body.setAttribute("data-page-title",titles[section]||"Warehouse");
+ const routes={
+   "dashboard":"inventoryHub",
+   "stock-items":"cleanInventory",
+   "receptions":"po",
+   "delivery-orders":"clientOrders",
+   "minimum-stock":"minimumStock",
+   "stock-movement":"transaction",
+   "inventory-count":"inventory",
+ };
+ const panel=routes[section]||"inventoryHub";
+ showPanel(panel);
+}
+document.getElementById("pn").addEventListener("input",updateLookupLink);document.getElementById("description").addEventListener("input",updateLookupLink);updateTransactionReferenceFields();loadDashboard();loadCleanInventory();loadItemOptions().then(()=>{addTxLine();openWarehouseRoute();});
+</script>
+<script src="/static/app_layout.js"></script>
+</body></html>

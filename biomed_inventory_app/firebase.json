@@ -5,6 +5,194 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "redirects": [
+      {
+        "source": "/static/theme.css",
+        "destination": "/theme.css",
+        "type": 302
+      },
+      {
+        "source": "/static/app_layout.js",
+        "destination": "/app_layout.js",
+        "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/home",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/portal",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/sales{,/**}",
+        "destination": "/sales.html"
+      },
+      {
+        "source": "/procurement{,/**}",
+        "destination": "/procurement.html"
+      },
+      {
+        "source": "/warehouse{,/**}",
+        "destination": "/warehouse.html"
+      },
+      {
+        "source": "/inventory{,/**}",
+        "destination": "/warehouse.html"
+      },
+      {
+        "source": "/aftersales/contracts{,/**}",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/after-sales/contracts{,/**}",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/aftersales/pm{,/**}",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/after-sales/pm{,/**}",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/aftersales/pm-tracking{,/**}",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/after-sales/pm-tracking{,/**}",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/aftersales/reports",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/after-sales/reports",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/pm{,/**}",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/aftersales{,/**}",
+        "destination": "/after_sales.html"
+      },
+      {
+        "source": "/after-sales{,/**}",
+        "destination": "/after_sales.html"
+      },
+      {
+        "source": "/finance{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/financials{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/admin/imports",
+        "destination": "/imports.html"
+      },
+      {
+        "source": "/administration{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/admin{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/reports",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/reports{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
+        "source": "/dashboard",
+        "destination": "/dashboard.html"
+      },
+      {
+        "source": "/clients",
+        "destination": "/crm.html"
+      },
+      {
+        "source": "/crm",
+        "destination": "/crm.html"
+      },
+      {
+        "source": "/crm/client/**",
+        "destination": "/crm_client.html"
+      },
+      {
+        "source": "/departments",
+        "destination": "/core_list.html"
+      },
+      {
+        "source": "/equipment",
+        "destination": "/core_list.html"
+      },
+      {
+        "source": "/cases",
+        "destination": "/core_list.html"
+      },
+      {
+        "source": "/imports",
+        "destination": "/imports.html"
+      },
+      {
+        "source": "/equipment-database{,/**}",
+        "destination": "/equipment_database.html"
+      },
+      {
+        "source": "/equipment-registry{,/**}",
+        "destination": "/equipment_database.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/theme.css",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/app_layout.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/pm/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
     ]
   }
 }

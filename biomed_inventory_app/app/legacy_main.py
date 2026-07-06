@@ -5590,7 +5590,7 @@ def dashboard_page():
 @app.get("/warehouse")
 @app.get("/warehouse/{section:path}")
 def inventory_page(section: str = ""):
-    return FileResponse(BASE_DIR / "static" / "index.html")
+    return FileResponse(BASE_DIR / "static" / "warehouse.html")
 
 @app.get("/procurement")
 @app.get("/procurement/{section:path}")
