@@ -1352,7 +1352,7 @@ export default function App() {
           </div>
 
           <div className="erp-top-actions">
-            <a className="button button-soft" href="/portal">ERP Portal</a>
+            <a className="button button-soft" href="/">Home</a>
             <a className="button button-soft" href="/warehouse">Warehouse</a>
             {currentPage === "dashboard" ? (
       <ImportExportBar

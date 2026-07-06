@@ -96,6 +96,11 @@ body.erp-layout-active .pm-sidebar {
   gap: 6px;
 }
 
+.erp-nav-group {
+  display: grid;
+  gap: 4px;
+}
+
 .erp-nav-item {
   align-items: center;
   border: 1px solid transparent;
@@ -106,6 +111,14 @@ body.erp-layout-active .pm-sidebar {
   min-height: 42px;
   padding: 10px 11px;
   text-decoration: none;
+  width: 100%;
+}
+
+.erp-nav-toggle {
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .erp-nav-item span {
@@ -121,7 +134,14 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-nav-item strong {
+  flex: 1;
   font-size: 14px;
+}
+
+.erp-nav-item i {
+  color: #94a3b8;
+  font-style: normal;
+  transition: transform 150ms ease;
 }
 
 .erp-nav-item:hover,
@@ -134,6 +154,42 @@ body.erp-layout-active .pm-sidebar {
 
 .erp-nav-item.active span {
   background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.erp-nav-group.open .erp-nav-toggle i {
+  transform: rotate(180deg);
+}
+
+.erp-nav-children {
+  display: none;
+  gap: 3px;
+  padding: 0 0 4px 39px;
+}
+
+.erp-nav-group.open .erp-nav-children {
+  display: grid;
+}
+
+.erp-nav-children a {
+  border-left: 2px solid rgba(148, 163, 184, 0.22);
+  color: #aeb9ca;
+  font-size: 13px;
+  font-weight: 750;
+  min-height: 30px;
+  padding: 6px 8px 6px 12px;
+  text-decoration: none;
+}
+
+.erp-nav-children a:hover,
+.erp-nav-children a:focus,
+.erp-nav-children a.active {
+  border-left-color: var(--primary);
+  color: #ffffff;
+}
+
+.erp-nav-children a.active {
+  background: rgba(37, 99, 235, 0.18);
+  border-radius: 0 8px 8px 0;
 }
 
 .erp-topbar {

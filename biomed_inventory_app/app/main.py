@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +17,27 @@ from app.routers import (
     web_pages,
 )
 
-app = FastAPI(title="Biomedical Warehouse ERP", version="1.2.0")
+
+# Expose init_db at module level for tests and direct initialization
+def init_db():
+    """Initialize database tables. Exposed for tests and direct usage."""
+    return legacy_main.init_db()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan context manager for startup and shutdown events."""
+    # Startup
+    init_db()
+    yield
+    # Shutdown (cleanup if needed)
+
+
+app = FastAPI(
+    title="Biomedical Warehouse ERP", 
+    version="1.2.0",
+    lifespan=lifespan
+)
 
 app.mount("/static", StaticFiles(directory=legacy_main.BASE_DIR / "static"), name="static")
 app.mount(
@@ -54,8 +75,3 @@ app.include_router(procurement_api.router)
 app.include_router(warehouse_api.router)
 app.include_router(aftersales_api.router)
 app.include_router(crm_api.router)
-
-
-@app.on_event("startup")
-def startup():
-    legacy_main.init_db()

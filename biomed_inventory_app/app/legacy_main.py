@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +29,17 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "admin123")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me")
 APP_ROLE = os.getenv("APP_ROLE", "admin")
 
-app = FastAPI(title="Biomedical Warehouse ERP", version="1.2.0")
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    """FastAPI lifespan context manager for startup and shutdown events."""
+    # Startup
+    init_db()
+    yield
+    # Shutdown (cleanup if needed)
+
+
+app = FastAPI(title="Biomedical Warehouse ERP", version="1.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
@@ -5534,10 +5545,6 @@ def export_rows_response(title: str, rows: list[dict], fmt: str = "excel", notes
     path = DATA_DIR / f"{filename}.xlsx"
     pd.DataFrame(rows or [{"message": "No rows available"}]).to_excel(path, index=False)
     return FileResponse(path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=path.name)
-
-@app.on_event("startup")
-def startup():
-    init_db()
 
 @app.get("/")
 def index(request: Request):

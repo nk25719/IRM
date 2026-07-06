@@ -1,14 +1,93 @@
 (function () {
   const modules = [
     { label: "Home", href: "/", icon: "H", match: ["/", "/home", "/portal"] },
-    { label: "Dashboard", href: "/dashboard", icon: "D" },
-    { label: "Sales", href: "/sales", icon: "S" },
-    { label: "Procurement", href: "/procurement", icon: "P" },
-    { label: "Warehouse", href: "/warehouse", icon: "W", match: ["/warehouse", "/inventory"] },
-    { label: "After-Sales", href: "/aftersales", icon: "A", match: ["/aftersales", "/after-sales"] },
-    { label: "Training & Demo", href: "/aftersales/training-demo", icon: "T" },
-    { label: "Clients", href: "/clients", icon: "C", match: ["/clients", "/crm"] },
-    { label: "Products", href: "/sales/products", icon: "R" },
+    {
+      label: "Sales",
+      href: "/sales",
+      icon: "S",
+      links: [
+        ["Dashboard", "/sales"],
+        ["Quotations", "/sales/quotations"],
+        ["Customer Orders", "/sales/customer-orders"],
+        ["Products", "/sales/products"],
+        ["Reports", "/sales/reports"],
+      ],
+    },
+    {
+      label: "Procurement",
+      href: "/procurement",
+      icon: "P",
+      links: [
+        ["Dashboard", "/procurement"],
+        ["Purchase Orders", "/procurement/purchase-orders"],
+        ["Suppliers", "/procurement/suppliers"],
+        ["Shipments", "/procurement/shipments"],
+        ["Reports", "/procurement/reports"],
+      ],
+    },
+    {
+      label: "Warehouse",
+      href: "/warehouse",
+      icon: "W",
+      match: ["/warehouse", "/inventory"],
+      links: [
+        ["Dashboard", "/warehouse"],
+        ["Stock Items", "/warehouse/stock-items"],
+        ["Receptions", "/warehouse/receptions"],
+        ["Delivery Orders", "/warehouse/delivery-orders"],
+        ["Minimum Stock Alerts", "/warehouse/minimum-stock"],
+        ["Stock Movement", "/warehouse/stock-movement"],
+        ["Warehouse Count", "/warehouse/inventory-count"],
+      ],
+    },
+    {
+      label: "After Sales",
+      href: "/aftersales",
+      icon: "A",
+      match: ["/aftersales", "/after-sales"],
+      links: [
+        ["Overview", "/aftersales"],
+        ["Service Cases", "/aftersales/service-calls"],
+        ["Preventive Maintenance", "/aftersales/pm"],
+        ["Spare Parts", "/aftersales/spare-parts"],
+        ["Contracts", "/aftersales/contracts"],
+        ["Warranty", "/aftersales/warranty"],
+        ["Installations", "/aftersales/installations"],
+        ["Deliveries", "/aftersales/deliveries"],
+        ["FMI / Field Modification", "/aftersales/fmi-recall"],
+        ["Quotations", "/aftersales/quotations"],
+        ["Training & Demo", "/aftersales/training-demo"],
+        ["Reports", "/aftersales/reports"],
+      ],
+    },
+    {
+      label: "Finance",
+      href: "/finance",
+      icon: "F",
+      match: ["/finance", "/financials"],
+      links: [
+        ["Dashboard", "/finance"],
+        ["Invoices", "/finance/invoices"],
+        ["Payments", "/finance/payments"],
+        ["Customer Balances", "/finance/customer-balances"],
+        ["Supplier Balances", "/finance/supplier-balances"],
+      ],
+    },
+    {
+      label: "Administration",
+      href: "/administration",
+      icon: "M",
+      match: ["/administration", "/admin", "/clients", "/crm", "/departments", "/equipment", "/cases", "/imports"],
+      links: [
+        ["Dashboard", "/administration"],
+        ["Clients", "/clients"],
+        ["Departments", "/departments"],
+        ["Equipment", "/equipment"],
+        ["Cases", "/cases"],
+        ["Imports", "/imports"],
+        ["Settings", "/administration/settings"],
+      ],
+    },
   ];
 
   const subnav = {
@@ -77,7 +156,7 @@
         <span><strong>IRM ERM</strong><small>Operations Suite</small></span>
       </a>
       <nav class="erp-nav">
-        ${modules.map((module) => navItem(module, module === activeModule)).join("")}
+        ${modules.map((module) => navItem(module, module === activeModule, path)).join("")}
       </nav>
     </aside>
     <div class="erp-mobile-backdrop" hidden></div>
@@ -105,6 +184,13 @@
   const sidebar = shell.querySelector(".erp-sidebar");
   const backdrop = shell.querySelector(".erp-mobile-backdrop");
   const backButton = shell.querySelector(".erp-back-button");
+  shell.querySelectorAll(".erp-nav-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      const group = button.closest(".erp-nav-group");
+      const isOpen = group.classList.toggle("open");
+      button.setAttribute("aria-expanded", String(isOpen));
+    });
+  });
   menuButton.addEventListener("click", () => setSidebar(!sidebar.classList.contains("open")));
   backdrop.addEventListener("click", () => setSidebar(false));
   if (backButton) {
@@ -145,12 +231,30 @@
     document.body.classList.toggle("erp-menu-open", open);
   }
 
-  function navItem(module, active) {
+  function navItem(module, active, currentPath) {
+    if (!module.links) {
+      return `
+        <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}">
+          <span>${escapeHtml(module.icon)}</span>
+          <strong>${escapeHtml(module.label)}</strong>
+        </a>
+      `;
+    }
+    const activeHref = activeSubnavHref(module.links, currentPath);
+    const expanded = active || module.href === "/sales" || module.href === "/aftersales";
     return `
-      <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}">
-        <span>${escapeHtml(module.icon)}</span>
-        <strong>${escapeHtml(module.label)}</strong>
-      </a>
+      <section class="erp-nav-group ${expanded ? "open" : ""}">
+        <button class="erp-nav-item erp-nav-toggle ${active ? "active" : ""}" type="button" aria-expanded="${expanded}">
+          <span>${escapeHtml(module.icon)}</span>
+          <strong>${escapeHtml(module.label)}</strong>
+          <i aria-hidden="true">▾</i>
+        </button>
+        <div class="erp-nav-children">
+          ${module.links.map(([label, href]) => `
+            <a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>
+          `).join("")}
+        </div>
+      </section>
     `;
   }
 
@@ -196,17 +300,19 @@
       "/procurement",
       "/warehouse",
       "/aftersales",
-      "/aftersales/training-demo",
-      "/clients",
-      "/sales/products",
+      "/finance",
+      "/administration",
     ]);
     if (mainPages.has(currentPath)) return "";
     if (currentPath.startsWith("/crm/client/")) return "/clients";
+    if (currentPath === "/clients" || currentPath === "/departments" || currentPath === "/equipment" || currentPath === "/cases" || currentPath === "/imports") return "/administration";
     if (currentPath.startsWith("/sales/quotations")) return "/sales";
     if (currentPath.startsWith("/sales/customer-orders")) return "/sales";
     if (currentPath.startsWith("/procurement/")) return "/procurement";
     if (currentPath.startsWith("/warehouse/")) return "/warehouse";
     if (currentPath.startsWith("/aftersales/")) return "/aftersales";
+    if (currentPath.startsWith("/finance/")) return "/finance";
+    if (currentPath.startsWith("/administration/")) return "/administration";
     if (currentPath.startsWith("/equipment")) return "/clients";
     if (currentPath.startsWith("/imports")) return "/dashboard";
     return module.href === currentPath ? "" : module.href;
