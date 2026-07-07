@@ -21,6 +21,8 @@
       "/procurement":{title:"Procurement",description:"Client orders, supplier purchase orders, shipping, reception, missing-item purchasing, and PO exports.",api:"/api/purchase-orders",cards:[["Procurement Workspace","/procurement","CO assignment, PO creation, shipping, and reception"],["PO Export","/api/export","Full Excel export with PO and received items"],["Missing Sales Items","/sales","Create PO for shortages from Sales requests"]]},
       "/equipment-registry":{title:"Equipment Registry",description:"Installed equipment, biomedical profiles, PM assets, risk, calibration, uptime, recall, and compatibility records.",api:"/api/pm-assets",cards:[["PM Assets","/aftersales/pm/assets","Existing equipment registry route"],["After Sales Equipment","/aftersales/pm","PM and warranty status"],["Biomedical Reports","/reports","Calibration and equipment-history reports"]]},
       "/finance":{title:"Finance",description:"Invoices, payments, customer balances, supplier balances, and financial status by hospital.",api:"/api/client-orders",cards:[["Finance Dashboard","/finance","Financial overview"],["Invoices","/finance/invoices","Issued and pending invoices"],["Payments","/finance/payments","Payment tracking"],["Customer Balances","/finance/customer-balances","Customer account balances"],["Supplier Balances","/finance/supplier-balances","Supplier balances"]]},
+      "/products":{title:"Products",description:"Commercial product catalog and product data used by sales workflows.",api:"/api/commercial/products",cards:[["Product Catalog","/products","Commercial product records"],["Sales Products","/sales/products","Products in the sales workspace"],["Quotations","/sales/quotations","Use product data in quotations"]]},
+      "/training-demo":{title:"Training & Demo",description:"Training, demo, and customer enablement activities.",api:"/api/after-sales/dashboard",cards:[["Training & Demo","/training-demo","Training and demo overview"],["After-Sales Training","/aftersales/training-demo","Training activity in After-Sales"],["Clients","/clients","Review customer training history"]]},
       "/reports":{title:"Reports",description:"Printable, Excel, and PDF exports for warehouse, stock movement, service, PM, installation, acceptance, calibration, contract, and equipment history reports.",api:"/api/dashboard",cards:[["Warehouse Export","/api/export","Master Excel export"],["Stock Movement Report","/api/stock-movements/export","Excel stock movement report"],["Service Report","/api/biomedical/reports/service-report?format=excel","Service call report"],["PM Report","/api/pm-reports?report=completion","PM completion report"],["Calibration Certificate","/api/biomedical/reports/calibration-certificate?format=pdf","PDF calibration report"],["Contract PDF","/api/biomedical/reports/contract-pdf?format=pdf","Contract PDF export"]]},
       "/administration":{title:"Administration",description:"Customers, contacts, users, settings, imports, audit trail, and system health.",api:"/api/audit",cards:[["Administration Dashboard","/administration","Administration overview"],["Customers","/administration/customers","Customer records"],["Contacts","/administration/contacts","Contact records"],["Users","/administration/users","User administration"],["Settings","/administration/settings","System settings"]]},
     };
@@ -36,10 +38,12 @@
       "/administration/contacts":"Administration Contacts",
       "/administration/users":"Administration Users",
       "/administration/settings":"Administration Settings",
+      "/products":"Products",
+      "/training-demo":"Training & Demo",
       "/reports":"Reports"
     };
     const currentPath=location.pathname.replace(/\/$/,"")||"/";
-    const routeRoot=location.pathname.startsWith("/finance")?"/finance":location.pathname.startsWith("/administration")?"/administration":location.pathname;
+    const routeRoot=location.pathname.startsWith("/finance")?"/finance":location.pathname.startsWith("/administration")?"/administration":location.pathname.startsWith("/training")?"/training-demo":location.pathname;
     const cfg=modules[routeRoot]||modules["/reports"];
     const sectionTitle=sectionTitles[currentPath]||cfg.title;
     document.body.setAttribute("data-page-title",sectionTitle);

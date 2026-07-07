@@ -98,6 +98,15 @@ body.erp-layout-active .pm-sidebar {
   gap: 6px;
 }
 
+.erp-nav-section {
+  color: rgba(226, 232, 240, .7);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 14px 12px 2px;
+  text-transform: uppercase;
+}
+
 .erp-nav-group {
   display: grid;
   gap: 4px;

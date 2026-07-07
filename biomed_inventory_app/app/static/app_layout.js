@@ -2,9 +2,16 @@
   const modules = [
     { label: "Home", href: "/", icon: "H", match: ["/", "/home", "/portal"] },
     {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: "D",
+      section: "Main Operations",
+    },
+    {
       label: "Sales",
       href: "/sales",
       icon: "S",
+      section: "Main Operations",
       links: [
         ["Dashboard", "/sales"],
         ["Quotations", "/sales/quotations"],
@@ -17,6 +24,7 @@
       label: "Procurement",
       href: "/procurement",
       icon: "P",
+      section: "Main Operations",
       links: [
         ["Dashboard", "/procurement"],
         ["Purchase Orders", "/procurement/purchase-orders"],
@@ -29,6 +37,7 @@
       label: "Warehouse",
       href: "/warehouse",
       icon: "W",
+      section: "Main Operations",
       match: ["/warehouse", "/inventory"],
       links: [
         ["Dashboard", "/warehouse"],
@@ -41,9 +50,10 @@
       ],
     },
     {
-      label: "After Sales",
+      label: "After-Sales",
       href: "/aftersales",
       icon: "A",
+      section: "Main Operations",
       match: ["/aftersales", "/after-sales"],
       links: [
         ["Overview", "/aftersales"],
@@ -61,26 +71,34 @@
       ],
     },
     {
-      label: "Finance",
-      href: "/finance",
-      icon: "F",
-      match: ["/finance", "/financials"],
-      links: [
-        ["Dashboard", "/finance"],
-        ["Invoices", "/finance/invoices"],
-        ["Payments", "/finance/payments"],
-        ["Customer Balances", "/finance/customer-balances"],
-        ["Supplier Balances", "/finance/supplier-balances"],
-      ],
+      label: "Clients",
+      href: "/clients",
+      icon: "C",
+      section: "Master Data / Relationship",
+      match: ["/clients", "/crm", "/crm/client"],
+    },
+    {
+      label: "Products",
+      href: "/products",
+      icon: "P",
+      section: "Master Data / Relationship",
+      match: ["/products", "/sales/products"],
+    },
+    {
+      label: "Training & Demo",
+      href: "/training-demo",
+      icon: "T",
+      section: "Master Data / Relationship",
+      match: ["/training-demo", "/training", "/aftersales/training-demo"],
     },
     {
       label: "Administration",
       href: "/administration",
       icon: "M",
-      match: ["/administration", "/admin", "/clients", "/crm", "/departments", "/equipment", "/cases", "/imports"],
+      section: "System",
+      match: ["/administration", "/admin", "/departments", "/equipment", "/cases", "/imports"],
       links: [
         ["Dashboard", "/administration"],
-        ["Clients", "/clients"],
         ["Departments", "/departments"],
         ["Equipment", "/equipment"],
         ["Cases", "/cases"],
@@ -156,7 +174,7 @@
         <span><strong>IRM ERM</strong><small>Operations Suite</small></span>
       </a>
       <nav class="erp-nav">
-        ${modules.map((module) => navItem(module, module === activeModule, path)).join("")}
+        ${renderNavigation()}
       </nav>
     </aside>
     <div class="erp-mobile-backdrop" hidden></div>
@@ -300,14 +318,17 @@
       "/procurement",
       "/warehouse",
       "/aftersales",
-      "/finance",
+      "/clients",
+      "/products",
+      "/training-demo",
       "/administration",
     ]);
     if (mainPages.has(currentPath)) return "";
     if (currentPath.startsWith("/crm/client/")) return "/clients";
-    if (currentPath === "/clients" || currentPath === "/departments" || currentPath === "/equipment" || currentPath === "/cases" || currentPath === "/imports") return "/administration";
+    if (currentPath === "/departments" || currentPath === "/equipment" || currentPath === "/cases" || currentPath === "/imports") return "/administration";
     if (currentPath.startsWith("/sales/quotations")) return "/sales";
     if (currentPath.startsWith("/sales/customer-orders")) return "/sales";
+    if (currentPath.startsWith("/sales/products")) return "/products";
     if (currentPath.startsWith("/procurement/")) return "/procurement";
     if (currentPath.startsWith("/warehouse/")) return "/warehouse";
     if (currentPath.startsWith("/aftersales/")) return "/aftersales";
@@ -316,6 +337,18 @@
     if (currentPath.startsWith("/equipment")) return "/clients";
     if (currentPath.startsWith("/imports")) return "/dashboard";
     return module.href === currentPath ? "" : module.href;
+  }
+
+  function renderNavigation() {
+    let currentSection = "";
+    return modules.map((module) => {
+      const section = module.section || "";
+      const heading = section && section !== currentSection
+        ? `<div class="erp-nav-section">${escapeHtml(section)}</div>`
+        : "";
+      if (section) currentSection = section;
+      return heading + navItem(module, module === activeModule, path);
+    }).join("");
   }
 
   function sameOrigin(url) {
@@ -350,6 +383,7 @@
     if (value === "/financials" || value.startsWith("/financials/")) return value.replace("/financials", "/finance");
     if (value === "/admin" || value.startsWith("/admin/")) return value.replace("/admin", "/administration");
     if (value === "/inventory" || value.startsWith("/inventory/")) return value.replace("/inventory", "/warehouse");
+    if (value === "/training" || value.startsWith("/training/")) return value.replace("/training", "/training-demo");
     return value;
   }
 

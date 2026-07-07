@@ -46,7 +46,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(erp_router)
 app.include_router(quotation_router)
 
-PUBLIC_PATHS = {"/login", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/", "/home", "/portal", "/login", "/docs", "/openapi.json", "/redoc"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -5548,9 +5548,7 @@ def export_rows_response(title: str, rows: list[dict], fmt: str = "excel", notes
 
 @app.get("/")
 def index(request: Request):
-    if request.session.get("authenticated"):
-        return FileResponse(BASE_DIR / "static" / "index.html")
-    return RedirectResponse(url="/login", status_code=303)
+    return FileResponse(BASE_DIR / "static" / "portal.html")
 
 @app.get("/login")
 def login_page(request: Request, error: str = ""):
@@ -5580,7 +5578,7 @@ def logout(request: Request):
 @app.get("/portal")
 @app.get("/home")
 def portal():
-    return FileResponse(BASE_DIR / "static" / "index.html")
+    return FileResponse(BASE_DIR / "static" / "portal.html")
 
 @app.get("/dashboard")
 def dashboard_page():
@@ -5622,6 +5620,15 @@ def financials_page(section: str = ""):
 
 @app.get("/reports")
 def reports_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/products")
+def products_page():
+    return FileResponse(BASE_DIR / "static" / "module_page.html")
+
+@app.get("/training")
+@app.get("/training-demo")
+def training_demo_page():
     return FileResponse(BASE_DIR / "static" / "module_page.html")
 
 @app.get("/admin")
