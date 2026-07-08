@@ -6,6 +6,7 @@ router = APIRouter(tags=["Dashboard API"])
 
 _PATHS = {
     "/api/dashboard",
+    "/api/home/snapshot",
     "/api/hospitals",
     "/api/sales/dashboard",
     "/api/procurement/dashboard",

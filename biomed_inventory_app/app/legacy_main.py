@@ -46,7 +46,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(erp_router)
 app.include_router(quotation_router)
 
-PUBLIC_PATHS = {"/", "/home", "/portal", "/login", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/", "/home", "/portal", "/api/home/snapshot", "/login", "/docs", "/openapi.json", "/redoc"}
 PUBLIC_STATIC_SUFFIXES = (".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webp")
 
 
@@ -7465,10 +7465,12 @@ def convert_customer_request_to_order(request_id: int):
         raise HTTPException(status_code=404, detail="Customer request not found")
     quotation = latest_sales_document(conn, request_id, "quotation")
     if not quotation:
-        quotation = create_sales_document(conn, request_id, "quotation", "approved", "Auto-generated approved quotation before client order")
-    else:
-        conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("approved", now(), quotation["id"]))
-        conn.execute("UPDATE quotations SET status=?, updated_at=? WHERE quotation_no=?", ("approved", now(), quotation["doc_no"]))
+        conn.close()
+        raise HTTPException(status_code=400, detail="Generate and approve a quotation before converting to customer order")
+    if str(quotation["status"] or "").lower() != "approved":
+        conn.close()
+        raise HTTPException(status_code=400, detail="Quotation must be approved before converting to customer order")
+    conn.execute("UPDATE quotations SET status=?, updated_at=? WHERE quotation_no=?", ("approved", now(), quotation["doc_no"]))
     quote_row = conn.execute("SELECT id FROM quotations WHERE quotation_no=? ORDER BY id DESC LIMIT 1", (quotation["doc_no"],)).fetchone()
     if not quote_row:
         quote_cur = conn.execute("""
@@ -7768,12 +7770,82 @@ def update_customer_request_status(request_id: int, status: str):
         raise HTTPException(status_code=400, detail="Unsupported status")
     conn = db()
     conn.execute("UPDATE customer_requests SET status=?, updated_at=? WHERE id=?", (status, now(), request_id))
+    if status == "approved":
+        quotation = latest_sales_document(conn, request_id, "quotation")
+        if quotation:
+            conn.execute("UPDATE sales_case_documents SET status=?, updated_at=? WHERE id=?", ("approved", now(), quotation["id"]))
+            conn.execute("UPDATE quotations SET status=?, updated_at=? WHERE quotation_no=?", ("approved", now(), quotation["doc_no"]))
     conn.commit()
     data = request_with_lines(conn, request_id)
     conn.commit()
     conn.close()
     export_excel(EXCEL_PATH)
     return data
+
+@app.get("/api/customer-requests/{request_id}/workflow")
+def customer_request_workflow(request_id: int):
+    conn = db()
+    request_data = request_with_lines(conn, request_id)
+    po_numbers = sorted({line.get("linked_purchase_order") for line in request_data["lines"] if line.get("linked_purchase_order")})
+    po_rows = []
+    if po_numbers:
+        placeholders = ",".join("?" for _ in po_numbers)
+        po_rows = [dict(row) for row in conn.execute(f"""
+            SELECT po_no, supplier, status, shipping_status, shipping_reference, reception_status, expected_date
+            FROM purchase_orders
+            WHERE po_no IN ({placeholders})
+            ORDER BY updated_at DESC
+        """, po_numbers).fetchall()]
+    documents = request_data["documents"]
+    document_by_type = {}
+    for doc in documents:
+        document_by_type.setdefault(doc["doc_type"], []).append({
+            "id": doc["id"],
+            "doc_no": doc["doc_no"],
+            "status": doc["status"],
+            "document_reference": doc.get("document_reference", ""),
+            "created_at": doc["created_at"],
+        })
+    lines = []
+    for line in request_data["lines"]:
+        po = next((row for row in po_rows if row["po_no"] == line.get("linked_purchase_order")), None)
+        lines.append({
+            "id": line["id"],
+            "requested_item": line["requested_item"],
+            "item_type": line["item_type"],
+            "quantity": line["quantity"],
+            "stock_status": line["stock_status"],
+            "available_qty": line["available_qty"],
+            "shortage_qty": line["shortage_qty"],
+            "reserved_qty": line["reserved_qty"],
+            "delivered_qty": line["delivered_qty"],
+            "invoiced_qty": line["invoiced_qty"],
+            "procurement_status": line["procurement_status"],
+            "linked_purchase_order": line.get("linked_purchase_order", ""),
+            "shipping_reference": po["shipping_reference"] if po else "",
+            "shipping_status": po["shipping_status"] if po else "",
+            "reception_status": po["reception_status"] if po else "",
+            "linked_delivery_note": line.get("linked_delivery_note", ""),
+            "linked_invoice": line.get("linked_invoice", ""),
+        })
+    conn.close()
+    return {
+        "request": {
+            "id": request_data["id"],
+            "case_no": request_data["case_no"],
+            "status": request_data["status"],
+            "client_hospital": request_data["client_hospital"],
+            "parent_case_reference": request_data.get("parent_case_reference", ""),
+        },
+        "process": {
+            "quotation": document_by_type.get("quotation", []),
+            "customer_order": document_by_type.get("client_order", []),
+            "purchase_orders": po_rows,
+            "delivery_notes": document_by_type.get("delivery_note", []),
+            "invoices": document_by_type.get("invoice", []),
+        },
+        "lines": lines,
+    }
 
 @app.get("/api/sales-documents/{document_id}/export")
 def export_sales_document(document_id: int, format: str = "excel"):
@@ -9722,6 +9794,83 @@ def dashboard():
         "excel_path": str(EXCEL_PATH),
         "hospitals": hospitals,
         "total_hospitals": len(hospitals),
+    }
+
+@app.get("/api/home/snapshot")
+def home_snapshot():
+    conn = db()
+    open_statuses = ("closed", "complete", "completed", "cancelled", "canceled", "delivered", "invoiced", "paid", "received")
+    placeholders = ",".join("?" for _ in open_statuses)
+    pending_customer_orders = conn.execute(f"""
+        SELECT COUNT(*) AS c
+        FROM client_orders
+        WHERE lower(COALESCE(status, 'open')) NOT IN ({placeholders})
+    """, open_statuses).fetchone()["c"]
+    pending_purchase_orders = conn.execute(f"""
+        SELECT COUNT(*) AS c
+        FROM purchase_orders
+        WHERE lower(COALESCE(status, 'open')) NOT IN ({placeholders})
+           OR lower(COALESCE(reception_status, 'pending')) NOT IN ({placeholders})
+    """, open_statuses + open_statuses).fetchone()["c"]
+    upcoming_shipments = conn.execute("""
+        SELECT COUNT(*) AS c
+        FROM purchase_orders
+        WHERE COALESCE(shipping_status, '') != ''
+          AND lower(COALESCE(shipping_status, '')) NOT IN ('arrived', 'received', 'closed', 'cancelled', 'canceled')
+    """).fetchone()["c"]
+    open_after_sales_cases = conn.execute(f"""
+        SELECT COUNT(*) AS c
+        FROM service_calls
+        WHERE lower(COALESCE(status, 'open')) NOT IN ({placeholders})
+    """, open_statuses).fetchone()["c"]
+    pending_receptions = conn.execute("""
+        SELECT COUNT(*) AS c
+        FROM purchase_order_items
+        WHERE MAX(COALESCE(qty, 0) - COALESCE(received_qty, 0), 0) > 0
+    """).fetchone()["c"]
+    pending_deliveries = conn.execute(f"""
+        SELECT COUNT(*) AS c
+        FROM delivery_orders
+        WHERE lower(COALESCE(status, 'draft')) NOT IN ({placeholders})
+    """, open_statuses).fetchone()["c"]
+    invoices_pending = conn.execute("""
+        SELECT COUNT(*) AS c
+        FROM sales_case_documents
+        WHERE doc_type='invoice'
+          AND lower(COALESCE(status, 'pending')) NOT IN ('paid', 'cancelled', 'canceled', 'closed')
+    """).fetchone()["c"]
+    stock_alerts = conn.execute("""
+        SELECT COUNT(*) AS c
+        FROM inventory
+        WHERE (COALESCE(physical_qty, 0) - COALESCE(reserved_qty, 0)) < (CASE WHEN COALESCE(system_qty, 0) > 0 THEN system_qty ELSE 1 END)
+           OR COALESCE(system_qty, 0) != COALESCE(physical_qty, 0)
+    """).fetchone()["c"]
+    conn.close()
+    return {
+        "cards": {
+            "customerOrders": {"count": int(pending_customer_orders), "status": "Demand confirmed"},
+            "purchaseOrders": {"count": int(pending_purchase_orders), "status": "Procurement"},
+            "shipments": {"count": int(upcoming_shipments), "status": "Shipping"},
+            "afterSales": {"count": int(open_after_sales_cases), "status": "Service"},
+            "receptions": {"count": int(pending_receptions), "status": "Warehouse"},
+            "deliveries": {"count": int(pending_deliveries), "status": "Delivery"},
+            "invoices": {"count": int(invoices_pending), "status": "Finance"},
+            "stockAlerts": {"count": int(stock_alerts), "status": "Stock"},
+        },
+        "process": ["Quotation", "Customer Order", "Purchase Order", "Shipment", "Reception", "Delivery Order", "Invoice"],
+        "rule": "Procurement, warehouse, and delivery begin from Customer Order. A quotation remains a proposal until demand is confirmed.",
+        "role_scopes": {
+            "admin": ["customerOrders", "purchaseOrders", "shipments", "afterSales", "receptions", "deliveries", "invoices", "stockAlerts"],
+            "department_manager": ["afterSales", "deliveries", "stockAlerts"],
+            "engineer": ["afterSales"],
+            "salesperson": ["customerOrders", "invoices"],
+            "procurement": ["purchaseOrders", "shipments", "receptions"],
+            "warehouse": ["receptions", "deliveries", "stockAlerts"],
+        },
+        "todos": [
+            "Scope counts by signed-in role once privileges are implemented.",
+            "Replace invoice count with a full finance workflow endpoint when Finance becomes a complete main module.",
+        ],
     }
 
 @app.get("/api/report/{report_name}")
