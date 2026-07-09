@@ -3,60 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1f4e78">
-  <title>ERP Imports</title>
+  <title>Admin Imports</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .content{padding:22px 18px 44px}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.toolbar input,.toolbar button,.map-grid select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:10px}.toolbar button{background:var(--primary);border-color:var(--primary);color:#fff;cursor:pointer;font-weight:800}.toolbar button.secondary{background:#fff;color:var(--primary-dark)}.map-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:12px 0}.map-field{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}.map-field label{color:var(--muted);display:block;font-size:12px;font-weight:800;margin-bottom:6px}.summary{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:12px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary);display:block;font-size:22px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:9px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{background:var(--soft);border-radius:999px;color:var(--primary-dark);display:inline-block;font-weight:800;padding:4px 8px}.badge.bad{background:#fee4e2;color:#b42318}.badge.good{background:#dcfce7;color:#166534}.badge.warn{background:#fff4cc;color:#854d0e}.muted{color:var(--muted);font-size:12px}.error{color:#b42318}
+    .toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:8px}.toolbar input,.toolbar select,.toolbar button,.mapping select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.toolbar button{background:var(--primary);border-color:var(--primary);color:#fff;cursor:pointer;font-weight:800}.toolbar button.secondary{background:#fff;color:var(--primary-dark)}.mapping{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-top:14px}.field{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}.field label{color:var(--muted);display:block;font-size:12px;font-weight:800;margin-bottom:5px}.summary{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin:14px 0}.metric{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary-dark);font-size:20px}.table-wrap{overflow:auto}.table{border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12px;padding:8px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark)}.badge{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}.good{background:#dcfce7;color:#166534}.bad{background:#fee2e2;color:#991b1b}.warn{background:#fff7cc;color:#854d0e}.muted{color:var(--muted);font-size:12px}
   </style>
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand"><h1>ERP Imports</h1><p>Pending calls and offers</p></div>
-      <nav class="top-actions"><a href="/administration">Administration</a><a href="/clients">Clients</a><a href="/warehouse">Warehouse</a><a href="/">Home</a><a href="/logout">Logout</a></nav>
-    </div>
-  </header>
-  <main class="container content">
+<body data-page-title="Admin Imports">
+  <main class="container">
     <section class="card">
+      <div class="section-title">
+        <div><h1>Bulk Import</h1><p class="muted">Upload CSV/XLSX, map columns, validate, then confirm. Existing matches are skipped, not overwritten.</p></div>
+        <div class="toolbar"><a class="button-like" href="/admin/database-map">Database Map</a><a class="button-like" href="/admin/query">Reports</a></div>
+      </div>
       <div class="toolbar">
-        <input id="file" type="file" accept=".xlsx,.xls,.csv">
-        <button id="preview">Preview</button>
-        <button id="remap" class="secondary" disabled>Re-preview With Mapping</button>
-        <button id="commit" class="secondary" disabled>Commit Import</button>
-        <a id="exportValidation" class="button-like" href="#">Export Validation</a>
+        <select id="target"></select>
+        <input id="file" type="file" accept=".csv,.xlsx,.xls,.xlsm">
+        <button onclick="preview(false)">Upload & Preview</button>
+        <button class="secondary" onclick="preview(true)" id="remap" disabled>Re-validate Mapping</button>
+        <button onclick="confirmImport()" id="confirm" disabled>Confirm Import</button>
       </div>
-      <div id="mapping" class="map-grid"></div>
+      <div id="mapping" class="mapping"></div>
       <div id="summary" class="summary"></div>
-      <div class="table-wrap">
-        <table class="table">
-          <thead><tr><th>Row</th><th>Hospital</th><th>Location</th><th>Department</th><th>Offer Ref</th><th>Status</th><th>Requirement</th><th>Category</th><th>Blocked</th><th>Action</th><th>Validation</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
     </section>
     <section class="card">
-      <h3>Import History</h3>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Batch</th><th>File</th><th>Status</th><th>Total</th><th>Valid</th><th>Errors</th><th>Created</th><th>Actions</th></tr></thead><tbody id="history"></tbody></table></div>
+      <h3>Preview Rows</h3>
+      <div class="table-wrap"><table class="table" id="previewTable"></table></div>
+    </section>
+    <section class="card">
+      <h3>Import Batches</h3>
+      <div class="table-wrap"><table class="table" id="history"></table></div>
     </section>
   </main>
   <script>
-    let currentBatch=null;let currentRows=[];let currentColumns=[];let currentFieldMap={};
-    const importFields=["hospital","location","department","offer_reference","status","requirement","category","equipment","notes","responsible_person","date","blocked_reason"];
+    let targets={}, current=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("error")||l.includes("blocked")||l.includes("rolled")?"bad":l.includes("valid")||l.includes("committed")||l.includes("imported")?"good":l.includes("preview")||l.includes("pending")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`};
-    const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;
+    const badge=(v,cls)=>`<span class="badge ${cls||(String(v).includes("error")?"bad":String(v).includes("valid")?"good":"warn")}">${esc(v)}</span>`;
     async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
-    function renderMapping(){mapping.innerHTML=importFields.map(field=>`<div class="map-field"><label>${esc(field.replaceAll("_"," "))}</label><select data-field="${esc(field)}"><option value="">Not mapped</option>${currentColumns.map(c=>`<option value="${esc(c)}" ${currentFieldMap[field]===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>`).join("");mapping.querySelectorAll("select").forEach(s=>s.addEventListener("change",()=>{currentFieldMap[s.dataset.field]=s.value}))}
-    function selectedFieldMap(){const out={};mapping.querySelectorAll("select").forEach(s=>{if(s.value)out[s.dataset.field]=s.value});return out}
-    function renderRows(){rows.innerHTML=currentRows.map(r=>`<tr><td>${esc(r.row_no)}</td><td>${esc(r.hospital)}</td><td>${esc(r.location)}</td><td>${esc(r.department)}</td><td>${esc(r.offer_reference)}</td><td>${badge(r.status)}</td><td>${esc(r.requirement)}</td><td>${esc(r.category)}</td><td>${badge(r.blocked_reason)}</td><td>${esc(r.planned_action||r.action||"")}</td><td>${r.errors?.length?`<span class="error">${esc(r.errors.join("; "))}</span>`:badge(r.validation_status)}</td></tr>`).join("")||`<tr><td colspan="11">No preview loaded.</td></tr>`}
-    async function loadHistory(){const data=await api("/api/imports");history.innerHTML=data.map(b=>`<tr><td>${b.id}</td><td>${esc(b.filename)}</td><td>${badge(b.status)}</td><td>${b.total_rows}</td><td>${b.valid_rows}</td><td>${b.error_rows}</td><td>${esc(b.created_at)}</td><td><a href="/api/exports/import-validation?batch_id=${b.id}">Export</a> <button data-rollback="${b.id}">Rollback</button></td></tr>`).join("")||`<tr><td colspan="8">No imports yet.</td></tr>`;history.querySelectorAll("button[data-rollback]").forEach(btn=>btn.addEventListener("click",async()=>{await api(`/api/imports/${btn.dataset.rollback}/rollback`,{method:"POST"});await loadHistory()}))}
-    async function runPreview(useMapping=false){if(!file.files[0])return;const form=new FormData();form.append("file",file.files[0]);if(useMapping)form.append("field_map_json",JSON.stringify(selectedFieldMap()));const data=await api("/api/imports/pending-offers/preview",{method:"POST",body:form});currentBatch=data.batch_id;currentRows=data.rows;currentColumns=data.columns||[];currentFieldMap=data.field_map||{};summary.innerHTML=metric("Rows",data.summary.total_rows)+metric("Valid",data.summary.valid_rows)+metric("Errors",data.summary.error_rows)+metric("Create",data.summary.create_rows)+metric("Update",data.summary.update_rows);exportValidation.href=`/api/exports/import-validation?batch_id=${currentBatch}`;commit.disabled=data.summary.valid_rows===0;remap.disabled=false;renderMapping();renderRows();await loadHistory()}
-    preview.addEventListener("click",()=>runPreview(false));
-    remap.addEventListener("click",()=>runPreview(true));
-    commit.addEventListener("click",async()=>{if(!currentBatch)return;const data=await api("/api/imports/pending-offers/commit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({batch_id:currentBatch,create_missing_hospitals:true})});currentRows=data.results;summary.innerHTML=metric("Imported",data.imported)+metric("Errors",data.errors);commit.disabled=true;renderRows();await loadHistory()});
-    renderRows();loadHistory();
+    function metric(k,v){return `<div class="metric"><span>${esc(k)}</span><b>${esc(v)}</b></div>`}
+    function selectedMapping(){const out={};mapping.querySelectorAll("select").forEach(s=>{if(s.value)out[s.dataset.field]=s.value});return out}
+    function renderMapping(){const cfg=targets[target.value];const cols=current?.columns||[];const map=current?.mapping||{};mapping.innerHTML=cfg.fields.map(f=>`<div class="field"><label>${esc(f)}${cfg.required.includes(f)?" *":""}</label><select data-field="${esc(f)}"><option value="">Not mapped</option>${cols.map(c=>`<option value="${esc(c)}" ${map[f]===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>`).join("")}
+    function renderRows(rows){const cols=["row_no","status","action","errors",...Object.keys(rows[0]?.mapped||{})];previewTable.innerHTML=`<thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c==="status"?badge(r.status):c==="errors"?esc((r.errors||[]).join("; ")):esc(r[c]??r.mapped?.[c]??"")}</td>`).join("")}</tr>`).join("")}</tbody>`}
+    async function preview(useMapping){const form=new FormData();form.append("target",target.value);form.append("file",file.files[0]);if(useMapping)form.append("mapping_json",JSON.stringify(selectedMapping()));current=await api("/api/admin/imports/preview",{method:"POST",body:form});summary.innerHTML=metric("Batch",current.batch_id)+metric("Rows",current.summary.total_rows)+metric("Valid",current.summary.valid_rows)+metric("Errors",current.summary.error_rows);renderMapping();renderRows(current.rows);remap.disabled=false;confirm.disabled=current.summary.valid_rows<1;await loadHistory()}
+    async function confirmImport(){if(!current)return;const data=await api(`/api/admin/imports/${current.batch_id}/confirm`,{method:"POST"});alert(`Saved ${data.saved_rows} row(s), skipped ${data.skipped_rows}.`);confirm.disabled=true;await loadHistory()}
+    async function loadTargets(){targets=await api("/api/admin/import-targets");target.innerHTML=Object.keys(targets).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");renderMapping()}
+    async function loadHistory(){const rows=await api("/api/admin/imports");history.innerHTML=`<thead><tr><th>ID</th><th>Target</th><th>File</th><th>Status</th><th>Total</th><th>Valid</th><th>Errors</th><th>Saved</th><th>Created</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td>${esc(r.target_table)}</td><td>${esc(r.filename)}</td><td>${badge(r.status)}</td><td>${r.total_rows}</td><td>${r.valid_rows}</td><td>${r.error_rows}</td><td>${r.saved_rows||0}</td><td>${esc(r.created_at)}</td></tr>`).join("")}</tbody>`}
+    loadTargets();loadHistory();
   </script>
-<script src="/static/app_layout.js"></script>
+  <script src="/static/app_layout.js"></script>
 </body>
 </html>

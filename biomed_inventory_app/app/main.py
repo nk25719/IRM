@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import legacy_main
+from app.admin_api import ensure_admin_foundation, permissions_for_role, router as admin_router
+from app.aftermarket_service_reports import ensure_service_report_tables, router as aftermarket_router
 from app.erp_api import router as erp_router
 from app.quotation_api import router as quotation_router
 from app.routers import (
@@ -21,7 +23,10 @@ from app.routers import (
 # Expose init_db at module level for tests and direct initialization
 def init_db():
     """Initialize database tables. Exposed for tests and direct usage."""
-    return legacy_main.init_db()
+    result = legacy_main.init_db()
+    ensure_admin_foundation()
+    ensure_service_report_tables()
+    return result
 
 
 @asynccontextmanager
@@ -61,6 +66,25 @@ async def auth_middleware(request: Request, call_next):
             return JSONResponse({"detail": "Authentication required"}, status_code=401)
         return RedirectResponse(url="/login", status_code=303)
 
+    role = request.session.get("role") or legacy_main.APP_ROLE or "viewer"
+    permissions = permissions_for_role(role)
+    route_permissions = [
+        (("/admin/database-map", "/api/admin/database-map"), "view_database_map"),
+        (("/admin/imports", "/api/admin/imports", "/api/admin/import-targets"), "import_data"),
+        (("/admin/backups",), "create_backup"),
+        (("/admin/query", "/reports/query", "/api/admin/reports"), "view_reports"),
+        (("/api/admin/query",), "run_select_queries"),
+        (("/quotations", "/sales/quotations"), "edit_quotations"),
+        (("/warehouse", "/api/warehouse"), "view_reports"),
+        (("/aftersales", "/api/after-sales"), "view_after_sales_cases"),
+        (("/clients", "/api/crm", "/api/erp/clients"), "view_all_clients"),
+    ]
+    for prefixes, permission in route_permissions:
+        if path.startswith(prefixes) and role != "admin" and permission not in permissions:
+            if path.startswith("/api") or path.startswith("/admin/backups"):
+                return JSONResponse({"detail": f"Permission required: {permission}"}, status_code=403)
+            return RedirectResponse(url="/", status_code=303)
+
     return await call_next(request)
 
 
@@ -68,6 +92,8 @@ app.add_middleware(SessionMiddleware, secret_key=legacy_main.SESSION_SECRET, htt
 
 app.include_router(erp_router)
 app.include_router(quotation_router)
+app.include_router(admin_router)
+app.include_router(aftermarket_router)
 app.include_router(web_pages.router)
 app.include_router(dashboard_api.router)
 app.include_router(sales_api.router)

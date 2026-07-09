@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Database Map</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .admin-grid{display:grid;gap:14px}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:8px}.toolbar input{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;min-width:260px}.pill{background:var(--soft);border:1px solid var(--line);border-radius:999px;color:var(--primary-dark);display:inline-block;font-size:12px;font-weight:800;padding:5px 9px}.table-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}.table-head{align-items:flex-start;display:flex;gap:12px;justify-content:space-between}.table-head h3{margin:0}.muted{color:var(--muted);font-size:12px}.schema{border-collapse:collapse;margin-top:10px;width:100%}.schema th,.schema td{border-bottom:1px solid var(--line);font-size:12px;padding:7px;text-align:left;vertical-align:top}.schema th{background:var(--soft);color:var(--primary-dark)}.summary{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.metric{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary-dark);font-size:18px}@media(max-width:760px){.table-head{display:grid}.schema{display:block;overflow:auto}}
+  </style>
+</head>
+<body data-page-title="Database Map">
+  <main class="container">
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h1>Database Map</h1>
+          <p class="muted">Live schema, row counts, keys, and beginner explanations for the ERM database.</p>
+        </div>
+        <div class="toolbar">
+          <a class="button-like" href="/admin/imports">Imports</a>
+          <a class="button-like" href="/admin/query">Reports</a>
+          <button onclick="createBackup()">Create Backup</button>
+        </div>
+      </div>
+      <div id="summary" class="summary"></div>
+    </section>
+    <section class="card">
+      <div class="toolbar">
+        <input id="filter" placeholder="Filter tables or columns">
+        <span id="count" class="pill"></span>
+      </div>
+    </section>
+    <section id="tables" class="admin-grid"></section>
+  </main>
+  <script>
+    let dbMap=null;
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
+    function render(){
+      const q=filter.value.toLowerCase();
+      const tables=(dbMap?.tables||[]).filter(t=>!q||t.name.toLowerCase().includes(q)||t.columns.some(c=>String(c.name).toLowerCase().includes(q)));
+      count.textContent=`${tables.length} table(s)`;
+      summary.innerHTML=[
+        ["Engine",dbMap.engine],["Location type",dbMap.location_type],["Database",dbMap.safe_location],["Tables",dbMap.tables.length]
+      ].map(([k,v])=>`<div class="metric"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
+      document.getElementById("tables").innerHTML=tables.map(t=>`<article class="table-card">
+        <div class="table-head"><div><h3>${esc(t.name)}</h3><p class="muted">${esc(t.explanation||"Application table.")}</p></div><div><span class="pill">${esc(t.row_count)} rows</span> <span class="pill">PK: ${esc((t.primary_keys||[]).join(", ")||"none")}</span></div></div>
+        <p class="muted">Last updated: ${esc(t.last_updated||"not available")} &nbsp; Foreign keys: ${esc((t.foreign_keys||[]).length)}</p>
+        <table class="schema"><thead><tr><th>Column</th><th>Type</th><th>Required</th><th>Default</th><th>PK</th></tr></thead><tbody>
+        ${t.columns.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.type)}</td><td>${c.notnull?"Yes":"No"}</td><td>${esc(c.dflt_value||c.default||"")}</td><td>${c.pk?"Yes":""}</td></tr>`).join("")}
+        </tbody></table>
+      </article>`).join("");
+    }
+    async function load(){dbMap=await api("/api/admin/database-map");render()}
+    async function createBackup(){const data=await api("/admin/backups/create",{method:"POST"});alert(`Backup created: ${data.filename}`)}
+    filter.addEventListener("input",render);
+    load().catch(err=>{document.getElementById("tables").innerHTML=`<div class="card">${esc(err.message)}</div>`});
+  </script>
+  <script src="/static/app_layout.js"></script>
+</body>
+</html>

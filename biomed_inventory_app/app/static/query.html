@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports Query</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .split{display:grid;gap:14px;grid-template-columns:320px 1fr}.toolbar{display:flex;flex-wrap:wrap;gap:8px}.toolbar button,.toolbar select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.toolbar button{background:var(--primary);border-color:var(--primary);color:#fff;cursor:pointer;font-weight:800}.toolbar button.secondary{background:#fff;color:var(--primary-dark)}textarea{border:1px solid var(--line);border-radius:8px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace;min-height:130px;padding:10px;width:100%}.table-wrap{overflow:auto}.results{border-collapse:collapse;width:100%}.results th,.results td{border-bottom:1px solid var(--line);font-size:12px;padding:8px;text-align:left}.results th{background:var(--soft);color:var(--primary-dark)}.muted{color:var(--muted);font-size:12px}@media(max-width:900px){.split{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-page-title="Reports Query">
+  <main class="container">
+    <section class="card">
+      <h1>Safe Reports</h1>
+      <p class="muted">Admins can run read-only SELECT queries. Other users use predefined reports with price fields hidden unless their role has view_prices.</p>
+    </section>
+    <section class="split">
+      <aside class="card">
+        <h3>Predefined Reports</h3>
+        <div id="reports" class="toolbar"></div>
+      </aside>
+      <section class="card">
+        <div class="toolbar">
+          <button onclick="runSql()">Run SELECT</button>
+          <button class="secondary" onclick="exportSql()">Export Excel</button>
+          <a id="reportExport" class="button-like" href="#">Export Report</a>
+        </div>
+        <textarea id="sql" placeholder="SELECT * FROM clients LIMIT 20"></textarea>
+        <p id="status" class="muted"></p>
+        <div class="table-wrap"><table class="results" id="table"></table></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.headers.get("content-type")?.includes("json")?res.json():res.blob()}
+    function renderRows(rows){const cols=rows[0]?Object.keys(rows[0]):[];table.innerHTML=cols.length?`<thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody>`:"<tbody><tr><td>No rows</td></tr></tbody>";status.textContent=`${rows.length} row(s)`;}
+    async function loadReports(){const data=await api("/api/admin/reports");reports.innerHTML=data.map(r=>`<button class="secondary" data-id="${esc(r.id)}">${esc(r.label)}</button>`).join("");reports.querySelectorAll("button").forEach(b=>b.onclick=()=>runReport(b.dataset.id))}
+    async function runReport(id){const data=await api(`/api/admin/reports/${id}`);reportExport.href=`/api/admin/reports/${id}/export`;renderRows(data.rows)}
+    async function runSql(){try{const data=await api("/api/admin/query",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:sql.value})});renderRows(data.rows)}catch(e){status.textContent=e.message}}
+    async function exportSql(){const res=await fetch("/api/admin/query/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:sql.value})});if(!res.ok){status.textContent=await res.text();return}const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="query_results.xlsx";a.click();}
+    loadReports();
+  </script>
+  <script src="/static/app_layout.js"></script>
+</body>
+</html>
