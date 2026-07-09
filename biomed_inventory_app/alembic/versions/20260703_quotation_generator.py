@@ -63,6 +63,9 @@ def upgrade():
             sa.Column("payment_terms", sa.Text()),
             sa.Column("delivery_terms", sa.Text()),
             sa.Column("warranty_terms", sa.Text()),
+            sa.Column("sales_person", sa.String(length=255)),
+            sa.Column("phone_number", sa.String(length=80)),
+            sa.Column("email", sa.String(length=255)),
             sa.Column("notes", sa.Text()),
             sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -90,6 +93,9 @@ def upgrade():
                 sa.Column("payment_terms", sa.Text()),
                 sa.Column("delivery_terms", sa.Text()),
                 sa.Column("warranty_terms", sa.Text()),
+                sa.Column("sales_person", sa.String(length=255)),
+                sa.Column("phone_number", sa.String(length=80)),
+                sa.Column("email", sa.String(length=255)),
             ],
         )
 
@@ -98,6 +104,7 @@ def upgrade():
             "quotation_items",
             sa.Column("id", sa.Integer(), primary_key=True),
             sa.Column("quotation_id", sa.Integer(), nullable=False),
+            sa.Column("equipment_group_id", sa.Integer()),
             sa.Column("inventory_item_id", sa.Integer()),
             sa.Column("item_code", sa.String(length=255)),
             sa.Column("manufacturer_part_number", sa.String(length=255)),
@@ -106,6 +113,8 @@ def upgrade():
             sa.Column("quantity", sa.Numeric(12, 2), nullable=False, server_default="1"),
             sa.Column("unit_price", sa.Numeric(12, 2), nullable=False, server_default="0"),
             sa.Column("discount_percent", sa.Numeric(5, 2), nullable=False, server_default="0"),
+            sa.Column("item_type", sa.String(length=40), nullable=False, server_default="spare_part"),
+            sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("line_total", sa.Numeric(12, 2), nullable=False, server_default="0"),
             sa.Column("warranty", sa.String(length=255)),
             sa.Column("delivery_time", sa.String(length=255)),
@@ -118,12 +127,15 @@ def upgrade():
             bind,
             "quotation_items",
             [
+                sa.Column("equipment_group_id", sa.Integer()),
                 sa.Column("inventory_item_id", sa.Integer()),
                 sa.Column("item_code", sa.String(length=255)),
                 sa.Column("manufacturer_part_number", sa.String(length=255)),
                 sa.Column("ai_normalized_description", sa.Text()),
                 sa.Column("quantity", sa.Numeric(12, 2), server_default="1"),
                 sa.Column("discount_percent", sa.Numeric(5, 2), server_default="0"),
+                sa.Column("item_type", sa.String(length=40), server_default="spare_part"),
+                sa.Column("sort_order", sa.Integer(), server_default="0"),
                 sa.Column("line_total", sa.Numeric(12, 2), server_default="0"),
                 sa.Column("warranty", sa.String(length=255)),
                 sa.Column("delivery_time", sa.String(length=255)),
@@ -131,6 +143,24 @@ def upgrade():
                 sa.Column("ai_validation_status", sa.String(length=40), server_default="missing_info"),
                 sa.Column("ai_validation_notes", sa.Text()),
             ],
+        )
+
+    if not has_table(bind, "quotation_equipment_groups"):
+        op.create_table(
+            "quotation_equipment_groups",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("quotation_id", sa.Integer(), nullable=False),
+            sa.Column("equipment_id", sa.Integer()),
+            sa.Column("equipment_name", sa.String(length=255)),
+            sa.Column("manufacturer", sa.String(length=255)),
+            sa.Column("model", sa.String(length=255)),
+            sa.Column("serial_number", sa.String(length=255)),
+            sa.Column("service_report_number", sa.String(length=255)),
+            sa.Column("department_name", sa.String(length=255)),
+            sa.Column("location", sa.String(length=255)),
+            sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         )
 
     if not has_table(bind, "quotation_attachments"):
@@ -164,6 +194,8 @@ def upgrade():
     create_index_if_missing(bind, "ix_quotations_number", "quotations", ["quotation_number"])
     create_index_if_missing(bind, "ix_quotations_status", "quotations", ["status"])
     create_index_if_missing(bind, "ix_quotation_items_quotation_id", "quotation_items", ["quotation_id"])
+    create_index_if_missing(bind, "ix_quotation_items_equipment_group_id", "quotation_items", ["equipment_group_id"])
+    create_index_if_missing(bind, "ix_quotation_equipment_groups_quotation_id", "quotation_equipment_groups", ["quotation_id"])
     create_index_if_missing(bind, "ix_quotation_items_inventory_item_id", "quotation_items", ["inventory_item_id"])
     create_index_if_missing(bind, "ix_quotation_attachments_quotation_id", "quotation_attachments", ["quotation_id"])
     create_index_if_missing(bind, "ix_quotation_templates_default", "quotation_templates", ["is_default"])

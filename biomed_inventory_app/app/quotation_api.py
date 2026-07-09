@@ -18,6 +18,10 @@ from .quotation_import_service import parse_upload
 router = APIRouter(prefix="/quotations", tags=["Quotations"])
 
 
+def model_data(value: Any) -> dict[str, Any]:
+    return value.model_dump() if hasattr(value, "model_dump") else dict(value)
+
+
 def db_path() -> Path:
     return Path(os.getenv("DB_PATH", Path(__file__).resolve().parent / "data" / "inventory.db"))
 
@@ -39,6 +43,7 @@ def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
 
 class QuotationItemIn(BaseModel):
+    equipment_group_id: int | None = None
     inventory_item_id: int | None = None
     item_code: str | None = None
     manufacturer_part_number: str | None = None
@@ -46,8 +51,35 @@ class QuotationItemIn(BaseModel):
     quantity: float = Field(1, gt=0)
     unit_price: float = 0
     discount_percent: float = 0
+    item_type: str = "spare_part"
+    sort_order: int = 0
     warranty: str | None = None
     delivery_time: str | None = None
+
+
+class QuotationEquipmentGroupIn(BaseModel):
+    equipment_id: int | None = None
+    equipment_name: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    serial_number: str | None = None
+    service_report_number: str | None = None
+    department_name: str | None = None
+    location: str | None = None
+    sort_order: int = 0
+    items: list[QuotationItemIn] = []
+
+
+class QuotationEquipmentGroupPatch(BaseModel):
+    equipment_id: int | None = None
+    equipment_name: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    serial_number: str | None = None
+    service_report_number: str | None = None
+    department_name: str | None = None
+    location: str | None = None
+    sort_order: int | None = None
 
 
 class QuotationIn(BaseModel):
@@ -65,8 +97,12 @@ class QuotationIn(BaseModel):
     payment_terms: str | None = None
     delivery_terms: str | None = None
     warranty_terms: str | None = None
+    sales_person: str | None = None
+    phone_number: str | None = None
+    email: str | None = None
     notes: str | None = None
     items: list[QuotationItemIn] = []
+    equipment_groups: list[QuotationEquipmentGroupIn] = []
 
 
 class QuotationPatch(BaseModel):
@@ -84,6 +120,9 @@ class QuotationPatch(BaseModel):
     payment_terms: str | None = None
     delivery_terms: str | None = None
     warranty_terms: str | None = None
+    sales_person: str | None = None
+    phone_number: str | None = None
+    email: str | None = None
     notes: str | None = None
 
 
@@ -112,7 +151,29 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
             payment_terms TEXT,
             delivery_terms TEXT,
             warranty_terms TEXT,
+            sales_person TEXT,
+            phone_number TEXT,
+            email TEXT,
             notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quotation_equipment_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            quotation_id INTEGER,
+            equipment_id INTEGER,
+            equipment_name TEXT,
+            manufacturer TEXT,
+            model TEXT,
+            serial_number TEXT,
+            service_report_number TEXT,
+            department_name TEXT,
+            location TEXT,
+            sort_order INTEGER DEFAULT 0,
             created_at TEXT,
             updated_at TEXT
         )
@@ -123,6 +184,7 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS quotation_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             quotation_id INTEGER,
+            equipment_group_id INTEGER,
             inventory_item_id INTEGER,
             item_code TEXT,
             manufacturer_part_number TEXT,
@@ -131,6 +193,8 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
             quantity REAL DEFAULT 1,
             unit_price REAL DEFAULT 0,
             discount_percent REAL DEFAULT 0,
+            item_type TEXT DEFAULT 'spare_part',
+            sort_order INTEGER DEFAULT 0,
             line_total REAL DEFAULT 0,
             warranty TEXT,
             delivery_time TEXT,
@@ -163,14 +227,20 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
             "payment_terms": "TEXT",
             "delivery_terms": "TEXT",
             "warranty_terms": "TEXT",
+            "sales_person": "TEXT",
+            "phone_number": "TEXT",
+            "email": "TEXT",
         },
         "quotation_items": {
+            "equipment_group_id": "INTEGER",
             "inventory_item_id": "INTEGER",
             "item_code": "TEXT",
             "manufacturer_part_number": "TEXT",
             "ai_normalized_description": "TEXT",
             "quantity": "REAL DEFAULT 1",
             "discount_percent": "REAL DEFAULT 0",
+            "item_type": "TEXT DEFAULT 'spare_part'",
+            "sort_order": "INTEGER DEFAULT 0",
             "line_total": "REAL DEFAULT 0",
             "warranty": "TEXT",
             "delivery_time": "TEXT",
@@ -221,8 +291,19 @@ def next_quotation_number(conn: sqlite3.Connection) -> str:
 
 
 def get_items(conn: sqlite3.Connection, quotation_id: int) -> list[dict[str, Any]]:
-    rows = conn.execute("SELECT * FROM quotation_items WHERE quotation_id=? ORDER BY id", (quotation_id,)).fetchall()
+    rows = conn.execute("SELECT * FROM quotation_items WHERE quotation_id=? ORDER BY COALESCE(equipment_group_id, 0), COALESCE(sort_order, 0), id", (quotation_id,)).fetchall()
     return [row_dict(row) for row in rows]
+
+
+def get_equipment_groups(conn: sqlite3.Connection, quotation_id: int) -> list[dict[str, Any]]:
+    groups = [row_dict(row) for row in conn.execute(
+        "SELECT * FROM quotation_equipment_groups WHERE quotation_id=? ORDER BY COALESCE(sort_order, 0), id",
+        (quotation_id,),
+    ).fetchall()]
+    items = get_items(conn, quotation_id)
+    for group in groups:
+        group["items"] = [item for item in items if item.get("equipment_group_id") == group["id"]]
+    return groups
 
 
 def get_client(conn: sqlite3.Connection, client_id: int | None) -> dict[str, Any] | None:
@@ -249,8 +330,36 @@ def serialize_quotation(conn: sqlite3.Connection, quotation_id: int) -> dict[str
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
     items = get_items(conn, quotation_id)
+    equipment_groups = get_equipment_groups(conn, quotation_id)
     client = get_client(conn, quotation.get("client_id"))
-    return {**quotation, "client": client, "items": items}
+    return {**quotation, "client": client, "items": items, "equipment_groups": equipment_groups}
+
+
+def insert_equipment_group(conn: sqlite3.Connection, quotation_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    ts = now_iso()
+    cur = conn.execute(
+        """
+        INSERT INTO quotation_equipment_groups
+        (quotation_id, equipment_id, equipment_name, manufacturer, model, serial_number, service_report_number,
+         department_name, location, sort_order, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            quotation_id,
+            payload.get("equipment_id"),
+            payload.get("equipment_name"),
+            payload.get("manufacturer"),
+            payload.get("model"),
+            payload.get("serial_number"),
+            payload.get("service_report_number"),
+            payload.get("department_name"),
+            payload.get("location"),
+            payload.get("sort_order") or 0,
+            ts,
+            ts,
+        ),
+    )
+    return row_dict(conn.execute("SELECT * FROM quotation_equipment_groups WHERE id=?", (cur.lastrowid,)).fetchone())
 
 
 def insert_item(conn: sqlite3.Connection, quotation_id: int, payload: dict[str, Any]) -> dict[str, Any]:
@@ -258,12 +367,13 @@ def insert_item(conn: sqlite3.Connection, quotation_id: int, payload: dict[str, 
     cur = conn.execute(
         """
         INSERT INTO quotation_items
-        (quotation_id, inventory_item_id, item_code, manufacturer_part_number, description, quantity, qty, unit_price,
-         discount_percent, line_total, total_price, warranty, delivery_time, ai_validation_status, ref)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (quotation_id, equipment_group_id, inventory_item_id, item_code, manufacturer_part_number, description, quantity, qty, unit_price,
+         discount_percent, item_type, sort_order, line_total, total_price, warranty, delivery_time, ai_validation_status, ref)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             quotation_id,
+            payload.get("equipment_group_id"),
             payload.get("inventory_item_id"),
             payload.get("item_code"),
             payload.get("manufacturer_part_number"),
@@ -272,6 +382,8 @@ def insert_item(conn: sqlite3.Connection, quotation_id: int, payload: dict[str, 
             int(payload.get("quantity") or 1),
             payload.get("unit_price") or 0,
             payload.get("discount_percent") or 0,
+            payload.get("item_type") or "spare_part",
+            payload.get("sort_order") or 0,
             line_total,
             line_total,
             payload.get("warranty"),
@@ -297,8 +409,9 @@ def create_quotation(payload: QuotationIn):
             """
             INSERT INTO quotations
             (quotation_number, quotation_no, client_id, department_id, contact_id, case_id, status, quotation_date, quote_date,
-             valid_until, currency, discount_amount, vat_rate, payment_terms, delivery_terms, warranty_terms, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             valid_until, currency, discount_amount, vat_rate, payment_terms, delivery_terms, warranty_terms,
+             sales_person, phone_number, email, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 number,
@@ -317,12 +430,23 @@ def create_quotation(payload: QuotationIn):
                 payload.payment_terms,
                 payload.delivery_terms,
                 payload.warranty_terms,
+                payload.sales_person,
+                payload.phone_number,
+                payload.email,
                 payload.notes,
                 ts,
                 ts,
             ),
         )
         quotation_id = cur.lastrowid
+        for group in payload.equipment_groups:
+            group_data = group.model_dump()
+            items = group_data.pop("items", [])
+            inserted_group = insert_equipment_group(conn, quotation_id, group_data)
+            for item in items:
+                item_data = model_data(item)
+                item_data["equipment_group_id"] = inserted_group["id"]
+                insert_item(conn, quotation_id, item_data)
         for item in payload.items:
             insert_item(conn, quotation_id, item.model_dump())
         recalculate(conn, quotation_id)
@@ -345,6 +469,81 @@ def list_quotations(limit: int = 100, offset: int = 0, status: str = ""):
             (*params, limit, offset),
         ).fetchall()
         return [row_dict(row) for row in rows]
+
+
+@router.post("/demo/cmm-service-offer", status_code=201)
+def create_cmm_service_demo():
+    with connect() as conn:
+        ensure_tables(conn)
+        client = conn.execute("SELECT * FROM clients WHERE lower(name)=lower(?)", ("Clinique du Levant",)).fetchone()
+        if not client:
+            ts = now_iso()
+            try:
+                cur = conn.execute("INSERT INTO clients (name, phone, contact_email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", ("Clinique du Levant", "03137314", "Support@cmm-hc.com", ts, ts))
+            except sqlite3.OperationalError:
+                cur = conn.execute("INSERT INTO clients (name) VALUES (?)", ("Clinique du Levant",))
+            client_id = cur.lastrowid
+        else:
+            client_id = client["id"]
+        payload = QuotationIn(
+            client_id=client_id,
+            quotation_number="CDL-SRV1 - 4762/3/ A-0006910",
+            quotation_date="2026-06-12",
+            valid_until="2026-06-19",
+            currency="USD",
+            vat_rate=11,
+            payment_terms="Cash in Advance",
+            sales_person="Nagham Kheir",
+            phone_number="03137314",
+            email="Support@cmm-hc.com",
+            equipment_groups=[
+                QuotationEquipmentGroupIn(
+                    equipment_name="SLE 2000",
+                    serial_number="D0424",
+                    service_report_number="6-14762",
+                    sort_order=1,
+                    items=[
+                        QuotationItemIn(item_code="SL-N2191", description="OXYGEN CELL SENSOR SLE2000", quantity=1, unit_price=220, item_type="spare_part", sort_order=1),
+                        QuotationItemIn(item_code="CMM-LabA", description="Inspection/Repair Labor Fee", quantity=1, unit_price=70, item_type="labor", sort_order=2),
+                    ],
+                ),
+                QuotationEquipmentGroupIn(
+                    equipment_name="SLE 2000",
+                    serial_number="D0410",
+                    service_report_number="6-14763",
+                    sort_order=2,
+                    items=[
+                        QuotationItemIn(item_code="SL-N2191", description="OXYGEN CELL SENSOR SLE2000", quantity=1, unit_price=220, item_type="spare_part", sort_order=1),
+                        QuotationItemIn(item_code="CMM-LabA", description="Inspection/Repair Labor Fee", quantity=1, unit_price=70, item_type="labor", sort_order=2),
+                    ],
+                ),
+            ],
+        )
+        quotation_date = payload.quotation_date or date.today().isoformat()
+        ts = now_iso()
+        cur = conn.execute(
+            """
+            INSERT INTO quotations
+            (quotation_number, quotation_no, client_id, status, quotation_date, quote_date, valid_until, currency,
+             discount_amount, vat_rate, payment_terms, sales_person, phone_number, email, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (payload.quotation_number, payload.quotation_number, payload.client_id, "draft", quotation_date, quotation_date,
+             payload.valid_until, payload.currency, payload.discount_amount, payload.vat_rate, payload.payment_terms,
+             payload.sales_person, payload.phone_number, payload.email, ts, ts),
+        )
+        quotation_id = cur.lastrowid
+        for group in payload.equipment_groups:
+            group_data = group.model_dump()
+            items = group_data.pop("items", [])
+            inserted_group = insert_equipment_group(conn, quotation_id, group_data)
+            for item in items:
+                item_data = model_data(item)
+                item_data["equipment_group_id"] = inserted_group["id"]
+                insert_item(conn, quotation_id, item_data)
+        recalculate(conn, quotation_id)
+        conn.commit()
+        return serialize_quotation(conn, quotation_id)
 
 
 @router.get("/{quotation_id}")
@@ -378,6 +577,7 @@ def delete_quotation(quotation_id: int):
     with connect() as conn:
         ensure_tables(conn)
         conn.execute("DELETE FROM quotation_items WHERE quotation_id=?", (quotation_id,))
+        conn.execute("DELETE FROM quotation_equipment_groups WHERE quotation_id=?", (quotation_id,))
         conn.execute("DELETE FROM quotation_attachments WHERE quotation_id=?", (quotation_id,))
         conn.execute("DELETE FROM quotations WHERE id=?", (quotation_id,))
         conn.commit()
@@ -395,9 +595,68 @@ def create_item(quotation_id: int, payload: QuotationItemIn):
         return item
 
 
+@router.post("/{quotation_id}/equipment-groups", status_code=201)
+def create_equipment_group(quotation_id: int, payload: QuotationEquipmentGroupIn):
+    with connect() as conn:
+        ensure_tables(conn)
+        if not conn.execute("SELECT id FROM quotations WHERE id=?", (quotation_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Quotation not found")
+        group_data = payload.model_dump()
+        items = group_data.pop("items", [])
+        group = insert_equipment_group(conn, quotation_id, group_data)
+        for item in items:
+            item_data = model_data(item)
+            item_data["equipment_group_id"] = group["id"]
+            insert_item(conn, quotation_id, item_data)
+        recalculate(conn, quotation_id)
+        conn.commit()
+        return {**group, "items": [item for item in get_items(conn, quotation_id) if item.get("equipment_group_id") == group["id"]]}
+
+
+@router.patch("/{quotation_id}/equipment-groups/{group_id}")
+def patch_equipment_group(quotation_id: int, group_id: int, payload: QuotationEquipmentGroupPatch):
+    data = payload.model_dump(exclude_unset=True)
+    if not data:
+        return get_quotation(quotation_id)
+    data["updated_at"] = now_iso()
+    with connect() as conn:
+        ensure_tables(conn)
+        row = conn.execute("SELECT * FROM quotation_equipment_groups WHERE id=? AND quotation_id=?", (group_id, quotation_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Equipment group not found")
+        sets = ", ".join(f"{key}=?" for key in data)
+        conn.execute(f"UPDATE quotation_equipment_groups SET {sets} WHERE id=? AND quotation_id=?", (*data.values(), group_id, quotation_id))
+        conn.commit()
+        return row_dict(conn.execute("SELECT * FROM quotation_equipment_groups WHERE id=?", (group_id,)).fetchone())
+
+
+@router.delete("/{quotation_id}/equipment-groups/{group_id}", status_code=204)
+def delete_equipment_group(quotation_id: int, group_id: int):
+    with connect() as conn:
+        ensure_tables(conn)
+        conn.execute("UPDATE quotation_items SET equipment_group_id=NULL WHERE quotation_id=? AND equipment_group_id=?", (quotation_id, group_id))
+        conn.execute("DELETE FROM quotation_equipment_groups WHERE id=? AND quotation_id=?", (group_id, quotation_id))
+        recalculate(conn, quotation_id)
+        conn.commit()
+    return None
+
+
+@router.post("/{quotation_id}/equipment-groups/{group_id}/items", status_code=201)
+def create_group_item(quotation_id: int, group_id: int, payload: QuotationItemIn):
+    with connect() as conn:
+        ensure_tables(conn)
+        if not conn.execute("SELECT id FROM quotation_equipment_groups WHERE id=? AND quotation_id=?", (group_id, quotation_id)).fetchone():
+            raise HTTPException(status_code=404, detail="Equipment group not found")
+        data = payload.model_dump()
+        data["equipment_group_id"] = group_id
+        item = insert_item(conn, quotation_id, data)
+        conn.commit()
+        return item
+
+
 @router.patch("/{quotation_id}/items/{item_id}")
 def patch_item(quotation_id: int, item_id: int, payload: dict[str, Any]):
-    allowed = {"inventory_item_id", "item_code", "manufacturer_part_number", "description", "quantity", "unit_price", "discount_percent", "warranty", "delivery_time", "ai_normalized_description", "ai_match_confidence", "ai_validation_status", "ai_validation_notes"}
+    allowed = {"equipment_group_id", "inventory_item_id", "item_code", "manufacturer_part_number", "description", "quantity", "unit_price", "discount_percent", "item_type", "sort_order", "warranty", "delivery_time", "ai_normalized_description", "ai_match_confidence", "ai_validation_status", "ai_validation_notes"}
     data = {key: value for key, value in payload.items() if key in allowed}
     if "quantity" in data:
         data["qty"] = int(data["quantity"] or 0)
@@ -490,6 +749,6 @@ def export_pdf(quotation_id: int):
         if not quotation:
             raise HTTPException(status_code=404, detail="Quotation not found")
         items = get_items(conn, quotation_id)
-        content = build_pdf(quotation, items, get_client(conn, quotation.get("client_id")))
+        content = build_pdf(quotation, items, get_client(conn, quotation.get("client_id")), get_equipment_groups(conn, quotation_id))
         filename = f"{quotation.get('quotation_number') or quotation.get('quotation_no') or 'quotation'}.pdf"
         return Response(content, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}"})

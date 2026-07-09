@@ -1,9 +1,12 @@
 import io
+import os
+import tempfile
 import unittest
 from zipfile import ZipFile
 
 from openpyxl import Workbook
 
+from app.quotation_api import QuotationEquipmentGroupIn, QuotationIn, QuotationItemIn, connect, create_quotation
 from app.quotation_ai_service import QuotationAIService
 from app.quotation_export import build_excel, build_pdf, calculate_totals
 from app.quotation_import_service import parse_excel_bytes
@@ -72,6 +75,48 @@ class QuotationGeneratorTest(unittest.TestCase):
 
         self.assertTrue(content.startswith(b"%PDF"))
         self.assertGreater(len(content), 100)
+
+    def test_grouped_quotation_allows_duplicate_parts_across_serial_numbers(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            os.environ["DB_PATH"] = db_path
+            with connect() as conn:
+                conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+                conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
+                conn.commit()
+
+            quotation = create_quotation(
+                QuotationIn(
+                    client_id=1,
+                    quotation_number="QT-DUP-001",
+                    vat_rate=11,
+                    equipment_groups=[
+                        QuotationEquipmentGroupIn(
+                            equipment_name="SLE 2000",
+                            serial_number="D0424",
+                            service_report_number="6-14762",
+                            items=[QuotationItemIn(item_code="SL-N2191", description="Oxygen cell sensor", quantity=1, unit_price=220)],
+                        ),
+                        QuotationEquipmentGroupIn(
+                            equipment_name="SLE 2000",
+                            serial_number="D0410",
+                            service_report_number="6-14763",
+                            items=[QuotationItemIn(item_code="SL-N2191", description="Oxygen cell sensor", quantity=1, unit_price=220)],
+                        ),
+                    ],
+                )
+            )
+
+            self.assertEqual(len(quotation["equipment_groups"]), 2)
+            self.assertEqual([g["serial_number"] for g in quotation["equipment_groups"]], ["D0424", "D0410"])
+            self.assertEqual([g["items"][0]["item_code"] for g in quotation["equipment_groups"]], ["SL-N2191", "SL-N2191"])
+            self.assertEqual(quotation["subtotal"], 440)
+            self.assertEqual(quotation["vat_amount"], 48.4)
+            self.assertEqual(quotation["total_amount"], 488.4)
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
 
 
 if __name__ == "__main__":

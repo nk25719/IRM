@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quotation Generator</title>
+  <title>Service Quotations</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs a{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.tabs a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-shell{display:grid;gap:16px;grid-template-columns:320px 1fr}.quote-panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}.quote-form{display:grid;gap:10px}.quote-form input,.quote-form select,.quote-form textarea,.quote-table input{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.quote-form textarea{min-height:80px}.quote-actions{display:flex;flex-wrap:wrap;gap:8px}.quote-actions button,.quote-actions a{align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font-weight:800;gap:6px;padding:9px 11px;text-decoration:none}.quote-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-table-wrap{overflow:auto}.quote-table{border-collapse:collapse;min-width:980px;width:100%}.quote-table th,.quote-table td{border-bottom:1px solid var(--line);font-size:13px;padding:8px;text-align:left;vertical-align:top}.quote-table th{background:var(--soft);color:var(--primary-dark)}.quote-status{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}.quote-status.ok{background:#dcfce7;color:#166534}.quote-status.warning{background:#fef3c7;color:#92400e}.quote-status.mismatch,.quote-status.missing_info{background:#fee2e2;color:#991b1b}.quote-list{display:grid;gap:8px;margin-top:10px}.quote-list button{background:#fff;border:1px solid var(--line);border-radius:8px;color:inherit;cursor:pointer;padding:10px;text-align:left}.quote-list button.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,78,120,.12)}.quote-summary{display:grid;gap:6px;justify-content:end;margin-top:14px}.quote-summary div{display:grid;grid-template-columns:140px 120px;gap:12px}.quote-summary strong{text-align:right}.muted-small{color:var(--muted);font-size:12px}.ai-note{color:var(--muted);font-size:12px;max-width:260px}.import-review{background:#f8fafc;border:1px solid var(--line);border-radius:8px;margin-top:10px;padding:10px}@media(max-width:980px){.quote-shell{grid-template-columns:1fr}.quote-panel{padding:12px}.tabs a{flex:1;text-align:center}}
+    .tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs a{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px;text-decoration:none}.tabs a.primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-shell{display:grid;gap:16px;grid-template-columns:330px 1fr}.quote-panel,.group-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}.quote-form,.group-form,.line-form{display:grid;gap:10px}.quote-form input,.quote-form select,.quote-form textarea,.group-form input,.line-form input,.line-form select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.quote-form textarea{min-height:76px}.quote-actions{display:flex;flex-wrap:wrap;gap:8px}.quote-actions button,.quote-actions a{align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font-weight:800;gap:6px;padding:9px 11px;text-decoration:none}.quote-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-actions .success{background:#136f63;border-color:#136f63;color:#fff}.quote-actions .warn{background:#9a5b13;border-color:#9a5b13;color:#fff}.quote-list{display:grid;gap:8px;margin-top:10px}.quote-list button{background:#fff;border:1px solid var(--line);border-radius:8px;color:inherit;cursor:pointer;padding:10px;text-align:left}.quote-list button.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,78,120,.12)}.muted-small{color:var(--muted);font-size:12px}.groups{display:grid;gap:14px;margin-top:14px}.group-head{align-items:flex-start;background:#f3f4f6;border-radius:8px;display:flex;justify-content:space-between;gap:10px;padding:10px}.group-head h3{margin:0}.group-head p{color:var(--muted);margin:4px 0 0}.group-subtotal{font-size:13px;font-weight:800;margin-top:6px}.quote-table{border-collapse:collapse;margin-top:10px;width:100%}.quote-table th,.quote-table td{border-bottom:1px solid var(--line);font-size:13px;padding:8px;text-align:left;vertical-align:top}.quote-table th{background:var(--soft);color:var(--primary-dark)}.quote-table button{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:700;padding:6px 8px}.quote-summary{display:grid;gap:6px;justify-content:end;margin-top:14px}.quote-summary div{display:grid;grid-template-columns:160px 120px;gap:12px}.quote-summary strong{text-align:right}.line-composer{background:#f8fafc;border:1px solid var(--line);border-radius:8px;margin-top:12px;padding:12px}.line-composer h4{margin:0}.line-form{grid-template-columns:90px 140px minmax(220px,1fr) 110px 120px 130px}.line-form .readonly-total{background:#eef2f7;color:var(--primary-dark);font-weight:800}.section-title{align-items:center;display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}@media(max-width:1100px){.quote-shell{grid-template-columns:1fr}.line-form{grid-template-columns:1fr 1fr}.tabs a{flex:1;text-align:center}}@media(max-width:720px){.group-head,.section-title{display:grid}.line-form{grid-template-columns:1fr}.quote-table{display:block;overflow-x:auto}.quote-summary{justify-content:stretch}.quote-summary div{grid-template-columns:1fr auto}}
   </style>
 </head>
 <body data-page-title="Sales Quotations">
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Quotation Generator</h1><p>Create, validate, and export customer quotations</p></div></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><h1>Service Quotations</h1><p>Create grouped CMM-style financial offers by equipment and serial number</p></div></div></header>
   <main class="container">
     <section class="card"><div class="tabs" id="tabs" aria-label="Sales views"></div></section>
     <section class="quote-shell">
@@ -18,25 +18,29 @@
         <form class="quote-form" onsubmit="createQuotation(event)">
           <h2>Create quotation</h2>
           <select id="clientId" required></select>
-          <input id="quotationNumber" placeholder="Quotation number">
+          <input id="quotationNumber" placeholder="Offer reference">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <input id="quotationDate" type="date">
             <input id="validUntil" type="date">
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <input id="currency" value="USD" placeholder="Currency">
-            <select id="status"><option>draft</option><option>reviewed</option><option>sent</option><option>approved</option><option>rejected</option><option>expired</option></select>
+            <input id="vatRate" type="number" min="0" step="0.01" value="11" placeholder="VAT rate %">
           </div>
+          <input id="salesPerson" value="Nagham Kheir" placeholder="Sales person">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <input id="discountAmount" type="number" min="0" step="0.01" placeholder="Discount amount">
-            <input id="vatRate" type="number" min="0" step="0.01" placeholder="VAT rate %">
+            <input id="phoneNumber" placeholder="Phone number">
+            <input id="email" placeholder="Email">
           </div>
-          <textarea id="terms" placeholder="Payment, delivery, warranty, and notes"></textarea>
+          <input id="paymentTerms" value="Cash in Advance" placeholder="Payment terms">
+          <input id="status" value="draft" placeholder="Status">
+          <textarea id="notes" placeholder="Notes"></textarea>
           <button class="primary">Create</button>
         </form>
         <hr>
         <div class="quote-actions">
           <button onclick="loadQuotations()">Refresh</button>
+          <button onclick="createDemo()">Create CMM Demo</button>
           <label class="quote-actions"><input id="uploadFile" type="file" accept=".xlsx,.xlsm,.csv,.pdf,.doc,.docx,.txt" hidden onchange="uploadImport(event)"><button onclick="uploadFile.click()">Upload file</button></label>
         </div>
         <div id="importReview"></div>
@@ -44,19 +48,32 @@
         <div id="quotationList" class="quote-list"></div>
       </aside>
       <section class="quote-panel">
-        <div class="quote-actions">
-          <button class="primary" onclick="saveItem()">Add item</button>
-          <button onclick="validateAI()">AI review</button>
-          <a id="excelExport" href="#">Export Excel</a>
-          <a id="pdfExport" href="#">Export PDF</a>
+        <div class="section-title">
+          <div>
+            <h2 id="quoteTitle">Open or create a quotation</h2>
+            <p class="muted-small">Quotation items remain a commercial offer only. Stock and procurement demand start after conversion to Customer Order.</p>
+          </div>
+          <div class="quote-actions">
+            <button onclick="validateAI()">AI review</button>
+            <a id="excelExport" href="#">Export Excel</a>
+            <a id="pdfExport" href="#">Export PDF</a>
+          </div>
         </div>
-        <p class="muted-small">AI review only suggests normalized descriptions and matches. Apply any wording changes manually after review.</p>
-        <div class="quote-table-wrap">
-          <table class="quote-table">
-            <thead><tr><th>Code</th><th>MPN</th><th>Description</th><th>Qty</th><th>Unit</th><th>Disc %</th><th>Total</th><th>AI status</th><th>Actions</th></tr></thead>
-            <tbody id="itemRows"></tbody>
-          </table>
-        </div>
+
+        <section class="group-card">
+          <form class="group-form" onsubmit="addEquipment(event)">
+            <h3>Add Equipment</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">
+              <input id="equipmentName" placeholder="Equipment/model name">
+              <input id="serialNumber" placeholder="Serial number">
+              <input id="serviceReportNumber" placeholder="SR number">
+              <input id="departmentName" placeholder="Optional department/location">
+            </div>
+            <button class="primary">Add Equipment</button>
+          </form>
+        </section>
+
+        <div class="groups" id="groups"></div>
         <div class="quote-summary" id="totals"></div>
       </section>
     </section>
@@ -64,32 +81,35 @@
   <script>
     let selectedQuotation=null;
     let importedItems=[];
-    const salesViews={
-      "/sales":"Sales Dashboard",
-      "/sales/quotations":"Sales Quotations",
-      "/sales/customer-orders":"Sales Customer Orders",
-      "/sales/products":"Sales Products",
-      "/sales/reports":"Sales Reports"
-    };
+    const salesViews={"/sales":"Sales Dashboard","/sales/quotations":"Sales Quotations","/sales/customer-orders":"Sales Customer Orders","/sales/products":"Sales Products","/sales/reports":"Sales Reports"};
     const currentSalesPath=location.pathname.replace(/\/$/,"")||"/sales/quotations";
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const money=v=>Number(v||0).toFixed(2);
     function renderTabs(){tabs.innerHTML=Object.entries(salesViews).map(([href,label])=>`<a class="${href===currentSalesPath?"primary":""}" href="${href}">${esc(label.replace("Sales ",""))}</a>`).join("")}
     async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());const type=res.headers.get("content-type")||"";return type.includes("json")?res.json():res.text()}
     function today(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10)}
     async function loadClients(){try{const clients=await api("/api/erp/clients?limit=500");clientId.innerHTML=`<option value="">Select client</option>`+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}catch(e){clientId.innerHTML=`<option value="1">Client #1</option>`}}
-    async function loadQuotations(){const rows=await api("/quotations");quotationList.innerHTML=rows.map(q=>`<button class="${selectedQuotation&&selectedQuotation.id===q.id?"active":""}" onclick="openQuotation(${q.id})"><b>${esc(q.quotation_number||q.quotation_no||q.id)}</b><span class="muted-small"> ${esc(q.status)} · ${esc(q.total_amount||0)} ${esc(q.currency||"USD")}</span></button>`).join("")||`<span class="muted-small">No quotations yet.</span>`}
-    async function openQuotation(id){selectedQuotation=await api(`/quotations/${id}`);excelExport.href=`/quotations/${id}/export/excel`;pdfExport.href=`/quotations/${id}/export/pdf`;renderItems();loadQuotations()}
-    async function createQuotation(e){e.preventDefault();const payload={client_id:Number(clientId.value),quotation_number:quotationNumber.value||null,quotation_date:quotationDate.value||today(),valid_until:validUntil.value||today(30),currency:currency.value||"USD",status:status.value,discount_amount:Number(discountAmount.value||0),vat_rate:Number(vatRate.value||0),payment_terms:terms.value,delivery_terms:terms.value,warranty_terms:terms.value,notes:terms.value,items:importedItems};selectedQuotation=await api("/quotations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});importedItems=[];importReview.innerHTML="";await openQuotation(selectedQuotation.id)}
-    function blankItem(){return {item_code:"",manufacturer_part_number:"",description:"",quantity:1,unit_price:0,discount_percent:0,line_total:0,ai_validation_status:"missing_info",ai_validation_notes:""}}
-    function rowInputs(item){return `<td><input value="${esc(item.item_code||"")}" data-field="item_code"></td><td><input value="${esc(item.manufacturer_part_number||"")}" data-field="manufacturer_part_number"></td><td><input value="${esc(item.description||"")}" data-field="description"></td><td><input type="number" step="0.01" value="${esc(item.quantity||item.qty||1)}" data-field="quantity"></td><td><input type="number" step="0.01" value="${esc(item.unit_price||0)}" data-field="unit_price"></td><td><input type="number" step="0.01" value="${esc(item.discount_percent||0)}" data-field="discount_percent"></td>`}
-    function renderItems(){const items=selectedQuotation?selectedQuotation.items:[];itemRows.innerHTML=items.map(item=>`<tr data-id="${item.id}">${rowInputs(item)}<td>${Number(item.line_total||item.total_price||0).toFixed(2)}</td><td><span class="quote-status ${esc(item.ai_validation_status||"missing_info")}">${esc(item.ai_validation_status||"missing_info")}</span><div class="ai-note">${esc(item.ai_validation_notes||"")}${item.ai_normalized_description?`<br>Suggestion: ${esc(item.ai_normalized_description)}`:""}</div></td><td><button onclick="updateItem(${item.id})">Save</button><button onclick="deleteItem(${item.id})">Delete</button></td></tr>`).join("")+`<tr data-id=""><td><input data-field="item_code"></td><td><input data-field="manufacturer_part_number"></td><td><input data-field="description" placeholder="New item description"></td><td><input data-field="quantity" type="number" step="0.01" value="1"></td><td><input data-field="unit_price" type="number" step="0.01" value="0"></td><td><input data-field="discount_percent" type="number" step="0.01" value="0"></td><td></td><td></td><td></td></tr>`;totals.innerHTML=`<div><span>Subtotal</span><strong>${Number(selectedQuotation?.subtotal||0).toFixed(2)}</strong></div><div><span>VAT</span><strong>${Number(selectedQuotation?.vat_amount||0).toFixed(2)}</strong></div><div><span>Total</span><strong>${Number(selectedQuotation?.total_amount||0).toFixed(2)} ${esc(selectedQuotation?.currency||"USD")}</strong></div>`}
-    function payloadFromRow(tr){const out={};tr.querySelectorAll("[data-field]").forEach(input=>{const field=input.dataset.field;out[field]=["quantity","unit_price","discount_percent"].includes(field)?Number(input.value||0):input.value});return out}
-    async function saveItem(){if(!selectedQuotation){alert("Create or open a quotation first.");return}const tr=[...itemRows.querySelectorAll("tr")].at(-1);const payload=payloadFromRow(tr);if(!payload.description){alert("Description is required.");return}await api(`/quotations/${selectedQuotation.id}/items`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});await openQuotation(selectedQuotation.id)}
-    async function updateItem(id){const tr=document.querySelector(`tr[data-id="${id}"]`);await api(`/quotations/${selectedQuotation.id}/items/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payloadFromRow(tr))});await openQuotation(selectedQuotation.id)}
+    async function loadQuotations(){const rows=await api("/quotations");quotationList.innerHTML=rows.map(q=>`<button class="${selectedQuotation&&selectedQuotation.id===q.id?"active":""}" onclick="openQuotation(${q.id})"><b>${esc(q.quotation_number||q.quotation_no||q.id)}</b><span class="muted-small"> ${esc(q.status)} - ${money(q.total_amount)} ${esc(q.currency||"USD")}</span></button>`).join("")||`<span class="muted-small">No quotations yet.</span>`}
+    async function openQuotation(id){selectedQuotation=await api(`/quotations/${id}`);excelExport.href=`/quotations/${id}/export/excel`;pdfExport.href=`/quotations/${id}/export/pdf`;renderQuotation();loadQuotations()}
+    async function createQuotation(e){e.preventDefault();const payload={client_id:Number(clientId.value),quotation_number:quotationNumber.value||null,quotation_date:quotationDate.value||today(),valid_until:validUntil.value||today(7),currency:currency.value||"USD",status:status.value||"draft",vat_rate:Number(vatRate.value||11),payment_terms:paymentTerms.value,sales_person:salesPerson.value,phone_number:phoneNumber.value,email:email.value,notes:notes.value,items:importedItems};selectedQuotation=await api("/quotations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});importedItems=[];importReview.innerHTML="";await openQuotation(selectedQuotation.id)}
+    async function createDemo(){selectedQuotation=await api("/quotations/demo/cmm-service-offer",{method:"POST"});await openQuotation(selectedQuotation.id)}
+    function groupTitle(g){let title=g.equipment_name||g.model||"Equipment";if(g.model&&!(title||"").includes(g.model))title+=` - ${g.model}`;if(g.serial_number)title+=` - S.N.${g.serial_number}`;if(g.service_report_number)title+=` SR#: ${g.service_report_number}`;return title}
+    function lineTotal(item){return Number(item.quantity||1)*Number(item.unit_price||0)*(1-Number(item.discount_percent||0)/100)}
+    function renderQuotation(){if(!selectedQuotation){groups.innerHTML="";return}quoteTitle.textContent=selectedQuotation.quotation_number||selectedQuotation.quotation_no||`Quotation ${selectedQuotation.id}`;const grouped=selectedQuotation.equipment_groups||[];const flat=(selectedQuotation.items||[]).filter(i=>!i.equipment_group_id);groups.innerHTML=grouped.map(renderGroup).join("")+renderGeneral(flat);totals.innerHTML=`<div><span>Total before VAT</span><strong>${money(selectedQuotation.subtotal)}</strong></div><div><span>VAT ${money(selectedQuotation.vat_rate)}%</span><strong>${money(selectedQuotation.vat_amount)}</strong></div><div><span>Total</span><strong>${money(selectedQuotation.total_amount)} ${esc(selectedQuotation.currency||"USD")}</strong></div>`}
+    function itemTypeLabel(type){return ({spare_part:"Spare Part",labor:"Labor",custom:"Custom Line",service_fee:"Service Fee"})[type]||type||"Spare Part"}
+    function groupSubtotal(items){return (items||[]).reduce((sum,item)=>sum+Number(item.line_total||lineTotal(item)),0)}
+    function renderGroup(group){const items=group.items||[];return `<article class="group-card"><div class="group-head"><div><h3>${esc(groupTitle(group))}</h3><p>${esc([group.department_name,group.location].filter(Boolean).join(" - "))}</p><div class="group-subtotal">Equipment subtotal: ${money(groupSubtotal(items))} ${esc(selectedQuotation.currency||"USD")}</div></div><div class="quote-actions"><button onclick="deleteGroup(${group.id})">Delete Equipment</button></div></div>${renderTable(items)}<div class="quote-actions" style="margin-top:12px"><button class="primary" onclick="showLineComposer(${group.id},'spare_part')">Add Spare Part</button><button class="success" onclick="showLineComposer(${group.id},'labor')">Add Labor</button><button class="warn" onclick="showLineComposer(${group.id},'custom')">Add Custom Line</button></div><div id="lineComposer-${group.id}"></div></article>`}
+    function renderGeneral(items){return items.length?`<article class="group-card"><div class="group-head"><div><h3>General Items</h3><p>Flat quotation items without equipment assignment.</p></div></div>${renderTable(items)}</article>`:""}
+    function renderTable(items){return `<table class="quote-table"><thead><tr><th>Qty</th><th>P/N or item code</th><th>Description</th><th>Unit price</th><th>Total price</th><th>Item type</th><th></th></tr></thead><tbody>${items.map(i=>`<tr><td>${esc(i.quantity||1)}</td><td><b>${esc(i.item_code||i.manufacturer_part_number||"")}</b></td><td>${esc(i.description)}</td><td>${money(i.unit_price)}</td><td>${money(i.line_total||lineTotal(i))}</td><td>${esc(itemTypeLabel(i.item_type))}</td><td><button onclick="deleteItem(${i.id})">Delete</button></td></tr>`).join("")||`<tr><td colspan="7">No lines yet.</td></tr>`}</tbody></table>`}
+    function showLineComposer(groupId,itemType){const host=document.getElementById(`lineComposer-${groupId}`);if(!host)return;host.innerHTML=`<div class="line-composer"><h4>${esc(itemTypeLabel(itemType))}</h4><form class="line-form" oninput="updateLineTotal(this)" onsubmit="addLine(event,${groupId})"><input name="quantity" type="number" min="0.01" step="0.01" value="1" placeholder="Qty" aria-label="Qty"><input name="item_code" placeholder="P/N or item code" aria-label="P/N or item code"><input name="description" required placeholder="Description" aria-label="Description"><input name="unit_price" type="number" min="0" step="0.01" value="0" placeholder="Unit price" aria-label="Unit price"><input class="readonly-total" name="display_total" value="0.00" readonly aria-label="Total price"><input name="item_type_label" value="${esc(itemTypeLabel(itemType))}" readonly aria-label="Item type"><input name="item_type" type="hidden" value="${esc(itemType)}"><button class="primary">Add ${esc(itemTypeLabel(itemType))}</button></form></div>`}
+    function updateLineTotal(form){const qty=Number(form.elements.quantity.value||0);const unit=Number(form.elements.unit_price.value||0);form.elements.display_total.value=money(qty*unit)}
+    async function addEquipment(e){e.preventDefault();if(!selectedQuotation){alert("Create or open a quotation first.");return}const payload={equipment_name:equipmentName.value,serial_number:serialNumber.value,service_report_number:serviceReportNumber.value,department_name:departmentName.value,location:null,sort_order:(selectedQuotation.equipment_groups||[]).length+1};await api(`/quotations/${selectedQuotation.id}/equipment-groups`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});e.target.reset();await openQuotation(selectedQuotation.id)}
+    async function addLine(e,groupId){e.preventDefault();const form=new FormData(e.target);const payload=Object.fromEntries(form.entries());delete payload.display_total;delete payload.item_type_label;payload.quantity=Number(payload.quantity||1);payload.unit_price=Number(payload.unit_price||0);payload.discount_percent=0;payload.sort_order=((selectedQuotation.equipment_groups||[]).find(g=>g.id===groupId)?.items||[]).length+1;await api(`/quotations/${selectedQuotation.id}/equipment-groups/${groupId}/items`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});await openQuotation(selectedQuotation.id)}
+    async function deleteGroup(id){await fetch(`/quotations/${selectedQuotation.id}/equipment-groups/${id}`,{method:"DELETE"});await openQuotation(selectedQuotation.id)}
     async function deleteItem(id){await fetch(`/quotations/${selectedQuotation.id}/items/${id}`,{method:"DELETE"});await openQuotation(selectedQuotation.id)}
     async function validateAI(){if(!selectedQuotation){alert("Open a quotation first.");return}await api(`/quotations/${selectedQuotation.id}/validate-ai`,{method:"POST"});await openQuotation(selectedQuotation.id)}
-    async function uploadImport(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append("file",file);const data=await api("/quotations/import",{method:"POST",body});importedItems=data.items||[];importReview.innerHTML=`<div class="import-review"><b>${esc(data.filename)}</b><div class="muted-small">${data.item_count} item(s) ready for review. They will be saved only when you create a quotation.</div>${importedItems.slice(0,5).map(i=>`<div>${esc(i.item_code||"")} ${esc(i.description)} · ${esc(i.quantity)} x ${esc(i.unit_price)}</div>`).join("")}</div>`}
-    renderTabs();quotationDate.value=today();validUntil.value=today(30);loadClients();loadQuotations();
+    async function uploadImport(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append("file",file);const data=await api("/quotations/import",{method:"POST",body});importedItems=data.items||[];importReview.innerHTML=`<div class="import-review"><b>${esc(data.filename)}</b><div class="muted-small">${data.item_count} flat item(s) ready for review. They will be saved as General Items when you create a quotation.</div></div>`}
+    renderTabs();quotationDate.value=today();validUntil.value=today(7);loadClients();loadQuotations();
   </script>
   <script src="/static/app_layout.js"></script>
 </body>

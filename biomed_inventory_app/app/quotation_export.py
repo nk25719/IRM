@@ -177,62 +177,171 @@ def _minimal_pdf_bytes(lines: list[str]) -> bytes:
     return content.encode("latin-1", "ignore")
 
 
-def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: dict[str, Any] | None = None) -> bytes:
+def group_title(group: dict[str, Any]) -> str:
+    left = group.get("equipment_name") or group.get("model") or "Equipment"
+    model = group.get("model") or ""
+    serial = group.get("serial_number") or ""
+    sr = group.get("service_report_number") or ""
+    title = left if model and model in left else " - ".join(part for part in [left, model] if part)
+    if serial:
+        title += f" - S.N.{serial}"
+    if sr:
+        title += f" SR#: {sr}"
+    return title
+
+
+def grouped_items(items: list[dict[str, Any]], groups: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    groups = groups or []
+    result = []
+    used_ids = set()
+    for group in groups:
+        group_items = group.get("items") or [item for item in items if item.get("equipment_group_id") == group.get("id")]
+        result.append({"title": group_title(group), "items": group_items})
+        used_ids.update(item.get("id") for item in group_items)
+    flat = [item for item in items if item.get("id") not in used_ids and not item.get("equipment_group_id")]
+    if flat:
+        result.append({"title": "General Items", "items": flat})
+    if not result:
+        result.append({"title": "General Items", "items": []})
+    return result
+
+
+def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: dict[str, Any] | None = None, groups: list[dict[str, Any]] | None = None) -> bytes:
     client_name = (client or {}).get("name") or quotation.get("client_name") or f"Client #{quotation.get('client_id') or ''}"
     totals = calculate_totals(items, quotation.get("discount_amount"), quotation.get("vat_rate"))
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
         from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
         output = io.BytesIO()
-        doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm)
         styles = getSampleStyleSheet()
-        story = [
-            Paragraph(f"<b>{COMPANY_NAME}</b>", styles["Title"]),
-            Paragraph(COMPANY_SUBTITLE, styles["Normal"]),
-            Spacer(1, 14),
-            Paragraph("<b>QUOTATION</b>", styles["Heading1"]),
-            Paragraph(f"Client: {client_name}", styles["Normal"]),
-            Paragraph(f"Quotation No.: {quotation.get('quotation_number') or quotation.get('quotation_no') or ''}", styles["Normal"]),
-            Paragraph(f"Date: {quotation.get('quotation_date') or quotation.get('quote_date') or ''}    Valid until: {quotation.get('valid_until') or ''}", styles["Normal"]),
-            Spacer(1, 12),
-        ]
-        data = [["Code", "Description", "Qty", "Unit", "Disc %", "Total", "Warranty", "Delivery"]]
-        for item in items:
-            data.append([
-                item.get("item_code") or item.get("ref") or "",
-                item.get("description") or "",
-                money(item.get("quantity") if item.get("quantity") is not None else item.get("qty")),
-                f"{money(item.get('unit_price')):,.2f}",
-                f"{money(item.get('discount_percent')):,.2f}",
-                f"{money(item.get('line_total') if item.get('line_total') is not None else item.get('total_price')):,.2f}",
-                item.get("warranty") or "",
-                item.get("delivery_time") or "",
-            ])
-        table = Table(data, repeatRows=1, colWidths=[58, 145, 35, 55, 45, 60, 65, 65])
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#C9D6E2")),
+        normal = ParagraphStyle("CMMNormal", parent=styles["Normal"], fontSize=9, leading=11)
+        small = ParagraphStyle("CMMSmall", parent=normal, fontSize=8, leading=10)
+        title = ParagraphStyle("CMMTitle", parent=styles["Heading1"], fontSize=14, leading=16, spaceAfter=6)
+        pn_style = ParagraphStyle("PN", parent=normal, leading=12)
+        currency = quotation.get("currency") or "USD"
+        offer_ref = quotation.get("quotation_number") or quotation.get("quotation_no") or ""
+        phone = quotation.get("phone_number") or quotation.get("phone") or (client or {}).get("phone") or ""
+        email = quotation.get("email") or (client or {}).get("contact_email") or ""
+        sales_person = quotation.get("sales_person") or quotation.get("prepared_by") or "Nagham Kheir"
+
+        story = []
+        header = Table([
+            [Paragraph("<b>CMM</b><br/><font size='8'>Clinical Medical Maintenance</font>", styles["Title"]), Paragraph("<b>Financial Offer</b>", title)],
+        ], colWidths=[110 * mm, 48 * mm])
+        header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ]))
-        story.extend([table, Spacer(1, 12)])
+        story.extend([header, Spacer(1, 6)])
+
+        details = [
+            ["Customer", client_name, "Date", quotation.get("quotation_date") or quotation.get("quote_date") or ""],
+            ["Offer Ref.", offer_ref, "Sales Person", sales_person],
+            ["Phone Number", phone, "Email", email],
+        ]
+        detail_table = Table(details, colWidths=[26 * mm, 64 * mm, 28 * mm, 40 * mm])
+        detail_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.extend([detail_table, Spacer(1, 12), Paragraph("<b>Financial Offer:</b>", title)])
+
+        data = [["Qty", "Description", f"{currency} Unit Price", f"{currency} Tot. Price"]]
+        spans = []
+        row_index = 1
+        for group in grouped_items(items, groups):
+            data.append([Paragraph(f"<b>{group['title']}</b>", normal), "", "", ""])
+            spans.append(row_index)
+            row_index += 1
+            for item in group["items"]:
+                code = item.get("item_code") or item.get("manufacturer_part_number") or item.get("ref") or ""
+                desc = item.get("description") or ""
+                description = Paragraph(f"<b>P/N: {code}</b><br/>Description: {desc}", pn_style)
+                quantity = money(item.get("quantity") if item.get("quantity") is not None else item.get("qty"))
+                line_total = calculate_item_total(item)
+                data.append([f"{quantity:g}", description, f"{money(item.get('unit_price')):,.2f}", f"{line_total:,.2f}"])
+                row_index += 1
+
+        table = Table(data, repeatRows=1, colWidths=[18 * mm, 90 * mm, 28 * mm, 30 * mm])
+        table_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9D9D9")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#808080")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ]
+        for row in spans:
+            table_style.extend([
+                ("SPAN", (0, row), (-1, row)),
+                ("BACKGROUND", (0, row), (-1, row), colors.HexColor("#BFBFBF")),
+                ("FONTNAME", (0, row), (-1, row), "Helvetica-Bold"),
+                ("ALIGN", (0, row), (-1, row), "LEFT"),
+            ])
+        table.setStyle(TableStyle(table_style))
+        story.extend([table, Spacer(1, 10)])
+
+        total_data = [
+            [f"TOTAL BEFORE VAT {currency}", f"{totals['subtotal']:,.2f}"],
+            [f"{money(quotation.get('vat_rate')):g}% VAT {currency}", f"{totals['vat_amount']:,.2f}"],
+            [f"TOTAL {currency}", f"{totals['total_amount']:,.2f}"],
+        ]
+        total_table = Table(total_data, colWidths=[54 * mm, 30 * mm], hAlign="RIGHT")
+        total_table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#808080")),
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EDEDED")),
+        ]))
+        story.extend([total_table, Spacer(1, 12)])
         story.extend([
-            Paragraph(f"Subtotal: {totals['subtotal']:,.2f}", styles["Normal"]),
-            Paragraph(f"Discount: {totals['discount_amount']:,.2f}", styles["Normal"]),
-            Paragraph(f"VAT: {totals['vat_amount']:,.2f}", styles["Normal"]),
-            Paragraph(f"<b>Total: {totals['total_amount']:,.2f} {quotation.get('currency') or 'USD'}</b>", styles["Normal"]),
-            Spacer(1, 12),
-            Paragraph(f"Payment terms: {quotation.get('payment_terms') or ''}", styles["Normal"]),
-            Paragraph(f"Delivery terms: {quotation.get('delivery_terms') or ''}", styles["Normal"]),
-            Paragraph(f"Warranty terms: {quotation.get('warranty_terms') or ''}", styles["Normal"]),
-            Spacer(1, 24),
-            Paragraph("Prepared by: ____________________        Client approval: ____________________", styles["Normal"]),
+            Paragraph("<b>Conditions:</b>", normal),
+            Paragraph(f"Validity: {quotation.get('valid_until') or ''}", normal),
+            Paragraph(f"Payment terms: {quotation.get('payment_terms') or ''}", normal),
         ])
-        doc.build(story)
+
+        class NumberedCanvas:
+            def __init__(self, *args, **kwargs):
+                from reportlab.pdfgen.canvas import Canvas
+
+                self._canvas = Canvas(*args, **kwargs)
+                self._saved_page_states = []
+
+            def __getattr__(self, name):
+                return getattr(self._canvas, name)
+
+            def showPage(self):
+                self._saved_page_states.append(dict(self._canvas.__dict__))
+                self._canvas._startPage()
+
+            def save(self):
+                page_count = len(self._saved_page_states)
+                for state in self._saved_page_states:
+                    self._canvas.__dict__.update(state)
+                    self._canvas._page_count = page_count
+                    footer(self._canvas, doc)
+                    self._canvas.showPage()
+                self._canvas.save()
+
+        def footer(canvas, doc_obj):
+            canvas.saveState()
+            canvas.setFont("Helvetica", 8)
+            canvas.drawString(18 * mm, 10 * mm, "Financial Offer")
+            canvas.drawCentredString(A4[0] / 2, 10 * mm, "CMM-SA-F-04-03-Edition01")
+            page_count = getattr(canvas, "_page_count", doc_obj.page)
+            canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Page {doc_obj.page} of {page_count}")
+            canvas.restoreState()
+
+        doc.build(story, canvasmaker=NumberedCanvas)
         return output.getvalue()
     except Exception:
         lines = [
