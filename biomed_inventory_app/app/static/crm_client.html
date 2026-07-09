@@ -13,8 +13,8 @@
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand"><h1>Client Command Center</h1><p>One client workspace with Sales, After Sales, and Client Operations</p></div>
-      <nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">History</a><a href="/sales">Sales</a><a href="/procurement">Procurement</a><a href="/warehouse">Warehouse</a><a href="/aftersales">After Sales</a><a href="/logout">Logout</a></nav>
+      <div class="brand"><h1>Client Command Center</h1><p>One client workspace with Sales, Aftermarket, and Client Operations</p></div>
+      <nav class="top-actions"><a href="/dashboard">Dashboard</a><a href="/crm">History</a><a href="/sales">Sales</a><a href="/procurement">Procurement</a><a href="/warehouse">Warehouse</a><a href="/aftersales">Aftermarket</a><a href="/logout">Logout</a></nav>
     </div>
   </header>
   <main class="container crm-content">
@@ -36,7 +36,7 @@
     <section class="panel" id="operations">
       <div id="operationsGrid" class="subgrid"></div>
       <div class="toolbar">
-        <select id="timelineType"><option value="all">All activities</option><option value="sales">Sales activity</option><option value="after_sales">After Sales activity</option><option value="client_operations">Client Operations activity</option></select>
+        <select id="timelineType"><option value="all">All activities</option><option value="sales">Sales activity</option><option value="after_sales">After Sales Operations activity</option><option value="client_operations">Client Operations activity</option></select>
         <input id="timelineStatus" placeholder="Timeline status">
         <input id="timelineResponsible" placeholder="Responsible person">
         <input id="timelineDepartment" placeholder="Department">
@@ -58,7 +58,7 @@
   </aside>
   <script>
     const clientId=Number(location.pathname.split("/")[3]);let dashboard=null;let selected=new Map();
-    const tabs=[["service-follow-up","Service Follow-up"],["sales","A - Sales"],["after-sales","B - After Sales"],["operations","C - Client Operations"]];
+    const tabs=[["service-follow-up","Service Follow-up"],["sales","A - Sales"],["after-sales","B - After Sales Operations"],["operations","C - Client Operations"]];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const badge=v=>{const t=String(v??"");const l=t.toLowerCase();const cls=l.includes("blocked")||l.includes("overdue")||l.includes("expired")||l.includes("urgent")?"bad":l.includes("active")||l.includes("paid")||l.includes("healthy")||l==="none"?"good":l.includes("pending")||l.includes("progress")||l.includes("soon")?"warn":"";return `<span class="badge ${cls}">${esc(t||"-")}</span>`}
     const metric=(label,value)=>`<div class="metric"><span>${esc(label)}</span><b>${esc(value??0)}</b></div>`;

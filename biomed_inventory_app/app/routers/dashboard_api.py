@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app import legacy_main
+
 from ._legacy import mount_legacy_routes
 
 router = APIRouter(tags=["Dashboard API"])
@@ -25,3 +27,13 @@ _PATHS = {
 
 
 mount_legacy_routes(router, lambda path: path in _PATHS)
+
+
+@router.get("/api/aftermarket/dashboard")
+def aftermarket_dashboard():
+    conn = legacy_main.db()
+    legacy_main.ensure_clients_from_existing_data(conn)
+    conn.commit()
+    data = legacy_main.after_sales_dashboard_data(conn)
+    conn.close()
+    return data

@@ -34,6 +34,7 @@ docker run -p 8080:8080 cmm-inventory
 Open:
 
 ```text
+http://127.0.0.1:8080
 ```
 
 Test the change.

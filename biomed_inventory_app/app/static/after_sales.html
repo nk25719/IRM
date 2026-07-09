@@ -6,7 +6,7 @@
   <title>Aftermarket</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .aftermarket-shell{display:grid;gap:14px}.tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs button{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px}.tabs button.active{background:var(--primary);border-color:var(--primary);color:#fff}.panel{display:none}.panel.active{display:block}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.toolbar input,.toolbar select,.toolbar button{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.toolbar button{background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800}.toolbar .primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:8px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}.open{background:#fff7ed;color:#b45309}.completed{background:#dcfce7;color:#166534}.imported{background:#eef2ff;color:#3730a3}.expired{background:#fee2e2;color:#991b1b}.metric-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.metric{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary-dark);font-size:22px}.muted{color:var(--muted);font-size:12px}.notice{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}@media(max-width:780px){.tabs button{flex:1}.table{min-width:920px}}
+    .aftermarket-shell{display:grid;gap:14px}.tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs button{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px 11px}.tabs button.active{background:var(--primary);border-color:var(--primary);color:#fff}.panel{display:none}.panel.active{display:block}.toolbar{align-items:center;display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.toolbar input,.toolbar select,.toolbar button{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.toolbar button{background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800}.toolbar .primary{background:var(--primary);border-color:var(--primary);color:#fff}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:8px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}.open{background:#fff7ed;color:#b45309}.completed{background:#dcfce7;color:#166534}.imported{background:#eef2ff;color:#3730a3}.expired{background:#fee2e2;color:#991b1b}.metric-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.metric{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary-dark);font-size:22px}.muted{color:var(--muted);font-size:12px}.notice{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}.workspace-links{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin:0 0 12px}.workspace-links a{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);font-weight:800;padding:9px;text-decoration:none}@media(max-width:780px){.tabs button{flex:1}.table{min-width:920px}}
   </style>
 </head>
 <body data-page-title="Aftermarket">
@@ -14,7 +14,7 @@
     <section class="page-hero">
       <div>
         <h1>Aftermarket</h1>
-        <p>Installed base, service calls, warranty, preventive maintenance, spare parts usage, service history, and analytics.</p>
+        <p>Dashboard, Operations, Installed Base, Service History, Spare Parts, Coverage, and Analytics.</p>
       </div>
     </section>
 
@@ -30,14 +30,28 @@
 
     <section class="card"><nav class="tabs" id="tabs"></nav></section>
 
-    <section class="card panel active" id="installed">
+    <section class="card panel" id="dashboard">
+      <h2>Dashboard</h2>
+      <div id="dashboardMetrics" class="metric-grid"></div>
+      <div id="dashboardLinks" class="workspace-links"></div>
+    </section>
+
+    <section class="card panel" id="operations">
+      <h2>After Sales Operations</h2>
+      <div id="operationsLinks" class="workspace-links"></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Workflow</th><th>Purpose</th><th>Open</th></tr></thead><tbody id="operationsRows"></tbody></table></div>
+    </section>
+
+    <section class="card panel" id="installed">
       <h2>Installed Base</h2>
+      <div id="installedLinks" class="workspace-links"></div>
       <div class="toolbar"><input id="assetSearch" placeholder="Search serial, model, supplier, institution" oninput="renderAssets()"></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Supplier</th><th>Product Type</th><th>Model</th><th>Serial #</th><th>Institution</th><th>Unit Status</th><th>Order #</th><th>Installed</th><th>Warranty Ends</th></tr></thead><tbody id="assetRows"></tbody></table></div>
     </section>
 
     <section class="card panel" id="calls">
-      <h2>Service Calls</h2>
+      <h2>Service History</h2>
+      <div id="callsLinks" class="workspace-links"></div>
       <div class="toolbar"><input id="callSearch" placeholder="Search SR#, institution, serial, model" oninput="renderCalls()"></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>SR#</th><th>Institution</th><th>Supplier</th><th>Model</th><th>Serial #</th><th>Visit</th><th>Status</th><th>Match</th></tr></thead><tbody id="callRows"></tbody></table></div>
     </section>
@@ -57,12 +71,14 @@
     </section>
 
     <section class="card panel" id="warranty">
-      <h2>Warranty Tracking</h2>
+      <h2>Coverage</h2>
+      <div id="coverageLinks" class="workspace-links"></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Serial #</th><th>Institution</th><th>Supplier</th><th>Model</th><th>Unit Status</th><th>Warranty Ends</th><th>Warranty Status</th></tr></thead><tbody id="warrantyRows"></tbody></table></div>
     </section>
 
     <section class="card panel" id="parts">
-      <h2>Spare Parts Usage</h2>
+      <h2>Spare Parts</h2>
+      <div id="partsLinks" class="workspace-links"></div>
       <div class="table-wrap"><table class="table"><thead><tr><th>Part Number</th><th>Description</th><th>Supplier</th><th>Quantity Used</th><th>Total Value</th><th>Service Reports</th></tr></thead><tbody id="partsRows"></tbody></table></div>
     </section>
 
@@ -73,6 +89,7 @@
 
     <section class="card panel" id="analytics">
       <h2>Analytics</h2>
+      <div id="analyticsLinks" class="workspace-links"></div>
       <div id="metrics" class="metric-grid"></div>
       <h3>Reports by Engineer</h3>
       <div class="table-wrap"><table class="table"><thead><tr><th>Engineer ID</th><th>Reports</th></tr></thead><tbody id="engineerRows"></tbody></table></div>
@@ -80,7 +97,16 @@
   </main>
 
   <script>
-    const views=[["installed","Installed Base"],["calls","Service Calls"],["history","Equipment Service History"],["warranty","Warranty Tracking"],["parts","Spare Parts Usage"],["pm","Preventive Maintenance"],["analytics","Analytics"]];
+    const views=[["dashboard","Dashboard"],["operations","Operations"],["installed","Installed Base"],["calls","Service History"],["parts","Spare Parts"],["warranty","Coverage"],["analytics","Analytics"]];
+    const workspaceLinks={
+      dashboard:[["Operations","/aftersales/operations"],["Installed Base","/aftersales/installed-base"],["Service History","/aftersales/service-history"],["Spare Parts","/aftersales/spare-parts"],["Coverage","/aftersales/coverage"],["Analytics","/aftersales/analytics"]],
+      operations:[["Service Cases","/aftersales/service-cases"],["Preventive Maintenance","/aftersales/pm"],["Installations","/aftersales/installations"],["Deliveries","/aftersales/deliveries"],["FMI / Field Modifications","/aftersales/fmi-field-modifications"],["Training & Demo","/aftersales/training-demo"],["Quotations","/aftersales/quotations"]],
+      installed:[["Equipment List","/aftersales/installed-base/equipment"],["Import Equipment","/aftersales/installed-base/import-equipment"],["Warranty Status","/aftersales/installed-base/warranty-status"],["Equipment Details","/equipment-database"],["Service History","/aftersales/installed-base/service-history"]],
+      calls:[["Import Reports","/aftersales/service-history/import-reports"],["Imported Reports","/aftersales/service-history/imported-reports"],["Open Calls","/aftersales/service-history/open-calls"],["Completed Calls","/aftersales/service-history/completed-calls"],["Unmatched Reports","/aftersales/service-history/unmatched-reports"],["Equipment Timeline","/aftersales/service-history/equipment-timeline"]],
+      parts:[["Parts Usage","/aftersales/spare-parts/usage"],["Consumption","/aftersales/spare-parts/consumption"],["By Equipment","/aftersales/spare-parts/by-equipment"],["By Supplier","/aftersales/spare-parts/by-supplier"],["Cost Analysis","/aftersales/spare-parts/cost-analysis"]],
+      warranty:[["Contracts","/aftersales/contracts"],["Warranty","/aftersales/coverage/warranty"],["Contract Renewals","/aftersales/coverage/contract-renewals"],["Expiring Warranties","/aftersales/coverage/expiring-warranties"]],
+      analytics:[["Calls by Hospital","/aftersales/analytics/calls-by-hospital"],["Calls by Equipment","/aftersales/analytics/calls-by-equipment"],["Repeated Failures","/aftersales/analytics/repeated-failures"],["Engineer Workload","/aftersales/analytics/engineer-workload"],["PM Compliance","/aftersales/analytics/pm-compliance"],["Parts Consumption","/aftersales/analytics/parts-consumption"],["Cost Analysis","/aftersales/analytics/cost-analysis"],["Reliability Metrics","/aftersales/analytics/reliability-metrics"]]
+    };
     let assets=[], reports=[], usage=[], analytics={summary:{},by_engineer:[]}, historyRowsData=[];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const row=cells=>`<tr>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
@@ -90,23 +116,27 @@
     const warrantyStatus=a=>!a.warranty_end_date?"missing":new Date(a.warranty_end_date)<new Date(new Date().toISOString().slice(0,10))?"expired":"active";
     async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
     function setView(id){document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===id))}
-    function viewFromPath(){const p=location.pathname.replace(/\/$/,"");if(p.endsWith("/service-calls"))return"calls";if(p.endsWith("/history"))return"history";if(p.endsWith("/spare-parts"))return"parts";if(p.endsWith("/pm"))return"pm";if(p.endsWith("/reports")||p.endsWith("/analytics"))return"analytics";if(p.endsWith("/warranty"))return"warranty";return"installed"}
+    function selectTab(id){setView(id)}
+    function viewFromPath(){const p=location.pathname.replace(/\/$/,"");if(p==="/aftersales"||p==="/after-sales")return"dashboard";if(p.includes("/operations")||p.endsWith("/pm")||p.endsWith("/installations")||p.endsWith("/deliveries")||p.endsWith("/quotations")||p.endsWith("/training-demo")||p.endsWith("/fmi-field-modifications"))return"operations";if(p.includes("/installed-base")||p.endsWith("/history"))return"installed";if(p.includes("/service-history")||p.endsWith("/service-calls")||p.endsWith("/service-cases"))return"calls";if(p.includes("/spare-parts"))return"parts";if(p.includes("/coverage")||p.endsWith("/warranty")||p.endsWith("/contracts"))return"warranty";if(p.includes("/analytics"))return"analytics";return"dashboard"}
     function assetMatches(a){const q=assetSearch.value.toLowerCase().trim();return !q||[a.serial_number,a.model,a.supplier,a.institution,a.company,a.product_type,a.unit_status].join(" ").toLowerCase().includes(q)}
     function callMatches(r){const q=callSearch.value.toLowerCase().trim();return !q||[r.sr_number,r.institution,r.equipment_serial_number,r.equipment_model,r.supplier,r.status,r.match_status].join(" ").toLowerCase().includes(q)}
     function renderAssets(){assetRows.innerHTML=assets.filter(assetMatches).map(a=>row([esc(a.company),esc(a.supplier),esc(a.product_type),esc(a.model),esc(a.serial_number),esc(a.institution),badge(a.unit_status),esc(a.order_number),esc(a.installation_date),esc(a.warranty_end_date)])).join("")||empty(10)}
+    function renderOperations(){const ops=[["Service Cases","Corrective maintenance, customer follow-up, and service coordination","/aftersales/service-cases"],["Preventive Maintenance","PM schedules, due work, and reports","/aftersales/pm"],["Installations","Installation and acceptance follow-up","/aftersales/installations"],["Deliveries","Delivery and installation handoffs","/aftersales/deliveries"],["FMI / Field Modifications","Manufacturer notices, recalls, and field actions","/aftersales/fmi-field-modifications"],["Training & Demo","Customer enablement activities","/aftersales/training-demo"],["Quotations","Customer offers, approvals, and quote coordination","/aftersales/quotations"]];operationsRows.innerHTML=ops.map(o=>row([esc(o[0]),esc(o[1]),`<a class="button-like" href="${esc(o[2])}">Open</a>`])).join("")}
     function renderCalls(){callRows.innerHTML=reports.filter(callMatches).map(r=>row([esc(r.sr_number),esc(r.institution),esc(r.supplier),esc(r.equipment_model),esc(r.equipment_serial_number),esc([r.visit_date,r.visit_time].filter(Boolean).join(" ")),badge(r.status),badge(r.match_status)])).join("")||empty(8)}
     function renderWarranty(){warrantyRows.innerHTML=assets.map(a=>row([esc(a.serial_number),esc(a.institution),esc(a.supplier),esc(a.model),badge(a.unit_status),esc(a.warranty_end_date),badge(warrantyStatus(a))])).join("")||empty(7)}
     function renderPM(){pmRows.innerHTML=assets.map(a=>row([esc(a.serial_number),esc(a.institution),esc(a.supplier),esc(a.model),esc(a.installation_date),esc(a.warranty_end_date),badge(a.unit_status)])).join("")||empty(7)}
     function renderUsage(){partsRows.innerHTML=usage.map(p=>row([esc(p.part_number),esc(p.description),esc(p.supplier),esc(p.quantity_used),esc(Number(p.total_value||0).toFixed(2)),esc(p.service_reports)])).join("")||empty(6)}
     function renderHistory(){historyRows.innerHTML=historyRowsData.map(r=>row([esc(r.sr_number),esc(r.institution),esc(r.supplier),esc(r.equipment_model||r.model),esc(r.equipment_serial_number),badge(r.unit_status),esc(r.warranty_end_date),esc([r.visit_date,r.visit_time].filter(Boolean).join(" ")),esc(r.call_reason),badge(r.status)])).join("")||empty(10)}
+    function renderLinks(id,links){document.getElementById(id).innerHTML=links.map(([label,href])=>`<a href="${esc(href)}">${esc(label)}</a>`).join("")}
+    function renderDashboard(){const s=analytics.summary||{};dashboardMetrics.innerHTML=[["Installed Assets",assets.length],["Open Calls",s.open_reports],["Completed Calls",s.completed_reports],["Spare Parts Used",usage.length],["Travel Hours",s.travel_hours],["Labor Hours",s.labor_hours]].map(([k,v])=>`<div class="metric"><span>${esc(k)}</span><b>${esc(v??0)}</b></div>`).join("")}
     function renderAnalytics(){const s=analytics.summary||{};metrics.innerHTML=[["Installed Assets",assets.length],["Service Calls",s.total_reports],["Open Calls",s.open_reports],["Completed Calls",s.completed_reports],["Travel Hours",s.travel_hours],["Labor Hours",s.labor_hours],["Travel KM",s.travel_km]].map(([k,v])=>`<div class="metric"><span>${esc(k)}</span><b>${esc(v??0)}</b></div>`).join("");engineerRows.innerHTML=(analytics.by_engineer||[]).map(e=>row([esc(e.engineer_id||"Unassigned"),esc(e.reports)])).join("")||empty(2)}
-    function renderAll(){renderAssets();renderCalls();renderWarranty();renderPM();renderUsage();renderHistory();renderAnalytics()}
+    function renderAll(){renderLinks("dashboardLinks",workspaceLinks.dashboard);renderLinks("operationsLinks",workspaceLinks.operations);renderLinks("installedLinks",workspaceLinks.installed);renderLinks("callsLinks",workspaceLinks.calls);renderLinks("partsLinks",workspaceLinks.parts);renderLinks("coverageLinks",workspaceLinks.warranty);renderLinks("analyticsLinks",workspaceLinks.analytics);renderOperations();renderAssets();renderCalls();renderWarranty();renderPM();renderUsage();renderHistory();renderAnalytics();renderDashboard()}
     async function loadAll(){assets=await api("/api/aftermarket/equipment-assets");reports=await api("/api/aftermarket/service-reports");usage=await api("/api/aftermarket/service-report-parts/usage");analytics=await api("/api/aftermarket/service-reports/analytics/summary");historyRowsData=reports;renderAll()}
     async function importAssets(){const file=assetFile.files[0];if(!file){alert("Choose an installed-base Excel file first.");return}const body=new FormData();body.append("file",file);const data=await api("/api/aftermarket/equipment-assets/import",{method:"POST",body});importResult.innerHTML=`<b>Installed Base Imported</b> ${esc(data.created)} created, ${esc(data.updated)} updated from ${esc(data.total_rows)} row(s).`;await loadAll();setView("installed")}
     async function importServiceReport(){const file=serviceReportFile.files[0];if(!file){alert("Choose a service call Excel file first.");return}const body=new FormData();body.append("file",file);const data=await api("/api/aftermarket/service-reports/import",{method:"POST",body});importResult.innerHTML=`<b>${esc(data.action.toUpperCase())}</b> SR# ${esc(data.service_report.sr_number)} with ${esc(data.parts_count)} spare part line(s). Installed-base linked: ${data.equipment_asset_linked?"yes":"no"}.`;await loadAll();setView("calls")}
     async function loadHistory(){const params=new URLSearchParams();[["serial_number",filterSerial.value],["model",filterModel.value],["supplier",filterSupplier.value],["institution",filterInstitution.value],["warranty_status",filterWarranty.value],["unit_status",filterUnitStatus.value]].forEach(([k,v])=>{if(v)params.set(k,v)});historyRowsData=await api(`/api/aftermarket/equipment/service-history?${params}`);renderHistory();setView("history")}
-    tabs.innerHTML=views.map(([id,label])=>`<button data-view="${id}" onclick="setView('${id}')">${esc(label)}</button>`).join("");
-    setView(viewFromPath());loadAll();
+    tabs.innerHTML=views.map(([id,label])=>`<button data-view="${id}" onclick="selectTab('${id}')">${esc(label)}</button>`).join("");
+    setView(viewFromPath());renderAll();loadAll();
   </script>
   <script src="/static/app_layout.js"></script>
 </body>

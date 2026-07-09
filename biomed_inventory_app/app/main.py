@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import legacy_main
 from app.admin_api import ensure_admin_foundation, permissions_for_role, router as admin_router
+from app.aftermarket_service_reports import alias_router as aftermarket_alias_router
 from app.aftermarket_service_reports import ensure_service_report_tables, router as aftermarket_router
 from app.erp_api import router as erp_router
 from app.quotation_api import router as quotation_router
@@ -76,7 +77,7 @@ async def auth_middleware(request: Request, call_next):
         (("/api/admin/query",), "run_select_queries"),
         (("/quotations", "/sales/quotations"), "edit_quotations"),
         (("/warehouse", "/api/warehouse"), "view_reports"),
-        (("/aftersales", "/api/after-sales"), "view_after_sales_cases"),
+        (("/aftersales", "/api/aftermarket", "/api/after-sales"), "view_after_sales_cases"),
         (("/clients", "/api/crm", "/api/erp/clients"), "view_all_clients"),
     ]
     for prefixes, permission in route_permissions:
@@ -94,6 +95,7 @@ app.include_router(erp_router)
 app.include_router(quotation_router)
 app.include_router(admin_router)
 app.include_router(aftermarket_router)
+app.include_router(aftermarket_alias_router)
 app.include_router(web_pages.router)
 app.include_router(dashboard_api.router)
 app.include_router(sales_api.router)

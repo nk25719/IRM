@@ -56,12 +56,12 @@
       section: "Main Operations",
       match: ["/aftersales", "/after-sales"],
       links: [
-        ["Installed Base", "/aftersales"],
-        ["Service Calls", "/aftersales/service-calls"],
-        ["Equipment Service History", "/aftersales/history"],
-        ["Warranty Tracking", "/aftersales/warranty"],
-        ["Spare Parts Usage", "/aftersales/spare-parts"],
-        ["Preventive Maintenance", "/aftersales/pm"],
+        ["Dashboard", "/aftersales"],
+        ["Operations", "/aftersales/operations"],
+        ["Installed Base", "/aftersales/installed-base"],
+        ["Service History", "/aftersales/service-history"],
+        ["Spare Parts", "/aftersales/spare-parts"],
+        ["Coverage", "/aftersales/coverage"],
         ["Analytics", "/aftersales/analytics"],
       ],
     },
@@ -134,12 +134,12 @@
       ["Warehouse Count", "/warehouse/inventory-count"],
     ],
     "/aftersales": [
-      ["Installed Base", "/aftersales"],
-      ["Service Calls", "/aftersales/service-calls"],
-      ["Equipment Service History", "/aftersales/history"],
-      ["Warranty Tracking", "/aftersales/warranty"],
-      ["Spare Parts Usage", "/aftersales/spare-parts"],
-      ["Preventive Maintenance", "/aftersales/pm"],
+      ["Dashboard", "/aftersales"],
+      ["Operations", "/aftersales/operations"],
+      ["Installed Base", "/aftersales/installed-base"],
+      ["Service History", "/aftersales/service-history"],
+      ["Spare Parts", "/aftersales/spare-parts"],
+      ["Coverage", "/aftersales/coverage"],
       ["Analytics", "/aftersales/analytics"],
     ],
   };
@@ -291,6 +291,8 @@
   }
 
   function activeSubnavHref(links, currentPath) {
+    const aftermarketParent = aftermarketParentHref(currentPath);
+    if (aftermarketParent && links.some(([, href]) => href === aftermarketParent)) return aftermarketParent;
     return links
       .map(([, href]) => href)
       .filter((href) => {
@@ -298,6 +300,24 @@
         return currentPath === base || (base !== "/" && currentPath.startsWith(`${base}/`));
       })
       .sort((a, b) => b.split("#")[0].length - a.split("#")[0].length)[0] || "";
+  }
+
+  function aftermarketParentHref(currentPath) {
+    if (!currentPath.startsWith("/aftersales/")) return "";
+    if (
+      currentPath.includes("/installed-base") ||
+      currentPath.endsWith("/history") ||
+      currentPath.startsWith("/aftersales/equipment")
+    ) return "/aftersales/installed-base";
+    if (
+      currentPath.includes("/service-history") ||
+      currentPath.endsWith("/service-calls") ||
+      currentPath.endsWith("/service-cases")
+    ) return "/aftersales/service-history";
+    if (currentPath.includes("/spare-parts")) return "/aftersales/spare-parts";
+    if (currentPath.includes("/coverage") || currentPath.endsWith("/warranty") || currentPath.endsWith("/contracts")) return "/aftersales/coverage";
+    if (currentPath.includes("/analytics")) return "/aftersales/analytics";
+    return "/aftersales/operations";
   }
 
   function getBackTarget(currentPath, module) {

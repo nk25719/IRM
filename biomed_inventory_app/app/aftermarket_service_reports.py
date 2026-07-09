@@ -13,7 +13,9 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app import legacy_main
 
 
+routes = APIRouter(tags=["Aftermarket Service Reports"])
 router = APIRouter(prefix="/api/aftermarket", tags=["Aftermarket Service Reports"])
+alias_router = APIRouter(prefix="/api/after-sales", tags=["Aftermarket Service Reports Alias"])
 
 ASSET_FIELDS = [
     "company", "supplier", "product_type", "model", "serial_number", "institution",
@@ -446,7 +448,7 @@ def upsert_service_report(report: dict[str, Any], parts: list[dict[str, Any]]) -
     return {"action": action, "service_report": row, "parts_count": len(parts), "equipment_asset_linked": bool(equipment_asset_id), "equipment_linked": bool(equipment_id)}
 
 
-@router.post("/equipment-assets/import")
+@routes.post("/equipment-assets/import")
 async def import_equipment_assets(file: UploadFile = File(...)):
     ensure_service_report_tables()
     content = await file.read()
@@ -462,14 +464,14 @@ async def import_equipment_assets(file: UploadFile = File(...)):
     return {"created": created, "updated": updated, "total_rows": len(assets)}
 
 
-@router.post("/service-reports/import")
+@routes.post("/service-reports/import")
 async def import_service_report(file: UploadFile = File(...)):
     content = await file.read()
     report, parts = parse_service_report(content, file.filename or "service_report.xlsx")
     return upsert_service_report(report, parts)
 
 
-@router.get("/service-reports")
+@routes.get("/service-reports")
 def list_service_reports(status: str = "", serial_number: str = "", limit: int = 200):
     ensure_service_report_tables()
     where = []
@@ -489,7 +491,7 @@ def list_service_reports(status: str = "", serial_number: str = "", limit: int =
     return [dict(r) for r in rows]
 
 
-@router.get("/equipment-assets")
+@routes.get("/equipment-assets")
 def list_equipment_assets(
     serial_number: str = "",
     model: str = "",
@@ -528,7 +530,7 @@ def list_equipment_assets(
     return [dict(r) for r in rows]
 
 
-@router.get("/service-reports/{sr_number}")
+@routes.get("/service-reports/{sr_number}")
 def get_service_report(sr_number: str):
     ensure_service_report_tables()
     with db() as conn:
@@ -539,7 +541,7 @@ def get_service_report(sr_number: str):
     return {**dict(report), "parts": [dict(p) for p in parts]}
 
 
-@router.get("/service-report-parts/usage")
+@routes.get("/service-report-parts/usage")
 def spare_parts_usage(limit: int = 500):
     ensure_service_report_tables()
     with db() as conn:
@@ -557,7 +559,7 @@ def spare_parts_usage(limit: int = 500):
     return [dict(r) for r in rows]
 
 
-@router.get("/equipment/service-history")
+@routes.get("/equipment/service-history")
 def equipment_service_history(
     serial_number: str = "",
     model: str = "",
@@ -602,7 +604,7 @@ def equipment_service_history(
     return [dict(r) for r in rows]
 
 
-@router.get("/service-reports/analytics/summary")
+@routes.get("/service-reports/analytics/summary")
 def service_report_analytics():
     ensure_service_report_tables()
     with db() as conn:
@@ -622,3 +624,7 @@ def service_report_analytics():
             "SELECT engineer_id, COUNT(*) AS reports FROM service_reports GROUP BY engineer_id ORDER BY reports DESC"
         ).fetchall()]
     return {"summary": summary, "by_engineer": by_engineer}
+
+
+router.include_router(routes)
+alias_router.include_router(routes)
