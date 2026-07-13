@@ -1,8 +1,8 @@
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1e1b4b;
-  --accent: #7c3aed;
-  --bg: #f4f6fb;
+  --primary: #245bdb;
+  --primary-dark: #1c2740;
+  --accent: #0f9f8f;
+  --bg: #f5f7fb;
   --card: #ffffff;
   --ink: #172033;
   --muted: #667085;
@@ -11,9 +11,9 @@
   --danger: #b42318;
   --warning: #b54708;
   --success: #15803d;
-  --shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
-  --sidebar: #111827;
-  --sidebar-soft: #1f2937;
+  --shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  --sidebar: #172033;
+  --sidebar-soft: #23314d;
 }
 
 * {
@@ -49,7 +49,7 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-sidebar {
-  background: linear-gradient(180deg, var(--sidebar), #151b2e);
+  background: linear-gradient(180deg, var(--sidebar), #111827);
   bottom: 0;
   color: #d7def0;
   display: flex;
@@ -75,7 +75,7 @@ body.erp-layout-active .pm-sidebar {
 .erp-brand-mark {
   align-items: center;
   background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 12px;
+  border-radius: 8px;
   display: inline-flex;
   font-weight: 900;
   height: 42px;
@@ -115,7 +115,7 @@ body.erp-layout-active .pm-sidebar {
 .erp-nav-item {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 8px;
   color: #cbd5e1;
   display: flex;
   gap: 11px;
@@ -135,7 +135,7 @@ body.erp-layout-active .pm-sidebar {
 .erp-nav-item span {
   align-items: center;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 8px;
   display: inline-flex;
   font-size: 12px;
   font-weight: 900;
@@ -224,7 +224,7 @@ body.erp-layout-active .pm-sidebar {
   align-items: center;
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--primary-dark);
   cursor: pointer;
   display: none;
@@ -239,7 +239,7 @@ body.erp-layout-active .pm-sidebar {
   align-items: center;
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--primary-dark);
   cursor: pointer;
   display: inline-flex;
@@ -283,7 +283,7 @@ body.erp-layout-active .pm-sidebar {
   align-items: center;
   background: #f8fafc;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--muted);
   display: inline-flex;
   gap: 8px;
@@ -303,7 +303,7 @@ body.erp-layout-active .pm-sidebar {
 .erp-user {
   align-items: center;
   background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 999px;
+  border-radius: 8px;
   color: #ffffff;
   display: inline-flex;
   font-size: 13px;
@@ -339,7 +339,7 @@ body.erp-layout-active main {
 .erp-page-tabs a {
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--primary-dark);
   font-size: 13px;
   font-weight: 800;
@@ -368,7 +368,7 @@ body.erp-layout-active main {
 .pipeline-card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   box-shadow: var(--shadow);
 }
 
@@ -378,7 +378,7 @@ body.erp-layout-active main {
 
 .status-badge,
 .badge {
-  border-radius: 999px;
+  border-radius: 8px;
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
@@ -407,7 +407,23 @@ body.erp-layout-active main {
 .table,
 table {
   border-color: var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
+}
+
+button,
+.button-like,
+.btn,
+.actions a,
+.toolbar a,
+.links a,
+a.primary {
+  border-radius: 8px !important;
+}
+
+button,
+.button-like,
+.btn {
+  min-height: 36px;
 }
 
 th {
@@ -490,7 +506,7 @@ td {
 .pipeline-step {
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   min-height: 92px;
   padding: 13px;
   position: relative;
@@ -541,7 +557,7 @@ td {
 .tabs a {
   background: #ffffff;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--primary-dark);
   cursor: pointer;
   font-size: 13px;
@@ -598,7 +614,7 @@ a {
 }
 
 .topbar {
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  background: var(--primary-dark);
   box-shadow: 0 8px 22px rgba(16, 42, 67, 0.18);
   color: #ffffff;
 }

@@ -66,6 +66,20 @@
       ],
     },
     {
+      label: "Finance",
+      href: "/finance",
+      icon: "F",
+      section: "Main Operations",
+      match: ["/finance", "/financials"],
+      links: [
+        ["Dashboard", "/finance"],
+        ["Invoices", "/finance/invoices"],
+        ["Payments", "/finance/payments"],
+        ["Customer Balances", "/finance/customer-balances"],
+        ["Supplier Balances", "/finance/supplier-balances"],
+      ],
+    },
+    {
       label: "Clients",
       href: "/clients",
       icon: "C",
@@ -84,7 +98,7 @@
       href: "/training-demo",
       icon: "T",
       section: "Master Data / Relationship",
-      match: ["/training-demo", "/training", "/aftersales/training-demo"],
+      match: ["/training-demo", "/training"],
     },
     {
       label: "Administration",
@@ -98,8 +112,16 @@
         ["Equipment", "/equipment"],
         ["Cases", "/cases"],
         ["Imports", "/imports"],
+        ["Database Map", "/admin/database-map"],
+        ["Query Reports", "/admin/query"],
         ["Settings", "/administration/settings"],
       ],
+    },
+    {
+      label: "Reports",
+      href: "/reports",
+      icon: "R",
+      section: "System",
     },
   ];
 
@@ -141,6 +163,13 @@
       ["Spare Parts", "/aftersales/spare-parts"],
       ["Coverage", "/aftersales/coverage"],
       ["Analytics", "/aftersales/analytics"],
+    ],
+    "/finance": [
+      ["Dashboard", "/finance"],
+      ["Invoices", "/finance/invoices"],
+      ["Payments", "/finance/payments"],
+      ["Customer Balances", "/finance/customer-balances"],
+      ["Supplier Balances", "/finance/supplier-balances"],
     ],
   };
 
@@ -328,10 +357,12 @@
       "/procurement",
       "/warehouse",
       "/aftersales",
+      "/finance",
       "/clients",
       "/products",
       "/training-demo",
       "/administration",
+      "/reports",
     ]);
     if (mainPages.has(currentPath)) return "";
     if (currentPath.startsWith("/crm/client/")) return "/clients";

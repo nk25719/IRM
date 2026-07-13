@@ -16,7 +16,7 @@ from urllib.parse import quote, unquote, urlparse, urlunparse
 
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from openpyxl import Workbook
 from sqlalchemy import create_engine, inspect, text
 
@@ -491,6 +491,8 @@ def imports_page(request: Request):
 @router.get("/reports/query")
 def query_page(request: Request):
     require_permission(request, "view_reports")
+    if request.url.path == "/reports/query":
+        return RedirectResponse("/admin/query", status_code=303)
     return FileResponse(STATIC_DIR / "query.html")
 
 
@@ -677,10 +679,7 @@ def prune_backups(keep: int = 30) -> None:
 @router.get("/admin/backups")
 def backups(request: Request):
     require_permission(request, "create_backup")
-    files = []
-    for path in sorted(BACKUP_DIR.glob("inventory_*"), key=lambda p: p.stat().st_mtime, reverse=True):
-        files.append({"filename": path.name, "size": path.stat().st_size, "created_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")})
-    return {"backups": files, "restore_warning": "Restore is intentionally not available from the UI. Use scripts/restore_database.py and confirm twice."}
+    return RedirectResponse("/admin/database-map", status_code=303)
 
 
 @router.get("/admin/backups/{filename}/download")

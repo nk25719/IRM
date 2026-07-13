@@ -8,6 +8,51 @@
     ],
     "redirects": [
       {
+        "source": "/aftermarket",
+        "destination": "/aftersales",
+        "type": 302
+      },
+      {
+        "source": "/after-sales",
+        "destination": "/aftersales",
+        "type": 302
+      },
+      {
+        "source": "/after-sales/contracts",
+        "destination": "/aftersales/contracts",
+        "type": 302
+      },
+      {
+        "source": "/after-sales/pm",
+        "destination": "/aftersales/pm",
+        "type": 302
+      },
+      {
+        "source": "/after-sales/reports",
+        "destination": "/aftersales/reports",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/pm-tracking",
+        "destination": "/aftersales/pm",
+        "type": 302
+      },
+      {
+        "source": "/after-sales/pm-tracking",
+        "destination": "/aftersales/pm",
+        "type": 302
+      },
+      {
+        "source": "/reports/query",
+        "destination": "/admin/query",
+        "type": 302
+      },
+      {
+        "source": "/sales-cases",
+        "destination": "/sales",
+        "type": 302
+      },
+      {
         "source": "/static/theme.css",
         "destination": "/theme.css",
         "type": 302
@@ -49,11 +94,11 @@
       },
       {
         "source": "/home",
-        "destination": "/index.html"
+        "destination": "/portal.html"
       },
       {
         "source": "/portal",
-        "destination": "/index.html"
+        "destination": "/portal.html"
       },
       {
         "source": "/sales{,/**}",
@@ -126,6 +171,21 @@
       {
         "source": "/admin/imports",
         "destination": "/imports.html"
+      },
+      {
+        "source": "/admin/database-map",
+        "destination": "/database_map.html"
+      },
+      {
+        "source": "/admin/query",
+        "destination": "/query.html"
+      },
+      {
+        "source": "/admin/backups{,/**}",
+        "run": {
+          "serviceId": "cmm-inventory",
+          "region": "us-central1"
+        }
       },
       {
         "source": "/administration{,/**}",
