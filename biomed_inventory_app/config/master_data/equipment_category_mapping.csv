@@ -1,0 +1,257 @@
+approved,raw_value,normalized_value,canonical_code,canonical_name,parent_code,parent_name,match_action,alias_source,confidence,review_notes
+false,spare_parts,spare_parts,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,inventory.item_category,65,taxonomy keyword candidate; requires review
+false,B105,b105,B105,B105,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,B20,b20,B20,B20,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,B30,b30,B30,B30,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,B40,b40,B40,B40,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,B450,b450,B450,B450,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,B650,b650,B650,B650,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Dash,dash,DASH,Dash,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Dinamap,dinamap,DINAMAP,Dinamap,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Giraffe,giraffe,GIRAFFE,Giraffe,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Monitoring,monitoring,MULTIPARAMETER_MONITOR,Multiparameter Monitor,,Patient Monitoring,review,inventory.device_family,65,taxonomy keyword candidate; requires review
+false,Omni-bed,omni-bed,OMNI-BED,Omni-bed,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,PSMP,psmp,PSMP,PSMP,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Panda,panda,PANDA,Panda,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,Procare,procare,PROCARE,Procare,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,V100,v100,V100,V100,,,review,inventory.device_family,30,unmatched candidate; requires review
+false,(unknown) ???,(unknown) ???,(UNKNOWN)_???,(unknown) ???,,,review,inventory.description,30,unmatched candidate; requires review
+false,2,2,2,2,,,review,inventory.description,30,unmatched candidate; requires review
+false,80mm Filter (2 packs),80mm filter (2 packs),80MM_FILTER_(2_PACKS),80mm Filter (2 packs),,,review,inventory.description,30,unmatched candidate; requires review
+false,9100C CSB REPLACEMENT FMI 34040,9100c csb replacement fmi 34040,9100C_CSB_REPLACEMENT_FMI_34040,9100C CSB REPLACEMENT FMI 34040,,,review,inventory.description,30,unmatched candidate; requires review
+false,???,???,???,???,,,review,inventory.description,30,unmatched candidate; requires review
+false,??? CAP,??? cap,???_CAP,??? CAP,,,review,inventory.description,30,unmatched candidate; requires review
+false,?????????  (unknown/blank),????????? (unknown/blank),?????????_(UNKNOWN/BLANK),????????? (unknown/blank),,,review,inventory.description,30,unmatched candidate; requires review
+false,ABS absorber canister reusable,abs absorber canister reusable,ABS_ABSORBER_CANISTER_REUSABLE,ABS absorber canister reusable,,,review,inventory.description,30,unmatched candidate; requires review
+false,AC/DC Module,ac/dc module,AC/DC_MODULE,AC/DC Module,,,review,inventory.description,30,unmatched candidate; requires review
+false,Absorber canister reusable,absorber canister reusable,ABSORBER_CANISTER_REUSABLE,Absorber canister reusable,,,review,inventory.description,30,unmatched candidate; requires review
+false,"Aerogen Pro Pediatric T-piece with Silicone Plug, 15mm (5/box)","aerogen pro pediatric t-piece with silicone plug, 15mm (5/box)",AEROGEN_PRO_PEDIATRIC_T-PIECE_WITH_SILIC,"Aerogen Pro Pediatric T-piece with Silicone Plug, 15mm (5/box)",,,review,inventory.description,30,unmatched candidate; requires review
+false,Air Filter,air filter,AIR_FILTER,Air Filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Assy - MSN EXH VALVE ASSY,assy - msn exh valve assy,ASSY_-_MSN_EXH_VALVE_ASSY,Assy - MSN EXH VALVE ASSY,,,review,inventory.description,30,unmatched candidate; requires review
+false,Assy - MSN Exhalation valve flow sensor,assy - msn exhalation valve flow sensor,ASSY_-_MSN_EXHALATION_VALVE_FLOW_SENSOR,Assy - MSN Exhalation valve flow sensor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Assy - MSN Exhalation valve with diaphragm and flow sensor- single use,assy - msn exhalation valve with diaphragm and flow sensor- single use,ASSY_-_MSN_EXHALATION_VALVE_WITH_DIAPHRA,Assy - MSN Exhalation valve with diaphragm and flow sensor- single use,,,review,inventory.description,30,unmatched candidate; requires review
+false,Assy MSN B tube,assy msn b tube,ASSY_MSN_B_TUBE,Assy MSN B tube,,,review,inventory.description,30,unmatched candidate; requires review
+false,Assy dash das masimo,assy dash das masimo,ASSY_DASH_DAS_MASIMO,Assy dash das masimo,,,review,inventory.description,30,unmatched candidate; requires review
+false,Autoclavable Bacteria Filter,autoclavable bacteria filter,AUTOCLAVABLE_BACTERIA_FILTER,Autoclavable Bacteria Filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,B105/B125 Main Board,b105/b125 main board,B105/B125_MAIN_BOARD,B105/B125 Main Board,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20 Filter,b20 filter,B20_FILTER,B20 Filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20 Pump Motor,b20 pump motor,B20_PUMP_MOTOR,B20 Pump Motor,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20 Pump Valve,b20 pump valve,B20_PUMP_VALVE,B20 Pump Valve,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20/B30 LED Backlight,b20/b30 led backlight,B20/B30_LED_BACKLIGHT,B20/B30 LED Backlight,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20/B40 Adapter,b20/b40 adapter,B20/B40_ADAPTER,B20/B40 Adapter,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20/B40 Keypad,b20/b40 keypad,B20/B40_KEYPAD,B20/B40 Keypad,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20/B40 N2 BP Connector,b20/b40 n2 bp connector,B20/B40_N2_BP_CONNECTOR,B20/B40 N2 BP Connector,,,review,inventory.description,30,unmatched candidate; requires review
+false,B20/B40 Pump,b20/b40 pump,B20/B40_PUMP,B20/B40 Pump,,,review,inventory.description,30,unmatched candidate; requires review
+false,B30 Cable / xxxx Connectors,b30 cable / xxxx connectors,B30_CABLE_/_XXXX_CONNECTORS,B30 Cable / xxxx Connectors,,,review,inventory.description,30,unmatched candidate; requires review
+false,B30 ECG Board,b30 ecg board,ECG,ECG,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,B40 NIBP Keypad,b40 nibp keypad,B40_NIBP_KEYPAD,B40 NIBP Keypad,,,review,inventory.description,30,unmatched candidate; requires review
+false,B450 module and rail Unit,b450 module and rail unit,B450_MODULE_AND_RAIL_UNIT,B450 module and rail Unit,,,review,inventory.description,30,unmatched candidate; requires review
+false,B650 Keypad,b650 keypad,B650_KEYPAD,B650 Keypad,,,review,inventory.description,30,unmatched candidate; requires review
+false,B650 Power Supply,b650 power supply,B650_POWER_SUPPLY,B650 Power Supply,,,review,inventory.description,30,unmatched candidate; requires review
+false,Back light F-mx,back light f-mx,BACK_LIGHT_F-MX,Back light F-mx,,,review,inventory.description,30,unmatched candidate; requires review
+false,Bag Arm and Protector Assy,bag arm and protector assy,BAG_ARM_AND_PROTECTOR_ASSY,Bag Arm and Protector Assy,,,review,inventory.description,30,unmatched candidate; requires review
+false,Bag to vent switch,bag to vent switch,BAG_TO_VENT_SWITCH,Bag to vent switch,,,review,inventory.description,30,unmatched candidate; requires review
+false,Bellows subassy adult ABA,bellows subassy adult aba,BELLOWS_SUBASSY_ADULT_ABA,Bellows subassy adult ABA,,,review,inventory.description,30,unmatched candidate; requires review
+false,Brushless DC Motor,brushless dc motor,BRUSHLESS_DC_MOTOR,Brushless DC Motor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Button,button,BUTTON,Button,,,review,inventory.description,30,unmatched candidate; requires review
+false,CA B15 to O2 cell - o2 cell cable,ca b15 to o2 cell - o2 cell cable,CA_B15_TO_O2_CELL_-_O2_CELL_CABLE,CA B15 to O2 cell - o2 cell cable,,,review,inventory.description,30,unmatched candidate; requires review
+false,CPU Board for xxxx,cpu board for xxxx,CPU_BOARD_FOR_XXXX,CPU Board for xxxx,,,review,inventory.description,30,unmatched candidate; requires review
+false,CPU board SLE 5000,cpu board sle 5000,CPU_BOARD_SLE_5000,CPU board SLE 5000,,,review,inventory.description,30,unmatched candidate; requires review
+false,CPU board SLE4000,cpu board sle4000,CPU_BOARD_SLE4000,CPU board SLE4000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Cable Isolation Nurse Call,cable isolation nurse call,CABLE_ISOLATION_NURSE_CALL,Cable Isolation Nurse Call,,,review,inventory.description,30,unmatched candidate; requires review
+false,Cable management arm short,cable management arm short,CABLE_MANAGEMENT_ARM_SHORT,Cable management arm short,,,review,inventory.description,30,unmatched candidate; requires review
+false,Circuit Breaker,circuit breaker,CIRCUIT_BREAKER,Circuit Breaker,,,review,inventory.description,30,unmatched candidate; requires review
+false,Clip bag arm,clip bag arm,CLIP_BAG_ARM,Clip bag arm,,,review,inventory.description,30,unmatched candidate; requires review
+false,Condenser Module,condenser module,CONDENSER_MODULE,Condenser Module,,,review,inventory.description,30,unmatched candidate; requires review
+false,Conical filter,conical filter,CONICAL_FILTER,Conical filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Connectors SLE 2000,connectors sle 2000,CONNECTORS_SLE_2000,Connectors SLE 2000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Connectors SLE 4000/5000,connectors sle 4000/5000,CONNECTORS_SLE_4000/5000,Connectors SLE 4000/5000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Control Board for Panda Warmer,control board for panda warmer,CONTROL_BOARD_FOR_PANDA_WARMER,Control Board for Panda Warmer,,,review,inventory.description,30,unmatched candidate; requires review
+false,Control board SLE 5000,control board sle 5000,CONTROL_BOARD_SLE_5000,Control board SLE 5000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Control board omni-bed,control board omni-bed,CONTROL_BOARD_OMNI-BED,Control board omni-bed,,,review,inventory.description,30,unmatched candidate; requires review
+false,Corner Grommet,corner grommet,CORNER_GROMMET,Corner Grommet,,,review,inventory.description,30,unmatched candidate; requires review
+false,Cover AGSS,cover agss,COVER_AGSS,Cover AGSS,,,review,inventory.description,30,unmatched candidate; requires review
+false,Cover assembly canister,cover assembly canister,COVER_ASSEMBLY_CANISTER,Cover assembly canister,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 2500 Buttons,dash 2500 buttons,DASH_2500_BUTTONS,Dash 2500 Buttons,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 2500 Trimknob,dash 2500 trimknob,DASH_2500_TRIMKNOB,Dash 2500 Trimknob,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 2500 power supply,dash 2500 power supply,DASH_2500_POWER_SUPPLY,Dash 2500 power supply,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 3000 display,dash 3000 display,DASH_3000_DISPLAY,Dash 3000 display,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 3000 inverter fru,dash 3000 inverter fru,DASH_3000_INVERTER_FRU,Dash 3000 inverter fru,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 3000 keypad,dash 3000 keypad,DASH_3000_KEYPAD,Dash 3000 keypad,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 3000/4000 Power supply,dash 3000/4000 power supply,DASH_3000/4000_POWER_SUPPLY,Dash 3000/4000 Power supply,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 4000 fru,dash 4000 fru,DASH_4000_FRU,Dash 4000 fru,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash 5000 keypad,dash 5000 keypad,DASH_5000_KEYPAD,Dash 5000 keypad,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash Pump,dash pump,DASH_PUMP,Dash Pump,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash Trim knob cover,dash trim knob cover,DASH_TRIM_KNOB_COVER,Dash Trim knob cover,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dash monitor part,dash monitor part,MULTIPARAMETER_MONITOR,Multiparameter Monitor,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,Dash500,dash500,DASH500,Dash500,,,review,inventory.description,30,unmatched candidate; requires review
+false,Data port adapter,data port adapter,DATA_PORT_ADAPTER,Data port adapter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Diaphragm and seat subassy,diaphragm and seat subassy,DIAPHRAGM_AND_SEAT_SUBASSY,Diaphragm and seat subassy,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dinamap v100 connector,dinamap v100 connector,DINAMAP_V100_CONNECTOR,Dinamap v100 connector,,,review,inventory.description,30,unmatched candidate; requires review
+false,Display inverter dash 4000,display inverter dash 4000,DISPLAY_INVERTER_DASH_4000,Display inverter dash 4000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Dome valve check,dome valve check,DOME_VALVE_CHECK,Dome valve check,,,review,inventory.description,30,unmatched candidate; requires review
+false,Duckbill filter,duckbill filter,DUCKBILL_FILTER,Duckbill filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,E-PSMP Front Panel,e-psmp front panel,E-PSMP_FRONT_PANEL,E-PSMP Front Panel,,,review,inventory.description,30,unmatched candidate; requires review
+false,E-PSMP STP SPO2 Board,e-psmp stp spo2 board,E-PSMP_STP_SPO2_BOARD,E-PSMP STP SPO2 Board,,,review,inventory.description,30,unmatched candidate; requires review
+false,ECG Cable,ecg cable,ECG,ECG,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,Environmental sensor Assy,environmental sensor assy,ENVIRONMENTAL_SENSOR_ASSY,Environmental sensor Assy,,,review,inventory.description,30,unmatched candidate; requires review
+false,Exhalation Valve Heater,exhalation valve heater,EXHALATION_VALVE_HEATER,Exhalation Valve Heater,,,review,inventory.description,30,unmatched candidate; requires review
+false,Exhalation water trap,exhalation water trap,EXHALATION_WATER_TRAP,Exhalation water trap,,,review,inventory.description,30,unmatched candidate; requires review
+false,FLM kit O2 oux,flm kit o2 oux,FLM_KIT_O2_OUX,FLM kit O2 oux,,,review,inventory.description,30,unmatched candidate; requires review
+false,FLNSCH 24V DC,flnsch 24v dc,FLNSCH_24V_DC,FLNSCH 24V DC,,,review,inventory.description,30,unmatched candidate; requires review
+false,Fan Motor,fan motor,FAN_MOTOR,Fan Motor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Fan filter,fan filter,FAN_FILTER,Fan filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Filter,filter,FILTER,Filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Filter Cap FRU,filter cap fru,FILTER_CAP_FRU,Filter Cap FRU,,,review,inventory.description,30,unmatched candidate; requires review
+false,Filter Capsule,filter capsule,FILTER_CAPSULE,Filter Capsule,,,review,inventory.description,30,unmatched candidate; requires review
+false,Filter F-CM1,filter f-cm1,FILTER_F-CM1,Filter F-CM1,,,review,inventory.description,30,unmatched candidate; requires review
+false,Filter cap,filter cap,FILTER_CAP,Filter cap,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flexible plastic tubung 15m,flexible plastic tubung 15m,FLEXIBLE_PLASTIC_TUBUNG_15M,Flexible plastic tubung 15m,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow Sensor,flow sensor,FLOW_SENSOR,Flow Sensor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow head regulator,flow head regulator,FLOW_HEAD_REGULATOR,Flow head regulator,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow sensor Neonatal,flow sensor neonatal,FLOW_SENSOR_NEONATAL,Flow sensor Neonatal,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow sensor adult SLE (4000/5000/6000),flow sensor adult sle (4000/5000/6000),FLOW_SENSOR_ADULT_SLE_(4000/5000/6000),Flow sensor adult SLE (4000/5000/6000),,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow sensor cleaning rock kit,flow sensor cleaning rock kit,FLOW_SENSOR_CLEANING_ROCK_KIT,Flow sensor cleaning rock kit,,,review,inventory.description,30,unmatched candidate; requires review
+false,Flow transducer,flow transducer,FLOW_TRANSDUCER,Flow transducer,,,review,inventory.description,30,unmatched candidate; requires review
+false,Fru dash 3000/4000,fru dash 3000/4000,FRU_DASH_3000/4000,Fru dash 3000/4000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Gas Mixer electronic,gas mixer electronic,GAS_MIXER_ELECTRONIC,Gas Mixer electronic,,,review,inventory.description,30,unmatched candidate; requires review
+false,Harbess ACB to system switch,harbess acb to system switch,HARBESS_ACB_TO_SYSTEM_SWITCH,Harbess ACB to system switch,,,review,inventory.description,30,unmatched candidate; requires review
+false,Heater cable,heater cable,HEATER_CABLE,Heater cable,,,review,inventory.description,30,unmatched candidate; requires review
+false,Holder and Cover Flow,holder and cover flow,HOLDER_AND_COVER_FLOW,Holder and Cover Flow,,,review,inventory.description,30,unmatched candidate; requires review
+false,Hook breathing circuit,hook breathing circuit,HOOK_BREATHING_CIRCUIT,Hook breathing circuit,,,review,inventory.description,30,unmatched candidate; requires review
+false,Housing Bellows,housing bellows,HOUSING_BELLOWS,Housing Bellows,,,review,inventory.description,30,unmatched candidate; requires review
+false,Infant Bacteria Filter,infant bacteria filter,INFANT_BACTERIA_FILTER,Infant Bacteria Filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Injector,injector,INJECTOR,Injector,,,review,inventory.description,30,unmatched candidate; requires review
+false,Inrush board,inrush board,INRUSH_BOARD,Inrush board,,,review,inventory.description,30,unmatched candidate; requires review
+false,Isolation plate with o-ring and screws for 1505-3215-000,isolation plate with o-ring and screws for 1505-3215-000,ISOLATION_PLATE_WITH_O-RING_AND_SCREWS_F,Isolation plate with o-ring and screws for 1505-3215-000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Keypad (Engstrom FMI 36056),keypad (engstrom fmi 36056),KEYPAD_(ENGSTROM_FMI_36056),Keypad (Engstrom FMI 36056),,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit ACGO,kit acgo,KIT_ACGO,Kit ACGO,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit EP ROM,kit ep rom,KIT_EP_ROM,Kit EP ROM,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit F-m express,kit f-m express,KIT_F-M_EXPRESS,Kit F-m express,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit GMS APL replacement parts,kit gms apl replacement parts,KIT_GMS_APL_REPLACEMENT_PARTS,Kit GMS APL replacement parts,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit Motor,kit motor,KIT_MOTOR,Kit Motor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit Neonatal Software Option,kit neonatal software option,KIT_NEONATAL_SOFTWARE_OPTION,Kit Neonatal Software Option,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit SVCE PCA Relay ROHOS Giraffe,kit svce pca relay rohos giraffe,KIT_SVCE_PCA_RELAY_ROHOS_GIRAFFE,Kit SVCE PCA Relay ROHOS Giraffe,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit Seal Handhole,kit seal handhole,KIT_SEAL_HANDHOLE,Kit Seal Handhole,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit Servo Humidity,kit servo humidity,KIT_SERVO_HUMIDITY,Kit Servo Humidity,,,review,inventory.description,30,unmatched candidate; requires review
+false,Kit Touch Complete Display Upgrade,kit touch complete display upgrade,KIT_TOUCH_COMPLETE_DISPLAY_UPGRADE,Kit Touch Complete Display Upgrade,,,review,inventory.description,30,unmatched candidate; requires review
+false,LCD / Aespire,lcd / aespire,LCD_/_AESPIRE,LCD / Aespire,,,review,inventory.description,30,unmatched candidate; requires review
+false,LCD B40,lcd b40,LCD_B40,LCD B40,,,review,inventory.description,30,unmatched candidate; requires review
+false,LCD Cable,lcd cable,LCD_CABLE,LCD Cable,,,review,inventory.description,30,unmatched candidate; requires review
+false,LCD Module B20/B40,lcd module b20/b40,LCD_MODULE_B20/B40,LCD Module B20/B40,,,review,inventory.description,30,unmatched candidate; requires review
+false,Latch ABA Rim,latch aba rim,LATCH_ABA_RIM,Latch ABA Rim,,,review,inventory.description,30,unmatched candidate; requires review
+false,Light Monitor Power Adapter,light monitor power adapter,MULTIPARAMETER_MONITOR,Multiparameter Monitor,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,Main board dinamap pro 400,main board dinamap pro 400,MAIN_BOARD_DINAMAP_PRO_400,Main board dinamap pro 400,,,review,inventory.description,30,unmatched candidate; requires review
+false,Main board fetal monitor,main board fetal monitor,MULTIPARAMETER_MONITOR,Multiparameter Monitor,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,Manifold APL,manifold apl,MANIFOLD_APL,Manifold APL,,,review,inventory.description,30,unmatched candidate; requires review
+false,Monitor IC SLE 5000,monitor ic sle 5000,MULTIPARAMETER_MONITOR,Multiparameter Monitor,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,N2O Flow Sensor,n2o flow sensor,N2O_FLOW_SENSOR,N2O Flow Sensor,,,review,inventory.description,30,unmatched candidate; requires review
+false,NIBP M-nestpr,nibp m-nestpr,NIBP_M-NESTPR,NIBP M-nestpr,,,review,inventory.description,30,unmatched candidate; requires review
+false,NIBP Unit Valve PSMP,nibp unit valve psmp,NIBP_UNIT_VALVE_PSMP,NIBP Unit Valve PSMP,,,review,inventory.description,30,unmatched candidate; requires review
+false,NIBP pump,nibp pump,NIBP_PUMP,NIBP pump,,,review,inventory.description,30,unmatched candidate; requires review
+false,Nebulizer Cable,nebulizer cable,NEBULIZER_CABLE,Nebulizer Cable,,,review,inventory.description,30,unmatched candidate; requires review
+false,Neonatal Flow Sensor Cable,neonatal flow sensor cable,NEONATAL_FLOW_SENSOR_CABLE,Neonatal Flow Sensor Cable,,,review,inventory.description,30,unmatched candidate; requires review
+false,O ring,o ring,O_RING,O ring,,,review,inventory.description,30,unmatched candidate; requires review
+false,O ring breathing circuit,o ring breathing circuit,O_RING_BREATHING_CIRCUIT,O ring breathing circuit,,,review,inventory.description,30,unmatched candidate; requires review
+false,O-Ring,o-ring,O-RING,O-Ring,,,review,inventory.description,30,unmatched candidate; requires review
+false,O-ring,o-ring,O-RING,O-ring,,,review,inventory.description,30,unmatched candidate; requires review
+false,O2 cell,o2 cell,O2_CELL,O2 cell,,,review,inventory.description,30,unmatched candidate; requires review
+false,O2 cell assy,o2 cell assy,O2_CELL_ASSY,O2 cell assy,,,review,inventory.description,30,unmatched candidate; requires review
+false,O2 sensor,o2 sensor,O2_SENSOR,O2 sensor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Oxygen cell sensor SLE2000,oxygen cell sensor sle2000,OXYGEN_CELL_SENSOR_SLE2000,Oxygen cell sensor SLE2000,,,review,inventory.description,30,unmatched candidate; requires review
+false,PCA CPU PCB,pca cpu pcb,PCA_CPU_PCB,PCA CPU PCB,,,review,inventory.description,30,unmatched candidate; requires review
+false,PCA control giraffe,pca control giraffe,PCA_CONTROL_GIRAFFE,PCA control giraffe,,,review,inventory.description,30,unmatched candidate; requires review
+false,PCB,pcb,PCB,PCB,,,review,inventory.description,30,unmatched candidate; requires review
+false,PCB-771-7754,pcb-771-7754,PCB-771-7754,PCB-771-7754,,,review,inventory.description,30,unmatched candidate; requires review
+false,PCB-TIL-MB1,pcb-til-mb1,PCB-TIL-MB1,PCB-TIL-MB1,,,review,inventory.description,30,unmatched candidate; requires review
+false,PM kit for SLE 5000,pm kit for sle 5000,PM_KIT_FOR_SLE_5000,PM kit for SLE 5000,,,review,inventory.description,30,unmatched candidate; requires review
+false,PSMP ECG Board,psmp ecg board,ECG,ECG,,Patient Monitoring,review,inventory.description,65,taxonomy keyword candidate; requires review
+false,Panda flow sensor,panda flow sensor,PANDA_FLOW_SENSOR,Panda flow sensor,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pant-hole Door,pant-hole door,PANT-HOLE_DOOR,Pant-hole Door,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pcb power svp solar room,pcb power svp solar room,PCB_POWER_SVP_SOLAR_ROOM,Pcb power svp solar room,,,review,inventory.description,30,unmatched candidate; requires review
+false,Plastic kit B450,plastic kit b450,PLASTIC_KIT_B450,Plastic kit B450,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pneumatic pump kit includes pump and dump valve kit,pneumatic pump kit includes pump and dump valve kit,PNEUMATIC_PUMP_KIT_INCLUDES_PUMP_AND_DUM,Pneumatic pump kit includes pump and dump valve kit,,,review,inventory.description,30,unmatched candidate; requires review
+false,Port cover ?? right up,port cover ?? right up,PORT_COVER_??_RIGHT_UP,Port cover ?? right up,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power Supply Omnibed,power supply omnibed,POWER_SUPPLY_OMNIBED,Power Supply Omnibed,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power Supply R860,power supply r860,POWER_SUPPLY_R860,Power Supply R860,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power logic board,power logic board,POWER_LOGIC_BOARD,Power logic board,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power management board,power management board,POWER_MANAGEMENT_BOARD,Power management board,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power supply,power supply,POWER_SUPPLY,Power supply,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power supply Aestiva,power supply aestiva,POWER_SUPPLY_AESTIVA,Power supply Aestiva,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power supply Aspire/Aestiva 7900,power supply aspire/aestiva 7900,POWER_SUPPLY_ASPIRE/AESTIVA_7900,Power supply Aspire/Aestiva 7900,,,review,inventory.description,30,unmatched candidate; requires review
+false,Power supply CS620,power supply cs620,POWER_SUPPLY_CS620,Power supply CS620,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pro 1000V3FRU,pro 1000v3fru,PRO_1000V3FRU,Pro 1000V3FRU,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pro Nebulizer,pro nebulizer,PRO_NEBULIZER,Pro Nebulizer,,,review,inventory.description,30,unmatched candidate; requires review
+false,Procare handles Assembly,procare handles assembly,PROCARE_HANDLES_ASSEMBLY,Procare handles Assembly,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pump T Motor C,pump t motor c,PUMP_T_MOTOR_C,Pump T Motor C,,,review,inventory.description,30,unmatched candidate; requires review
+false,Pump Unit E-Scaio,pump unit e-scaio,PUMP_UNIT_E-SCAIO,Pump Unit E-Scaio,,,review,inventory.description,30,unmatched candidate; requires review
+false,Push button switch,push button switch,PUSH_BUTTON_SWITCH,Push button switch,,,review,inventory.description,30,unmatched candidate; requires review
+false,Push button switch SLE 2000,push button switch sle 2000,PUSH_BUTTON_SWITCH_SLE_2000,Push button switch SLE 2000,,,review,inventory.description,30,unmatched candidate; requires review
+false,R860 Control Board,r860 control board,R860_CONTROL_BOARD,R860 Control Board,,,review,inventory.description,30,unmatched candidate; requires review
+false,Replacement PCB for Giraffe Scale,replacement pcb for giraffe scale,REPLACEMENT_PCB_FOR_GIRAFFE_SCALE,Replacement PCB for Giraffe Scale,,,review,inventory.description,30,unmatched candidate; requires review
+false,Replacement air filters box,replacement air filters box,REPLACEMENT_AIR_FILTERS_BOX,Replacement air filters box,,,review,inventory.description,30,unmatched candidate; requires review
+false,Retainor Disk ????,retainor disk ????,RETAINOR_DISK_????,Retainor Disk ????,,,review,inventory.description,30,unmatched candidate; requires review
+false,SIB SUBASSY ENHANCED 7900 Calibrated,sib subassy enhanced 7900 calibrated,SIB_SUBASSY_ENHANCED_7900_CALIBRATED,SIB SUBASSY ENHANCED 7900 Calibrated,,,review,inventory.description,30,unmatched candidate; requires review
+false,SPOT PT LAMP,spot pt lamp,SPOT_PT_LAMP,SPOT PT LAMP,,,review,inventory.description,30,unmatched candidate; requires review
+false,STX5 PVT Pneumatic System,stx5 pvt pneumatic system,STX5_PVT_PNEUMATIC_SYSTEM,STX5 PVT Pneumatic System,,,review,inventory.description,30,unmatched candidate; requires review
+false,SVC Kit Humidifier Cover,svc kit humidifier cover,SVC_KIT_HUMIDIFIER_COVER,SVC Kit Humidifier Cover,,,review,inventory.description,30,unmatched candidate; requires review
+false,SVC PCA control giraffe Touch Rots,svc pca control giraffe touch rots,SVC_PCA_CONTROL_GIRAFFE_TOUCH_ROTS,SVC PCA control giraffe Touch Rots,,,review,inventory.description,30,unmatched candidate; requires review
+false,Seal actuator plate,seal actuator plate,SEAL_ACTUATOR_PLATE,Seal actuator plate,,,review,inventory.description,30,unmatched candidate; requires review
+false,Seal canister BCG,seal canister bcg,SEAL_CANISTER_BCG,Seal canister BCG,,,review,inventory.description,30,unmatched candidate; requires review
+false,Seal main manifold breathing circuit bag,seal main manifold breathing circuit bag,SEAL_MAIN_MANIFOLD_BREATHING_CIRCUIT_BAG,Seal main manifold breathing circuit bag,,,review,inventory.description,30,unmatched candidate; requires review
+false,Sensor Loom SLE 5000,sensor loom sle 5000,SENSOR_LOOM_SLE_5000,Sensor Loom SLE 5000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Sensor O2 / Servo O2,sensor o2 / servo o2,SENSOR_O2_/_SERVO_O2,Sensor O2 / Servo O2,,,review,inventory.description,30,unmatched candidate; requires review
+false,Sensor differential pressure,sensor differential pressure,SENSOR_DIFFERENTIAL_PRESSURE,Sensor differential pressure,,,review,inventory.description,30,unmatched candidate; requires review
+false,Servo control PCA (Panda Warmer),servo control pca (panda warmer),SERVO_CONTROL_PCA_(PANDA_WARMER),Servo control PCA (Panda Warmer),,,review,inventory.description,30,unmatched candidate; requires review
+false,Set bag to vent match BCG,set bag to vent match bcg,SET_BAG_TO_VENT_MATCH_BCG,Set bag to vent match BCG,,,review,inventory.description,30,unmatched candidate; requires review
+false,Set unidirectional valve breathing system,set unidirectional valve breathing system,SET_UNIDIRECTIONAL_VALVE_BREATHING_SYSTE,Set unidirectional valve breathing system,,,review,inventory.description,30,unmatched candidate; requires review
+false,Silencer SLE 2000,silencer sle 2000,SILENCER_SLE_2000,Silencer SLE 2000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Silencer SLE 4000/5000/6000,silencer sle 4000/5000/6000,SILENCER_SLE_4000/5000/6000,Silencer SLE 4000/5000/6000,,,review,inventory.description,30,unmatched candidate; requires review
+false,Silicone Plug bag of 5,silicone plug bag of 5,SILICONE_PLUG_BAG_OF_5,Silicone Plug bag of 5,,,review,inventory.description,30,unmatched candidate; requires review
+false,Silicone seal canister,silicone seal canister,SILICONE_SEAL_CANISTER,Silicone seal canister,,,review,inventory.description,30,unmatched candidate; requires review
+false,Slide bracket assy,slide bracket assy,SLIDE_BRACKET_ASSY,Slide bracket assy,,,review,inventory.description,30,unmatched candidate; requires review
+false,Speaker,speaker,SPEAKER,Speaker,,,review,inventory.description,30,unmatched candidate; requires review
+false,Speaker Dash 2500,speaker dash 2500,SPEAKER_DASH_2500,Speaker Dash 2500,,,review,inventory.description,30,unmatched candidate; requires review
+false,Spring Hinge Right Porthole,spring hinge right porthole,SPRING_HINGE_RIGHT_PORTHOLE,Spring Hinge Right Porthole,,,review,inventory.description,30,unmatched candidate; requires review
+false,Support casting,support casting,SUPPORT_CASTING,Support casting,,,review,inventory.description,30,unmatched candidate; requires review
+false,Temp Probe Reusable Infant,temp probe reusable infant,TEMP_PROBE_REUSABLE_INFANT,Temp Probe Reusable Infant,,,review,inventory.description,30,unmatched candidate; requires review
+false,Universal AC DC adapter,universal ac dc adapter,UNIVERSAL_AC_DC_ADAPTER,Universal AC DC adapter,,,review,inventory.description,30,unmatched candidate; requires review
+false,Unknown,unknown,UNKNOWN,Unknown,,,review,inventory.description,30,unmatched candidate; requires review
+false,V100 Front Board w/o SPO2,v100 front board w/o spo2,V100_FRONT_BOARD_W/O_SPO2,V100 Front Board w/o SPO2,,,review,inventory.description,30,unmatched candidate; requires review
+false,V100 Keypad Kit,v100 keypad kit,V100_KEYPAD_KIT,V100 Keypad Kit,,,review,inventory.description,30,unmatched candidate; requires review
+false,V100 NIBP Pump,v100 nibp pump,V100_NIBP_PUMP,V100 NIBP Pump,,,review,inventory.description,30,unmatched candidate; requires review
+false,V100 SPO2 Board,v100 spo2 board,V100_SPO2_BOARD,V100 SPO2 Board,,,review,inventory.description,30,unmatched candidate; requires review
+false,Valve,valve,VALVE,Valve,,,review,inventory.description,30,unmatched candidate; requires review
+false,Valve APL assembly,valve apl assembly,VALVE_APL_ASSEMBLY,Valve APL assembly,,,review,inventory.description,30,unmatched candidate; requires review
+false,Valve Solenoid,valve solenoid,VALVE_SOLENOID,Valve Solenoid,,,review,inventory.description,30,unmatched candidate; requires review
+false,VentMon board subassy CAP 7100,ventmon board subassy cap 7100,VENTMON_BOARD_SUBASSY_CAP_7100,VentMon board subassy CAP 7100,,,review,inventory.description,30,unmatched candidate; requires review
+false,Washer Nylon white,washer nylon white,WASHER_NYLON_WHITE,Washer Nylon white,,,review,inventory.description,30,unmatched candidate; requires review
+false,Washer wave SST,washer wave sst,WASHER_WAVE_SST,Washer wave SST,,,review,inventory.description,30,unmatched candidate; requires review
+false,Water Trap,water trap,WATER_TRAP,Water Trap,,,review,inventory.description,30,unmatched candidate; requires review
+false,b20/b40 power Supply,b20/b40 power supply,B20/B40_POWER_SUPPLY,b20/b40 power Supply,,,review,inventory.description,30,unmatched candidate; requires review
+false,bellows assy aespire,bellows assy aespire,BELLOWS_ASSY_AESPIRE,bellows assy aespire,,,review,inventory.description,30,unmatched candidate; requires review
+false,check google,check google,CHECK_GOOGLE,check google,,,review,inventory.description,30,unmatched candidate; requires review
+false,disk check,disk check,DISK_CHECK,disk check,,,review,inventory.description,30,unmatched candidate; requires review
+false,exhaust line,exhaust line,EXHAUST_LINE,exhaust line,,,review,inventory.description,30,unmatched candidate; requires review
+false,fan,fan,FAN,fan,,,review,inventory.description,30,unmatched candidate; requires review
+false,filter,filter,FILTER,filter,,,review,inventory.description,30,unmatched candidate; requires review
+false,filters,filters,FILTERS,filters,,,review,inventory.description,30,unmatched candidate; requires review
+false,flow sensor block,flow sensor block,FLOW_SENSOR_BLOCK,flow sensor block,,,review,inventory.description,30,unmatched candidate; requires review
+false,flow sensor plastic mri compatable,flow sensor plastic mri compatable,FLOW_SENSOR_PLASTIC_MRI_COMPATABLE,flow sensor plastic mri compatable,,,review,inventory.description,30,unmatched candidate; requires review
+false,google,google,GOOGLE,google,,,review,inventory.description,30,unmatched candidate; requires review
+false,kit O2 cell incld adapter,kit o2 cell incld adapter,KIT_O2_CELL_INCLD_ADAPTER,kit O2 cell incld adapter,,,review,inventory.description,30,unmatched candidate; requires review
+false,main Manifold seal - BCG,main manifold seal - bcg,MAIN_MANIFOLD_SEAL_-_BCG,main Manifold seal - BCG,,,review,inventory.description,30,unmatched candidate; requires review
+false,o ring,o ring,O_RING,o ring,,,review,inventory.description,30,unmatched candidate; requires review
+false,o ring seals on vaporizer,o ring seals on vaporizer,O_RING_SEALS_ON_VAPORIZER,o ring seals on vaporizer,,,review,inventory.description,30,unmatched candidate; requires review
+false,poly bag,poly bag,POLY_BAG,poly bag,,,review,inventory.description,30,unmatched candidate; requires review
+false,sensor differential pressure,sensor differential pressure,SENSOR_DIFFERENTIAL_PRESSURE,sensor differential pressure,,,review,inventory.description,30,unmatched candidate; requires review
+false,solinoid valve,solinoid valve,SOLINOID_VALVE,solinoid valve,,,review,inventory.description,30,unmatched candidate; requires review
+false,tec-7 G-Flinge seal replacement kit,tec-7 g-flinge seal replacement kit,TEC-7_G-FLINGE_SEAL_REPLACEMENT_KIT,tec-7 G-Flinge seal replacement kit,,,review,inventory.description,30,unmatched candidate; requires review
+false,transducer O2 concentration,transducer o2 concentration,TRANSDUCER_O2_CONCENTRATION,transducer O2 concentration,,,review,inventory.description,30,unmatched candidate; requires review
+false,valve proportional,valve proportional,VALVE_PROPORTIONAL,valve proportional,,,review,inventory.description,30,unmatched candidate; requires review
+false,accessories,accessories,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,procurement_requests.category,65,taxonomy keyword candidate; requires review
+false,spare_parts,spare_parts,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,procurement_requests.category,65,taxonomy keyword candidate; requires review
+false,accessories,accessories,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,sales_requests.category,65,taxonomy keyword candidate; requires review
+false,spare_parts,spare_parts,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,sales_requests.category,65,taxonomy keyword candidate; requires review
+false,accessories,accessories,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,sales_request_items.category,65,taxonomy keyword candidate; requires review
+false,spare_parts,spare_parts,PARTS_AND_ACCESSORIES,Parts and Accessories,,,review,sales_request_items.category,65,taxonomy keyword candidate; requires review

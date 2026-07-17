@@ -108,13 +108,13 @@
       match: ["/administration", "/admin", "/departments", "/equipment", "/cases", "/imports"],
       links: [
         ["Dashboard", "/administration"],
-        ["Departments", "/departments"],
-        ["Equipment", "/equipment"],
-        ["Cases", "/cases"],
-        ["Imports", "/imports"],
+        ["Users & Permissions", "/administration/users"],
+        ["Master Data", "/administration/master-data"],
+        ["Data Management", "/administration/data-management"],
+        ["Backups", "/admin/database-map"],
         ["Database Map", "/admin/database-map"],
         ["Query Reports", "/admin/query"],
-        ["Settings", "/administration/settings"],
+        ["System Settings", "/administration/settings"],
       ],
     },
     {

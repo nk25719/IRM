@@ -1,18 +1,38 @@
-import os
 from contextlib import contextmanager
-from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+from app.config.database import DATA_DIR, database_driver, get_database_url
+
 DATA_DIR.mkdir(exist_ok=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'inventory.db'}")
+DATABASE_URL = get_database_url()
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True, connect_args=connect_args)
+
+def _engine_kwargs(url: str) -> dict:
+    driver = database_driver(url)
+    kwargs = {"future": True, "pool_pre_ping": True}
+    if driver == "sqlite":
+        kwargs["connect_args"] = {"check_same_thread": False}
+    elif driver == "postgresql":
+        kwargs.update(pool_size=10, max_overflow=20, pool_recycle=1800)
+    return kwargs
+
+
+def build_engine(database_url: str):
+    engine_ = create_engine(database_url, **_engine_kwargs(database_url))
+    if database_driver(database_url) == "sqlite":
+        @event.listens_for(engine_, "connect")
+        def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+    return engine_
+
+
+engine = build_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
@@ -36,3 +56,9 @@ def session_scope():
         raise
     finally:
         db.close()
+
+
+def check_database_health() -> bool:
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return True

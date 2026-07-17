@@ -1,11 +1,7 @@
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
 
 from .database import Base
-
-
-class TimestampMixin:
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+from .models.mixins import TimestampMixin
 
 
 class Client(Base, TimestampMixin):
@@ -69,7 +65,13 @@ class Engineer(Base, TimestampMixin):
 
 class EquipmentModel(Base):
     __tablename__ = "equipment_models"
+    __table_args__ = (
+        Index("ix_equipment_models_manufacturer_id", "manufacturer_id"),
+        Index("ix_equipment_models_equipment_category_id", "equipment_category_id"),
+    )
     id = Column(Integer, primary_key=True)
+    manufacturer_id = Column(Integer, nullable=True)
+    equipment_category_id = Column(Integer, nullable=True)
     manufacturer = Column(String(255))
     model = Column(String(255))
 
@@ -368,4 +370,3 @@ class QuotationTemplate(Base, TimestampMixin):
     warranty_terms = Column(Text)
     notes = Column(Text)
     is_default = Column(Boolean, nullable=False, default=False)
-

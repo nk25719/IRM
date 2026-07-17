@@ -1,0 +1,1 @@
+source_table,source_column,raw_value,trimmed_value,normalized_value,occurrence_count,equipment_count,model_count,proposed_canonical_manufacturer,match_method,confidence,requires_review,review_notes

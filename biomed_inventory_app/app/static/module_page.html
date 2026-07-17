@@ -24,7 +24,7 @@
       "/products":{title:"Products",description:"Commercial product catalog and product data used by sales workflows.",api:"/api/commercial/products",cards:[["Product Catalog","/products","Commercial product records"],["Sales Products","/sales/products","Products in the sales workspace"],["Quotations","/sales/quotations","Use product data in quotations"]]},
       "/training-demo":{title:"Training & Demo",description:"Training, demo, and customer enablement activities.",api:"/api/aftermarket/dashboard",cards:[["Training & Demo","/training-demo","Training and demo overview"],["After Sales Operations Training","/aftersales/training-demo","Training activity in Aftermarket"],["Clients","/clients","Review customer training history"]]},
       "/reports":{title:"Reports",description:"Printable, Excel, and PDF exports for warehouse, stock movement, service, PM, installation, acceptance, calibration, contract, and equipment history reports.",api:"/api/dashboard",cards:[["Warehouse Export","/api/export","Master Excel export"],["Stock Movement Report","/api/stock-movements/export","Excel stock movement report"],["Service Report","/api/biomedical/reports/service-report?format=excel","Service call report"],["PM Report","/api/pm-reports?report=completion","PM completion report"],["Calibration Certificate","/api/biomedical/reports/calibration-certificate?format=pdf","PDF calibration report"],["Contract PDF","/api/biomedical/reports/contract-pdf?format=pdf","Contract PDF export"]]},
-      "/administration":{title:"Administration",description:"Customers, contacts, users, settings, imports, audit trail, and system health.",api:"/api/audit",cards:[["Administration Dashboard","/administration","Administration overview"],["Customers","/administration/customers","Customer records"],["Contacts","/administration/contacts","Contact records"],["Users","/administration/users","User administration"],["Settings","/administration/settings","System settings"]]},
+      "/administration":{title:"Administration",description:"Users, permissions, master data, data movement, backups, and system settings.",api:"/api/audit",cards:[["Users & Permissions","/administration/users","User accounts, roles, and restricted actions"],["Master Data","/administration/master-data","Manufacturers, suppliers, categories, clients, sites, and locations"],["Data Management","/administration/data-management","Import structured Excel or CSV files, download approved templates, export current records, and review import errors."],["Backups","/admin/database-map","Database map, backups, and recovery checks"],["System Settings","/administration/settings","Application configuration and system controls"]]},
     };
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const sectionTitles={
@@ -37,6 +37,8 @@
       "/administration/customers":"Administration Customers",
       "/administration/contacts":"Administration Contacts",
       "/administration/users":"Administration Users",
+      "/administration/master-data":"Administration Master Data",
+      "/administration/data-management":"Administration Data Management",
       "/administration/settings":"Administration Settings",
       "/products":"Products",
       "/training-demo":"Training & Demo",

@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from .config.database import get_sqlite_database_path
 from .quotation_ai_service import QuotationAIService
 from .quotation_export import build_excel, build_pdf, calculate_item_total, calculate_totals
 from .quotation_import_service import parse_upload
@@ -23,7 +24,7 @@ def model_data(value: Any) -> dict[str, Any]:
 
 
 def db_path() -> Path:
-    return Path(os.getenv("DB_PATH", Path(__file__).resolve().parent / "data" / "inventory.db"))
+    return get_sqlite_database_path()
 
 
 def connect() -> sqlite3.Connection:

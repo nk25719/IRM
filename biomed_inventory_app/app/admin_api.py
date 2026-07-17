@@ -12,16 +12,18 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, unquote, urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlunparse
 
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from openpyxl import Workbook
 from sqlalchemy import create_engine, inspect, text
 
 from app import legacy_main
-from app.database import DATABASE_URL
+from app.config.database import get_database_url, get_sqlite_database_path, is_postgresql_database
+
+DATABASE_URL = get_database_url()
 
 
 router = APIRouter(tags=["Admin Foundation"])
@@ -35,7 +37,9 @@ DEFAULT_ROLES = {
     "admin": [
         "view_all_clients", "view_prices", "edit_quotations", "approve_quotations", "export_pdf",
         "import_data", "manage_users", "create_backup", "view_reports", "view_after_sales_cases",
-        "edit_service_calls", "view_database_map", "run_select_queries",
+        "edit_service_calls", "view_database_map", "run_select_queries", "data.templates.download",
+        "data.import.preview", "data.import.execute", "data.export.basic", "data.export.financial",
+        "data.import.history", "data.validation.resolve",
     ],
     "sales": ["view_all_clients", "view_prices", "edit_quotations", "export_pdf", "view_reports"],
     "procurement": ["view_all_clients", "view_prices", "view_reports"],
@@ -126,6 +130,97 @@ IMPORT_TARGETS = {
     },
 }
 
+DATA_MANAGEMENT_TYPES = {
+    "clients": {
+        "label": "Clients",
+        "fields": ["client_code", "client_name", "city", "address", "main_contact", "contact_email", "phone", "status", "notes"],
+        "required": ["client_name"],
+        "accepted_values": {"status": ["active", "inactive", "archived"]},
+        "example": {"client_code": "CLIENT-001", "client_name": "Example Hospital", "city": "Beirut", "status": "active"},
+    },
+    "departments": {
+        "label": "Departments",
+        "fields": ["client_code", "client_name", "department_code", "department_name", "floor_location", "main_contact_name", "phone", "email", "notes"],
+        "required": ["client_name", "department_name"],
+        "accepted_values": {},
+        "example": {"client_code": "CLIENT-001", "department_code": "ICU", "department_name": "ICU"},
+    },
+    "contacts": {
+        "label": "Contacts",
+        "fields": ["client_code", "client_name", "department_name", "contact_name", "role", "email", "phone", "notes"],
+        "required": ["client_name", "contact_name"],
+        "accepted_values": {},
+        "example": {"client_code": "CLIENT-001", "contact_name": "Jane Example", "role": "Biomedical Engineer"},
+    },
+    "equipment": {
+        "label": "Equipment",
+        "fields": [
+            "client_code", "client_name", "site_code", "department_name", "equipment_category", "manufacturer",
+            "model", "serial_number", "asset_number", "installation_date", "warranty_start_date",
+            "warranty_end_date", "status", "location", "notes",
+        ],
+        "required": ["client_name", "serial_number"],
+        "accepted_values": {"status": ["active", "inactive", "under_service", "retired"]},
+        "example": {"client_code": "CLIENT-001", "equipment_category": "Patient Monitoring", "manufacturer": "GE Healthcare", "model": "Dash 4000", "serial_number": "SN-001", "status": "active"},
+    },
+    "equipment_models": {
+        "label": "Equipment Models",
+        "fields": ["manufacturer_code", "manufacturer", "equipment_category_code", "equipment_category", "model", "description", "status", "notes"],
+        "required": ["model"],
+        "accepted_values": {"status": ["active", "inactive"]},
+        "example": {"manufacturer": "GE Healthcare", "equipment_category": "Patient Monitoring", "model": "Dash 4000", "status": "active"},
+    },
+    "manufacturers": {
+        "label": "Manufacturers",
+        "fields": ["manufacturer_code", "manufacturer_name", "legal_name", "website", "email", "phone", "country_code", "status", "notes"],
+        "required": ["manufacturer_name"],
+        "accepted_values": {"status": ["active", "inactive"]},
+        "example": {"manufacturer_code": "GE", "manufacturer_name": "GE Healthcare", "status": "active"},
+    },
+    "suppliers": {
+        "label": "Suppliers",
+        "fields": ["supplier_code", "supplier_name", "legal_name", "email", "phone", "website", "tax_number", "country_code", "status", "notes"],
+        "required": ["supplier_code", "supplier_name"],
+        "accepted_values": {"status": ["active", "inactive"]},
+        "example": {"supplier_code": "SUP-001", "supplier_name": "Example Supplier", "status": "active"},
+    },
+    "inventory_items": {
+        "label": "Inventory Items",
+        "fields": ["item_code", "pn", "description", "item_category", "device_family", "manufacturer", "model", "barcode", "status", "notes"],
+        "required": ["pn", "description"],
+        "accepted_values": {"status": ["active", "inactive"]},
+        "example": {"pn": "PN-001", "description": "ECG Cable", "item_category": "spare_parts", "status": "active"},
+    },
+    "service_calls": {
+        "label": "Service Calls",
+        "fields": ["client_code", "client_name", "case_no", "call_no", "equipment_serial", "engineer", "issue", "opened_at", "status", "notes"],
+        "required": ["client_name", "call_no"],
+        "accepted_values": {"status": ["open", "in_progress", "closed", "cancelled"]},
+        "example": {"client_name": "Example Hospital", "call_no": "SC-001", "issue": "No display", "status": "open"},
+    },
+    "preventive_maintenance": {
+        "label": "Preventive Maintenance",
+        "fields": ["client_code", "equipment_serial", "task_name", "due_date", "assigned_to", "status", "notes"],
+        "required": ["task_name"],
+        "accepted_values": {"status": ["planned", "due", "completed", "cancelled"]},
+        "example": {"equipment_serial": "SN-001", "task_name": "Quarterly PM", "status": "planned"},
+    },
+    "contracts": {
+        "label": "Contracts",
+        "fields": ["client_code", "contract_number", "contract_type", "start_date", "end_date", "status", "notes"],
+        "required": ["client_code", "contract_number"],
+        "accepted_values": {"status": ["draft", "active", "expired", "cancelled"]},
+        "example": {"client_code": "CLIENT-001", "contract_number": "CTR-001", "contract_type": "Service"},
+    },
+    "quotations": {
+        "label": "Quotations",
+        "fields": ["client_code", "quotation_number", "quotation_date", "valid_until", "status", "currency", "notes"],
+        "required": ["client_code", "quotation_number"],
+        "accepted_values": {"status": ["draft", "sent", "approved", "rejected"]},
+        "example": {"client_code": "CLIENT-001", "quotation_number": "Q-001", "status": "draft", "currency": "USD"},
+    },
+}
+
 REPORTS = {
     "open_service_calls_by_engineer": "SELECT engineer, status, call_no, issue, opened_at FROM service_calls WHERE lower(COALESCE(status,'')) NOT IN ('closed','completed','cancelled') ORDER BY engineer, opened_at DESC",
     "pending_quotations_by_salesperson": "SELECT sales_person, quotation_number, quotation_no, status, quotation_date, valid_until, total_amount, amount FROM quotations WHERE lower(COALESCE(status,'draft')) IN ('draft','pending','sent','reviewed') ORDER BY sales_person, quotation_date DESC",
@@ -148,13 +243,11 @@ def db() -> sqlite3.Connection:
 
 
 def is_postgres_url(url: str = DATABASE_URL) -> bool:
-    return url.startswith(("postgresql://", "postgresql+psycopg2://"))
+    return is_postgresql_database(url)
 
 
 def sqlite_path() -> Path:
-    if DATABASE_URL.startswith("sqlite:///"):
-        return Path(unquote(DATABASE_URL.replace("sqlite:///", "", 1)))
-    return legacy_main.DB_PATH
+    return get_sqlite_database_path(DATABASE_URL)
 
 
 def masked_database_url() -> dict[str, Any]:
@@ -487,6 +580,13 @@ def imports_page(request: Request):
     return FileResponse(STATIC_DIR / "imports.html")
 
 
+@router.get("/administration/data-management")
+@router.get("/admin/data-management")
+def data_management_page(request: Request):
+    require_permission(request, "data.import.preview")
+    return FileResponse(STATIC_DIR / "data_management.html")
+
+
 @router.get("/admin/query")
 @router.get("/reports/query")
 def query_page(request: Request):
@@ -500,6 +600,115 @@ def query_page(request: Request):
 def security_me(request: Request):
     role = role_from_request(request)
     return {"username": username_from_request(request), "role": role, "permissions": sorted(permissions_for_role(role))}
+
+
+@router.get("/api/admin/data-management/types")
+def data_management_types(request: Request):
+    require_permission(request, "data.import.preview")
+    return [
+        {
+            "id": key,
+            "label": value["label"],
+            "fields": value["fields"],
+            "required": value["required"],
+            "accepted_values": value["accepted_values"],
+        }
+        for key, value in DATA_MANAGEMENT_TYPES.items()
+    ]
+
+
+@router.get("/api/admin/data-management/templates/{data_type}")
+def download_template(data_type: str, request: Request):
+    require_permission(request, "data.templates.download")
+    config = DATA_MANAGEMENT_TYPES.get(data_type)
+    if not config:
+        raise HTTPException(status_code=404, detail="Unknown data type")
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = f"{config['label']} Import"[:31]
+    sheet.append(config["fields"])
+    sheet.append(["required" if field in config["required"] else "optional" for field in config["fields"]])
+
+    instructions = workbook.create_sheet("Instructions")
+    instructions.append(["Instruction", "Details"])
+    instructions.append(["Stable codes", "Use codes wherever available. Names are accepted for matching but are less safe."])
+    instructions.append(["Validation", "Uploads are staged for preview and validation before rows are eligible for import."])
+    instructions.append(["Required fields", ", ".join(config["required"])])
+
+    accepted = workbook.create_sheet("Accepted Values")
+    accepted.append(["Column", "Accepted values"])
+    for field in config["fields"]:
+        accepted.append([field, ", ".join(config["accepted_values"].get(field, []))])
+
+    example = workbook.create_sheet("Example Data")
+    example.append(config["fields"])
+    example.append([config["example"].get(field, "") for field in config["fields"]])
+
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    filename = f"{data_type}-import-template.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/api/admin/data-management/validation-errors")
+def data_management_validation_errors(request: Request):
+    require_permission(request, "data.import.history")
+    with db() as conn:
+        rows = []
+        if "data_validation_errors" in {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}:
+            rows.extend(
+                dict(row)
+                for row in conn.execute(
+                    """
+                    SELECT import_batch_id, import_row_id, field_name, raw_value, error_message, severity,
+                           '' AS suggested_value, is_resolved, created_at
+                    FROM data_validation_errors
+                    ORDER BY id DESC
+                    LIMIT 200
+                    """
+                ).fetchall()
+            )
+        rows.extend(
+            {
+                "import_batch_id": row["batch_id"],
+                "import_row_id": None,
+                "field_name": row["field"],
+                "raw_value": "",
+                "error_message": row["error_message"],
+                "severity": "error",
+                "suggested_value": "",
+                "is_resolved": False,
+                "created_at": row["created_at"],
+                "row_no": row["row_no"],
+            }
+            for row in conn.execute("SELECT batch_id, row_no, field, error_message, created_at FROM import_errors ORDER BY id DESC LIMIT 200").fetchall()
+        )
+    return rows[:200]
+
+
+@router.get("/api/admin/data-management/validation-errors/export")
+def data_management_validation_errors_export(request: Request):
+    rows = data_management_validation_errors(request)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Validation Errors"
+    columns = ["import_batch_id", "row_no", "field_name", "raw_value", "error_message", "severity", "suggested_value", "is_resolved", "created_at"]
+    sheet.append(columns)
+    for row in rows:
+        sheet.append([row.get(column, "") for column in columns])
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="validation-errors.xlsx"'},
+    )
 
 
 @router.get("/api/admin/database-map")

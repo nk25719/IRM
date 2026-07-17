@@ -1,0 +1,287 @@
+erDiagram
+  users {
+    int id
+    string status
+    datetime created_at
+  }
+  roles {
+    int id
+    string status
+    datetime created_at
+  }
+  permissions {
+    int id
+    string status
+    datetime created_at
+  }
+  user_roles {
+    int id
+    string status
+    datetime created_at
+  }
+  role_permissions {
+    int id
+    string status
+    datetime created_at
+  }
+  engineers {
+    int id
+    string status
+    datetime created_at
+  }
+  clients {
+    int id
+    string status
+    datetime created_at
+  }
+  client_sites {
+    int id
+    string status
+    datetime created_at
+  }
+  departments {
+    int id
+    string status
+    datetime created_at
+  }
+  contacts {
+    int id
+    string status
+    datetime created_at
+  }
+  addresses {
+    int id
+    string status
+    datetime created_at
+  }
+  manufacturers {
+    int id
+    string status
+    datetime created_at
+  }
+  suppliers {
+    int id
+    string status
+    datetime created_at
+  }
+  equipment_categories {
+    int id
+    string status
+    datetime created_at
+  }
+  equipment_models {
+    int id
+    string status
+    datetime created_at
+  }
+  equipment_assets {
+    int id
+    string status
+    datetime created_at
+  }
+  locations {
+    int id
+    string status
+    datetime created_at
+  }
+  service_cases {
+    int id
+    string status
+    datetime created_at
+  }
+  service_visits {
+    int id
+    string status
+    datetime created_at
+  }
+  service_case_status_history {
+    int id
+    string status
+    datetime created_at
+  }
+  service_case_assignments {
+    int id
+    string status
+    datetime created_at
+  }
+  service_case_items {
+    int id
+    string status
+    datetime created_at
+  }
+  preventive_maintenance_plans {
+    int id
+    string status
+    datetime created_at
+  }
+  preventive_maintenance_tasks {
+    int id
+    string status
+    datetime created_at
+  }
+  contracts {
+    int id
+    string status
+    datetime created_at
+  }
+  contract_equipment {
+    int id
+    string status
+    datetime created_at
+  }
+  warranties {
+    int id
+    string status
+    datetime created_at
+  }
+  technical_escalations {
+    int id
+    string status
+    datetime created_at
+  }
+  inventory_items {
+    int id
+    string status
+    datetime created_at
+  }
+  warehouses {
+    int id
+    string status
+    datetime created_at
+  }
+  storage_locations {
+    int id
+    string status
+    datetime created_at
+  }
+  stock_balances {
+    int id
+    string status
+    datetime created_at
+  }
+  inventory_transactions {
+    int id
+    string status
+    datetime created_at
+  }
+  serial_or_lot_numbers {
+    int id
+    string status
+    datetime created_at
+  }
+  stock_reservations {
+    int id
+    string status
+    datetime created_at
+  }
+  procurement_requests {
+    int id
+    string status
+    datetime created_at
+  }
+  procurement_request_items {
+    int id
+    string status
+    datetime created_at
+  }
+  suppliers {
+    int id
+    string status
+    datetime created_at
+  }
+  purchase_orders {
+    int id
+    string status
+    datetime created_at
+  }
+  purchase_order_items {
+    int id
+    string status
+    datetime created_at
+  }
+  goods_receipts {
+    int id
+    string status
+    datetime created_at
+  }
+  quotations {
+    int id
+    string status
+    datetime created_at
+  }
+  quotation_items {
+    int id
+    string status
+    datetime created_at
+  }
+  quotation_versions {
+    int id
+    string status
+    datetime created_at
+  }
+  quotation_status_history {
+    int id
+    string status
+    datetime created_at
+  }
+  invoices {
+    int id
+    string status
+    datetime created_at
+  }
+  invoice_items {
+    int id
+    string status
+    datetime created_at
+  }
+  payments {
+    int id
+    string status
+    datetime created_at
+  }
+  documents {
+    int id
+    string status
+    datetime created_at
+  }
+  document_links {
+    int id
+    string status
+    datetime created_at
+  }
+  audit_events {
+    int id
+    string status
+    datetime created_at
+  }
+  import_batches {
+    int id
+    string status
+    datetime created_at
+  }
+  import_rows {
+    int id
+    string status
+    datetime created_at
+  }
+  data_validation_errors {
+    int id
+    string status
+    datetime created_at
+  }
+  clients ||--o{ client_sites : has
+  client_sites ||--o{ departments : has
+  departments ||--o{ contacts : has
+  equipment_models ||--o{ equipment_assets : has
+  clients ||--o{ service_cases : has
+  equipment_assets ||--o{ service_cases : has
+  service_cases ||--o{ service_visits : has
+  service_cases ||--o{ service_case_items : has
+  service_case_items ||--o{ procurement_request_items : has
+  procurement_requests ||--o{ purchase_orders : has
+  quotations ||--o{ quotation_items : has
+  quotations ||--o{ invoices : has
+  invoices ||--o{ payments : has
+  inventory_items ||--o{ inventory_transactions : has
+  import_batches ||--o{ import_rows : has
+  import_rows ||--o{ data_validation_errors : has

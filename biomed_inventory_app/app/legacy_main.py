@@ -14,6 +14,7 @@ import secrets
 import pandas as pd
 from datetime import datetime, date, timedelta
 import qrcode
+from app.config.database import get_sqlite_database_path
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -21,7 +22,10 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 DATA_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-DB_PATH = Path(os.getenv("DB_PATH", DATA_DIR / "inventory.db"))
+try:
+    DB_PATH = get_sqlite_database_path()
+except RuntimeError:
+    DB_PATH = None
 EXCEL_PATH = Path(os.getenv("EXCEL_PATH", DATA_DIR / "inventory_master.xlsx"))
 SEED_PATH = DATA_DIR / "inventory_seed.xlsx"
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
@@ -550,6 +554,8 @@ def can_edit_crm(role: str) -> bool:
     return role in {"admin", "crm_user", "pm_coordinator", "service_engineer", "procurement"}
 
 def db():
+    if DB_PATH is None:
+        raise RuntimeError("Legacy sqlite3 access is disabled when DATABASE_URL is not a SQLite URL")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

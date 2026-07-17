@@ -1,0 +1,292 @@
+erDiagram
+  case_items {
+    INTEGER id
+    INTEGER case_id
+    VARCHAR(80) item_type
+    TEXT description
+    INTEGER requested_qty
+    NUMERIC(12_2) unit_price
+    VARCHAR(50) status
+    VARCHAR(50) procurement_status
+    INTEGER inventory_item_id
+  }
+  cases {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER equipment_id
+    VARCHAR(120) parent_case_reference
+    VARCHAR(80) case_type
+    VARCHAR(255) title
+    TEXT description
+    VARCHAR(50) status
+    VARCHAR(50) priority
+    TEXT blocked_reason
+    INTEGER responsible_user_id
+    string more_columns
+  }
+  client_activities {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER case_id
+    VARCHAR(40) activity_type
+    VARCHAR(255) title
+    TEXT description
+    VARCHAR(50) status
+    DATE date
+    INTEGER created_by
+  }
+  clients {
+    INTEGER id
+    VARCHAR(255) name
+    VARCHAR(255) location
+    TEXT address
+    VARCHAR(50) status
+    VARCHAR(50) financial_status
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  contacts {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    VARCHAR(255) name
+    VARCHAR(255) title
+    VARCHAR(80) phone
+    VARCHAR(255) email
+    TEXT notes
+  }
+  contracts {
+    INTEGER id
+    INTEGER client_id
+    VARCHAR(120) contract_reference
+    VARCHAR(80) contract_type
+    DATE start_date
+    DATE end_date
+    VARCHAR(50) status
+    TEXT coverage_notes
+    INTEGER pms_per_year
+    VARCHAR(120) pm_pattern
+    VARCHAR(80) source
+  }
+  departments {
+    INTEGER id
+    INTEGER client_id
+    VARCHAR(255) name
+    VARCHAR(255) floor_location
+    VARCHAR(255) contact_name
+    VARCHAR(80) phone
+    VARCHAR(255) email
+    TEXT notes
+  }
+  engineers {
+    INTEGER id
+    INTEGER user_id
+    VARCHAR(255) engineer_name
+    VARCHAR(255) email
+    VARCHAR(80) phone
+    BOOLEAN active
+    TEXT notes
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  equipment {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER equipment_model_id
+    VARCHAR(255) name
+    VARCHAR(255) manufacturer
+    VARCHAR(255) model
+    VARCHAR(255) serial_number
+    VARCHAR(255) asset_tag
+    DATE installation_date
+    DATE warranty_start_date
+    DATE warranty_end_date
+    string more_columns
+  }
+  equipment_models {
+    INTEGER id
+    VARCHAR(255) manufacturer
+    VARCHAR(255) model
+  }
+  inventory_items {
+    INTEGER id
+    VARCHAR(255) pn
+    TEXT description
+    VARCHAR(50) category
+    VARCHAR(255) manufacturer
+    INTEGER minimum_qty
+    INTEGER physical_qty
+    INTEGER reserved_qty
+    INTEGER available_qty
+    VARCHAR(255) location
+    VARCHAR(50) status
+  }
+  invoices {
+    INTEGER id
+    INTEGER client_id
+    INTEGER case_id
+    VARCHAR(120) parent_case_reference
+    VARCHAR(120) invoice_number
+    VARCHAR(50) status
+    NUMERIC(12_2) total_amount
+    DATE due_date
+    DATE paid_date
+  }
+  pm_tasks {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER equipment_id
+    INTEGER contract_id
+    INTEGER case_id
+    DATE scheduled_date
+    DATE completed_date
+    VARCHAR(50) status
+    INTEGER assigned_engineer_id
+    VARCHAR(80) pm_label
+    VARCHAR(120) communication_stage
+    string more_columns
+  }
+  procurement_requests {
+    INTEGER id
+    INTEGER case_id
+    INTEGER case_item_id
+    INTEGER inventory_item_id
+    INTEGER requested_qty
+    INTEGER shortage_qty
+    VARCHAR(50) procurement_status
+    VARCHAR(255) supplier
+    DATE expected_date
+  }
+  quotation_attachments {
+    INTEGER id
+    INTEGER quotation_id
+    VARCHAR(255) filename
+    VARCHAR(120) content_type
+    VARCHAR(500) storage_path
+    TEXT extracted_text
+    DATETIME created_at
+  }
+  quotation_items {
+    INTEGER id
+    INTEGER quotation_id
+    INTEGER inventory_item_id
+    VARCHAR(255) item_code
+    VARCHAR(255) manufacturer_part_number
+    TEXT description
+    TEXT ai_normalized_description
+    NUMERIC(12_2) quantity
+    NUMERIC(12_2) unit_price
+    NUMERIC(5_2) discount_percent
+    NUMERIC(12_2) line_total
+    VARCHAR(255) warranty
+    string more_columns
+  }
+  quotation_templates {
+    INTEGER id
+    VARCHAR(255) name
+    VARCHAR(12) currency
+    TEXT payment_terms
+    TEXT delivery_terms
+    TEXT warranty_terms
+    TEXT notes
+    BOOLEAN is_default
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  quotations {
+    INTEGER id
+    VARCHAR(120) quotation_number
+    VARCHAR(120) quotation_no
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER contact_id
+    INTEGER case_id
+    VARCHAR(50) status
+    DATE quotation_date
+    DATE quote_date
+    DATE valid_until
+    VARCHAR(12) currency
+    string more_columns
+  }
+  service_calls {
+    INTEGER id
+    INTEGER client_id
+    INTEGER department_id
+    INTEGER equipment_id
+    INTEGER case_id
+    VARCHAR(120) call_type
+    VARCHAR(120) call_type_2
+    VARCHAR(50) priority
+    VARCHAR(50) status
+    TEXT blocked_reason
+    INTEGER assigned_engineer_id
+    TEXT call_reason
+    string more_columns
+  }
+  users {
+    INTEGER id
+    VARCHAR(120) username
+    VARCHAR(255) full_name
+    VARCHAR(80) role
+    VARCHAR(255) email
+    VARCHAR(80) phone
+    BOOLEAN active
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  warranties {
+    INTEGER id
+    INTEGER equipment_id
+    INTEGER client_id
+    DATE start_date
+    DATE end_date
+    VARCHAR(50) status
+    TEXT coverage_notes
+  }
+  cases ||--o{ case_items : "case_id"
+  inventory_items ||--o{ case_items : "inventory_item_id"
+  clients ||--o{ cases : "client_id"
+  departments ||--o{ cases : "department_id"
+  equipment ||--o{ cases : "equipment_id"
+  users ||--o{ cases : "responsible_user_id"
+  clients ||--o{ client_activities : "client_id"
+  departments ||--o{ client_activities : "department_id"
+  cases ||--o{ client_activities : "case_id"
+  users ||--o{ client_activities : "created_by"
+  clients ||--o{ contacts : "client_id"
+  departments ||--o{ contacts : "department_id"
+  clients ||--o{ contracts : "client_id"
+  clients ||--o{ departments : "client_id"
+  users ||--o{ engineers : "user_id"
+  clients ||--o{ equipment : "client_id"
+  departments ||--o{ equipment : "department_id"
+  equipment_models ||--o{ equipment : "equipment_model_id"
+  clients ||--o{ invoices : "client_id"
+  cases ||--o{ invoices : "case_id"
+  clients ||--o{ pm_tasks : "client_id"
+  departments ||--o{ pm_tasks : "department_id"
+  equipment ||--o{ pm_tasks : "equipment_id"
+  contracts ||--o{ pm_tasks : "contract_id"
+  cases ||--o{ pm_tasks : "case_id"
+  engineers ||--o{ pm_tasks : "assigned_engineer_id"
+  cases ||--o{ procurement_requests : "case_id"
+  case_items ||--o{ procurement_requests : "case_item_id"
+  inventory_items ||--o{ procurement_requests : "inventory_item_id"
+  quotations ||--o{ quotation_attachments : "quotation_id"
+  quotations ||--o{ quotation_items : "quotation_id"
+  inventory_items ||--o{ quotation_items : "inventory_item_id"
+  clients ||--o{ quotations : "client_id"
+  departments ||--o{ quotations : "department_id"
+  contacts ||--o{ quotations : "contact_id"
+  cases ||--o{ quotations : "case_id"
+  clients ||--o{ service_calls : "client_id"
+  departments ||--o{ service_calls : "department_id"
+  equipment ||--o{ service_calls : "equipment_id"
+  cases ||--o{ service_calls : "case_id"
+  engineers ||--o{ service_calls : "assigned_engineer_id"
+  equipment ||--o{ warranties : "equipment_id"
+  clients ||--o{ warranties : "client_id"

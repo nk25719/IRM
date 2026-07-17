@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-irm}
+      POSTGRES_USER: ${POSTGRES_USER:-irm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment or .env file}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-irm_user} -d ${POSTGRES_DB:-irm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - irm_postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://irm_user:change_me@db:5432/irm}
+      IRM_DATA_ROOT: ${IRM_DATA_ROOT:-/data/irm}
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-admin123}
+      SESSION_SECRET: ${SESSION_SECRET:-local-dev-session-secret-change-me}
+    ports:
+      - "${IRM_APP_PORT:-8000}:8080"
+    volumes:
+      - irm_app_data:/data/irm
+
+volumes:
+  irm_postgres_data:
+  irm_app_data:
