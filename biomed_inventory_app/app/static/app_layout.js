@@ -1,4 +1,9 @@
 (function () {
+  if (document.body.dataset.appLayoutInitialized === "true") {
+    return;
+  }
+  document.body.dataset.appLayoutInitialized = "true";
+
   const modules = [
     { label: "Home", href: "/", icon: "H", match: ["/", "/home", "/portal"] },
     {
@@ -250,13 +255,14 @@
     const links = subnav[module.href];
     if (!links || isHome) return;
     const main = document.querySelector("main");
-    if (!main || main.querySelector(".erp-page-tabs") || main.querySelector(".after-tabs") || main.querySelector(".tabs")) return;
+    if (!main || main.querySelector("[data-section-tabs], .erp-page-tabs")) return;
     const activeHref = activeSubnavHref(links, currentPath);
     const tabs = document.createElement("nav");
-    tabs.className = "erp-page-tabs";
+    tabs.className = "erp-page-tabs section-tabs";
+    tabs.dataset.sectionTabs = slugify(module.label);
     tabs.setAttribute("aria-label", `${module.label} sections`);
     tabs.innerHTML = links
-      .map(([label, href]) => `<a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
+      .map(([label, href]) => `<a class="section-tab ${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
       .join("");
     main.insertBefore(tabs, main.firstElementChild);
   }
@@ -321,6 +327,15 @@
   }
 
   function activeSubnavHref(links, currentPath) {
+    const currentHash = window.location.hash || "";
+    if (currentHash) {
+      const hashMatch = links.find(([, href]) => {
+        const [hrefPath, hrefHash = ""] = href.split("#");
+        const base = canonicalPath(hrefPath.replace(/\/$/, "") || "/");
+        return base === currentPath && `#${hrefHash}` === currentHash;
+      });
+      if (hashMatch) return hashMatch[1];
+    }
     const aftermarketParent = aftermarketParentHref(currentPath);
     if (aftermarketParent && links.some(([, href]) => href === aftermarketParent)) return aftermarketParent;
     return links

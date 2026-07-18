@@ -434,7 +434,8 @@ body.erp-layout-active main {
   padding: 24px 28px 44px;
 }
 
-.erp-page-tabs {
+.erp-page-tabs,
+.section-tabs {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -442,7 +443,8 @@ body.erp-layout-active main {
   margin-bottom: 18px;
 }
 
-.erp-page-tabs a {
+.erp-page-tabs a,
+.section-tab {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -454,7 +456,9 @@ body.erp-layout-active main {
 }
 
 .erp-page-tabs a.active,
-.erp-page-tabs a:hover {
+.erp-page-tabs a:hover,
+.section-tab.active,
+.section-tab:hover {
   background: var(--primary);
   border-color: var(--primary);
   color: #ffffff;
@@ -648,7 +652,6 @@ td {
   margin-top: 4px;
 }
 
-.dashboard-tabs,
 .warehouse-tabs {
   align-items: center;
   display: flex;
@@ -657,7 +660,6 @@ td {
   margin: 0 0 16px;
 }
 
-.dashboard-tabs button,
 .warehouse-tabs button,
 .tabs button,
 .tabs a {
@@ -672,7 +674,6 @@ td {
   text-decoration: none;
 }
 
-.dashboard-tabs button.active,
 .warehouse-tabs button.active,
 .tabs button.active,
 .tabs a.primary {

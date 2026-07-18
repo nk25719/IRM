@@ -18,15 +18,11 @@
       <p>CO lines created by Sales stay visible here until they are assigned to a supplier PO and received.</p>
     </section>
 
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" aria-label="Procurement workflow views">
       <button class="active" data-tab="overview">Overview</button>
       <button data-tab="itemTracking">Item Tracking</button>
       <button data-tab="clientOrders">Client Orders</button>
-      <button data-tab="purchaseOrders">Purchase Orders</button>
-      <button data-tab="suppliers">Suppliers</button>
-      <button data-tab="shipping">Shipping</button>
       <button data-tab="reception">Reception</button>
-      <button data-tab="reports">Reports</button>
     </div>
 
     <section class="card">
@@ -130,7 +126,7 @@
     }
     function selectPO(p){
       poNo.value=p.po_no||"";shipPoNo.value=p.po_no||"";receivePoNo.value=p.po_no||"";poSupplier.value=p.supplier||"";poStatus.value=p.status||"OPEN";poDate.value=p.po_date||"";poContact.value=p.contact_person||"";poPayment.value=p.payment_terms||"";poExpected.value=p.expected_date||"";poNotes.value=p.notes||"";shipStatus.value=p.shipping_status||"";shipReference.value=p.shipping_reference||"";receiveStatus.value=p.reception_status||"";
-      document.querySelector('[data-tab="purchaseOrders"]').click();
+      activateTab("purchaseOrders");
     }
     async function savePO(){
       if(!poNo.value){alert("PO# is required");return}
@@ -192,11 +188,12 @@
       reportRows.innerHTML=row(["Minimum stock alerts",esc(min.length),`<a href="/api/exports/procurement">Export</a>`])+row(["Requested shortages",esc(shortages.length),`<a href="/api/exports/procurement">Export</a>`])+row(["Incoming items",esc(incoming.length),`<a href="/api/exports/procurement">Export</a>`]);
     }
     function activateTab(tab){
-      const btn=document.querySelector(`[data-tab="${tab}"]`)||document.querySelector('[data-tab="overview"]');
+      const panel=document.getElementById(tab)||document.getElementById("overview");
+      const btn=document.querySelector(`[data-tab="${panel.id}"]`);
       document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
       document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById(btn.dataset.tab).classList.add("active");
+      if(btn)btn.classList.add("active");
+      panel.classList.add("active");
     }
     document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click",()=>activateTab(btn.dataset.tab)));
     category.addEventListener("change",load);filter.addEventListener("input",load);load();

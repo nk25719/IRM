@@ -26,12 +26,6 @@
         <p>Command center for customer visits, Aftermarket activity, Sales pipeline, and Procurement pressure.</p>
       </div>
     </section>
-    <section class="dashboard-tabs" aria-label="Dashboard views">
-      <button class="active" type="button" data-dashboard-tab="customer">By Customer</button>
-      <button type="button" data-dashboard-tab="after-sales">Aftermarket</button>
-      <button type="button" data-dashboard-tab="sales-pipeline">Sales Pipeline</button>
-      <button type="button" data-dashboard-tab="procurement">Procurement</button>
-    </section>
     <section class="command-center" aria-label="Customer command center">
       <article class="command-card"><small>Customers</small><strong id="dashCustomers">--</strong><p>Active client records in this view.</p></article>
       <article class="command-card"><small>Open Cases</small><strong id="dashCases">--</strong><p>Service, sales, and operational cases.</p></article>
@@ -129,14 +123,14 @@
       updateCommandCards(data);
     }
     function updateCommandCards(data){dashCustomers.textContent=data.length;dashCases.textContent=data.reduce((sum,h)=>sum+Number(h.open_cases||0),0);dashCOs.textContent=data.reduce((sum,h)=>sum+Number(h.open_sales_orders||0),0);dashProcurement.textContent=data.reduce((sum,h)=>sum+Number(h.pending_procurement||0),0)}
-    function setDashboardTab(tab){activeDashboardTab=tab;document.querySelectorAll("[data-dashboard-tab]").forEach(b=>b.classList.toggle("active",b.dataset.dashboardTab===tab));activityFilter.value="";if(tab==="after-sales")activityFilter.value=[...activityFilter.options].find(o=>/service|pm|after/i.test(o.value))?.value||"";if(tab==="sales-pipeline")activityFilter.value=[...activityFilter.options].find(o=>/sales|offer|quotation/i.test(o.value))?.value||"";if(tab==="procurement")purchaseOrderFilter.focus();render()}
+    function setDashboardTab(tab){activeDashboardTab=tab;document.querySelectorAll('[data-section-tabs="dashboard"] a[href^="/dashboard#"]').forEach(a=>a.classList.toggle("active",a.hash===`#${tab}`));activityFilter.value="";if(tab==="after-sales")activityFilter.value=[...activityFilter.options].find(o=>/service|pm|after/i.test(o.value))?.value||"";if(tab==="sales-pipeline")activityFilter.value=[...activityFilter.options].find(o=>/sales|offer|quotation/i.test(o.value))?.value||"";if(tab==="procurement")purchaseOrderFilter.focus();render()}
     let searchTimer=null;
     globalSearch.addEventListener("input",()=>{clearTimeout(searchTimer);const q=globalSearch.value.trim();if(!q){searchResults.style.display="none";return}searchTimer=setTimeout(async()=>{const res=await fetch(`/api/search?q=${encodeURIComponent(q)}`);const data=await res.json();searchResults.innerHTML=(data.results||[]).map(r=>`<a href="${esc(r.url||"/dashboard")}"><b>${esc(r.label)}</b><span class="mini">${esc(r.type)} ${r.reference?`· ${r.reference}`:""}</span></a>`).join("")||`<a>No results</a>`;searchResults.style.display="block"},220)});
     document.addEventListener("click",e=>{if(!e.target.closest(".search-box"))searchResults.style.display="none"});
     [filterEl,activityFilter,modalityFilter,clientOrderFilter,purchaseOrderFilter].forEach(el=>{el.addEventListener("input",render);el.addEventListener("change",render)});
     document.querySelectorAll(".column-filter").forEach(el=>el.addEventListener("input",render));
-    document.querySelectorAll("[data-dashboard-tab]").forEach(button=>button.addEventListener("click",()=>setDashboardTab(button.dataset.dashboardTab)));
-    load();
+    document.addEventListener("click",e=>{const link=e.target.closest('[data-section-tabs="dashboard"] a[href^="/dashboard#"]');if(!link)return;e.preventDefault();history.replaceState(null,"",link.getAttribute("href"));setDashboardTab(link.hash.slice(1)||"customer")});
+    load().then(()=>setDashboardTab(location.hash.replace("#","")||"customer"));
   </script>
 <script src="/static/app_layout.js"></script>
 </body>
