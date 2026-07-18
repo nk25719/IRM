@@ -125,6 +125,7 @@ def upgrade():
         op.create_table(
             "audit_log",
             sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("item_id", sa.Integer()),
             sa.Column("username", sa.String(length=120)),
             sa.Column("action", sa.String(length=120)),
             sa.Column("table_name", sa.String(length=120)),
@@ -141,6 +142,7 @@ def upgrade():
             "audit_log",
             [
                 sa.Column("username", sa.String(length=120)),
+                sa.Column("item_id", sa.Integer()),
                 sa.Column("table_name", sa.String(length=120)),
                 sa.Column("record_id", sa.Integer()),
                 sa.Column("batch_id", sa.Integer()),

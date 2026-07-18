@@ -715,6 +715,9 @@ def init_db():
             created_at TEXT
         )
     """)
+    audit_cols = {row["name"] for row in conn.execute("PRAGMA table_info(audit_log)").fetchall()}
+    if "item_id" not in audit_cols:
+        conn.execute("ALTER TABLE audit_log ADD COLUMN item_id INTEGER")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
