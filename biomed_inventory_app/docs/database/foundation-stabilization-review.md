@@ -55,6 +55,7 @@
 | processed_rows | Integer default 0 | new nullable/server default | none | added | safe additive |
 | successful_rows | Integer default 0 | new nullable/server default | none | added | safe additive |
 | failed_rows | Integer default 0 | new nullable/server default | none | added | safe additive |
+| updated_at | DateTime default now | new non-null/server default | TimestampMixin column | added in foundation migration | safe additive |
 
 The migration does not recreate `import_batches`, does not rename existing columns, and the test `test_import_batches_old_row_survives_upgrade_and_new_columns_downgrade` verifies that an old-format row survives upgrade and downgrade.
 
@@ -82,7 +83,7 @@ The application can no longer silently connect SQLAlchemy to one SQLite file and
 
 ## Migration Safety
 
-- Empty disposable database: `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head` passed.
+- Empty disposable database: `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head` passed during the first checkpoint pass. After cleanup, the branch-local timestamp repair migration was folded into `20260716_database_foundation.py` so empty databases get the final import-batch shape directly.
 - Existing database copy: upgrade passed.
 - Existing important row counts matched before and after upgrade.
 - New foundation tables were present after upgrade.
@@ -110,9 +111,11 @@ The application can no longer silently connect SQLAlchemy to one SQLite file and
 ## Test Results
 
 - `python3 -m compileall app tests`: passed.
-- `python3 -m unittest tests.test_database_foundation -v`: passed, 17 tests.
+- `python3 -m unittest tests.test_database_foundation -v`: passed, 19 tests.
+- `python3 -m unittest tests.test_master_data_backfill -v`: passed, 5 tests.
+- `python3 -m unittest tests.test_data_management_center -v`: passed, 8 tests.
 - `python3 -m unittest tests.test_aftermarket_service_reports tests.test_quotation_generator -v`: passed, 9 tests.
-- `python3 -m unittest discover -s tests -v`: 29 passed, 4 legacy workflow failures.
+- `python3 -m unittest discover -s tests -v`: 44 passed, 2 failures and 2 errors in legacy workflow tests.
 
 ## Legacy Failures Still Present
 
@@ -122,6 +125,8 @@ The application can no longer silently connect SQLAlchemy to one SQLite file and
 - `test_service_hospital_follow_up_tracks_service_department_buckets`: expected score 4, actual score 5.
 
 These failures are outside the database foundation and existed during the milestone verification pass.
+
+Some passing legacy tests still emit ResourceWarnings for unclosed SQLite connections; this remains a cleanup item outside the checkpoint.
 
 ## PostgreSQL Deployment Readiness
 

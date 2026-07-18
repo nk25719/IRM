@@ -14,6 +14,16 @@
   --shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
   --sidebar: #172033;
   --sidebar-soft: #23314d;
+  --sidebar-bg: #111827;
+  --sidebar-bg-end: #0b1220;
+  --sidebar-panel: #172033;
+  --sidebar-panel-border: rgba(148, 163, 184, 0.16);
+  --sidebar-text: #e5edf8;
+  --sidebar-muted: #93a4ba;
+  --sidebar-subtle: #b8c4d5;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-active: rgba(255, 255, 255, 0.12);
+  --department-accent: #60a5fa;
 }
 
 * {
@@ -49,9 +59,9 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-sidebar {
-  background: linear-gradient(180deg, var(--sidebar), #111827);
+  background: linear-gradient(180deg, var(--sidebar-bg), var(--sidebar-bg-end));
   bottom: 0;
-  color: #d7def0;
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -89,7 +99,7 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-brand small {
-  color: #9ca3af;
+  color: var(--sidebar-muted);
   font-size: 12px;
 }
 
@@ -99,7 +109,7 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-nav-section {
-  color: rgba(226, 232, 240, .7);
+  color: var(--sidebar-muted);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0;
@@ -108,21 +118,83 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-nav-group {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   display: grid;
-  gap: 4px;
+  gap: 5px;
+  padding: 0;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.erp-nav-group.open {
+  background: var(--sidebar-panel);
+  border-color: var(--sidebar-panel-border);
+  padding: 4px;
+}
+
+.erp-nav-item[data-module="dashboard"],
+.erp-nav-group[data-module="dashboard"] {
+  --department-accent: #60a5fa;
+}
+
+.erp-nav-item[data-module="sales"],
+.erp-nav-group[data-module="sales"] {
+  --department-accent: #22c55e;
+}
+
+.erp-nav-group[data-module="procurement"] {
+  --department-accent: #f59e0b;
+}
+
+.erp-nav-group[data-module="warehouse"] {
+  --department-accent: #38bdf8;
+}
+
+.erp-nav-group[data-module="aftermarket"] {
+  --department-accent: #a78bfa;
+}
+
+.erp-nav-group[data-module="finance"] {
+  --department-accent: #2dd4bf;
+}
+
+.erp-nav-item[data-module="clients"],
+.erp-nav-group[data-module="clients"] {
+  --department-accent: #fb7185;
+}
+
+.erp-nav-item[data-module="products"],
+.erp-nav-group[data-module="products"] {
+  --department-accent: #34d399;
+}
+
+.erp-nav-item[data-module="training-and-demo"],
+.erp-nav-group[data-module="training-and-demo"] {
+  --department-accent: #f472b6;
+}
+
+.erp-nav-group[data-module="administration"] {
+  --department-accent: #818cf8;
+}
+
+.erp-nav-item[data-module="reports"],
+.erp-nav-group[data-module="reports"] {
+  --department-accent: #94a3b8;
 }
 
 .erp-nav-item {
   align-items: center;
   border: 1px solid transparent;
   border-radius: 8px;
-  color: #cbd5e1;
+  color: var(--sidebar-text);
   display: flex;
   gap: 11px;
   min-height: 42px;
   padding: 10px 11px;
   text-decoration: none;
   width: 100%;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .erp-nav-toggle {
@@ -136,11 +208,14 @@ body.erp-layout-active .pm-sidebar {
   align-items: center;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;
+  color: var(--sidebar-text);
   display: inline-flex;
   font-size: 12px;
   font-weight: 900;
   height: 28px;
   justify-content: center;
+  line-height: 1;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
   width: 28px;
 }
 
@@ -150,21 +225,34 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-nav-item i {
-  color: #94a3b8;
+  color: var(--sidebar-muted);
   font-style: normal;
   transition: transform 150ms ease;
 }
 
 .erp-nav-item:hover,
-.erp-nav-item:focus,
+.erp-nav-item:focus {
+  background: var(--sidebar-hover);
+  border-color: var(--sidebar-panel-border);
+  color: #ffffff;
+}
+
 .erp-nav-item.active {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--sidebar-active);
+  border-color: color-mix(in srgb, var(--department-accent) 34%, transparent);
+  color: #ffffff;
+}
+
+.erp-nav-item:hover i,
+.erp-nav-item:focus i,
+.erp-nav-item.active i {
   color: #ffffff;
 }
 
 .erp-nav-item.active span {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--department-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--department-accent) 50%, transparent);
+  color: #06101f;
 }
 
 .erp-nav-group.open .erp-nav-toggle i {
@@ -173,8 +261,20 @@ body.erp-layout-active .pm-sidebar {
 
 .erp-nav-children {
   display: none;
-  gap: 3px;
-  padding: 0 0 4px 39px;
+  gap: 4px;
+  padding: 1px 0 5px 39px;
+  position: relative;
+}
+
+.erp-nav-children::before {
+  background: color-mix(in srgb, var(--department-accent) 38%, rgba(148, 163, 184, 0.22));
+  border-radius: 999px;
+  bottom: 10px;
+  content: "";
+  left: 19px;
+  position: absolute;
+  top: 6px;
+  width: 2px;
 }
 
 .erp-nav-group.open .erp-nav-children {
@@ -182,25 +282,31 @@ body.erp-layout-active .pm-sidebar {
 }
 
 .erp-nav-children a {
-  border-left: 2px solid rgba(148, 163, 184, 0.22);
-  color: #aeb9ca;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: var(--sidebar-subtle);
   font-size: 13px;
   font-weight: 750;
-  min-height: 30px;
-  padding: 6px 8px 6px 12px;
+  min-height: 32px;
+  padding: 6px 9px 6px 12px;
+  position: relative;
   text-decoration: none;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .erp-nav-children a:hover,
-.erp-nav-children a:focus,
-.erp-nav-children a.active {
-  border-left-color: var(--primary);
+.erp-nav-children a:focus {
+  background: var(--sidebar-hover);
+  border-left-color: color-mix(in srgb, var(--department-accent) 60%, transparent);
   color: #ffffff;
 }
 
 .erp-nav-children a.active {
-  background: rgba(37, 99, 235, 0.18);
-  border-radius: 0 8px 8px 0;
+  background: var(--sidebar-active);
+  border-color: color-mix(in srgb, var(--department-accent) 24%, transparent);
+  border-left-color: var(--department-accent);
+  color: #ffffff;
 }
 
 .erp-topbar {

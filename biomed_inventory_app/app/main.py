@@ -14,6 +14,7 @@ from app.routers import (
     aftersales_api,
     crm_api,
     dashboard_api,
+    data_management_api,
     procurement_api,
     imports_api,
     master_data_api,
@@ -74,7 +75,7 @@ async def auth_middleware(request: Request, call_next):
     route_permissions = [
         (("/admin/database-map", "/api/admin/database-map"), "view_database_map"),
         (("/admin/imports", "/api/admin/imports", "/api/admin/import-targets"), "import_data"),
-        (("/administration/data-management", "/admin/data-management", "/api/admin/data-management"), "data.import.preview"),
+        (("/administration/data-management", "/admin/data-management", "/api/admin/data-management", "/api/data-management"), "data_management.view"),
         (("/admin/backups",), "create_backup"),
         (("/admin/query", "/reports/query", "/api/admin/reports"), "view_reports"),
         (("/api/admin/query",), "run_select_queries"),
@@ -108,6 +109,7 @@ app.include_router(aftersales_api.router)
 app.include_router(crm_api.router)
 app.include_router(master_data_api.router)
 app.include_router(imports_api.router)
+app.include_router(data_management_api.router)
 
 
 def __getattr__(name: str):

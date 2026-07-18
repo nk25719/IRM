@@ -269,9 +269,10 @@
   }
 
   function navItem(module, active, currentPath) {
+    const moduleKey = escapeHtml(slugify(module.label));
     if (!module.links) {
       return `
-        <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}">
+        <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}" data-module="${moduleKey}">
           <span>${escapeHtml(module.icon)}</span>
           <strong>${escapeHtml(module.label)}</strong>
         </a>
@@ -280,7 +281,7 @@
     const activeHref = activeSubnavHref(module.links, currentPath);
     const expanded = active || module.href === "/sales" || module.href === "/aftersales";
     return `
-      <section class="erp-nav-group ${expanded ? "open" : ""}">
+      <section class="erp-nav-group ${expanded ? "open" : ""}" data-module="${moduleKey}">
         <button class="erp-nav-item erp-nav-toggle ${active ? "active" : ""}" type="button" aria-expanded="${expanded}">
           <span>${escapeHtml(module.icon)}</span>
           <strong>${escapeHtml(module.label)}</strong>
@@ -436,5 +437,13 @@
       '"': "&quot;",
       "'": "&#039;",
     }[char]));
+  }
+
+  function slugify(value) {
+    return String(value ?? "")
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 })();

@@ -6,34 +6,32 @@
   <title>Data Management</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .dm-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-    .dm-tabs{align-items:center;display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
-    .dm-tabs button,.dm-actions button,.dm-actions a,.dm-form button{border:1px solid var(--line);border-radius:8px;cursor:pointer;font:inherit;font-weight:800;padding:9px 12px;text-decoration:none}
-    .dm-tabs button{background:#fff;color:var(--primary-dark)}
-    .dm-tabs button.active,.dm-actions .primary,.dm-form .primary{background:var(--primary);border-color:var(--primary);color:#fff}
-    .dm-actions{align-items:center;display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .dm-panel{display:none}
-    .dm-panel.active{display:block}
+    .dm-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+    .dm-actions,.dm-tabs,.dm-pager{align-items:center;display:flex;flex-wrap:wrap;gap:8px}
+    .dm-tabs{margin:14px 0}.dm-actions{margin-top:12px}.dm-pager{justify-content:flex-end;margin-top:10px}
+    .dm-tabs button,.dm-actions button,.dm-actions a,.dm-pager button{border:1px solid var(--line);border-radius:8px;cursor:pointer;font:inherit;font-weight:800;padding:9px 12px;text-decoration:none}
+    .dm-tabs button,.dm-actions button,.dm-actions a,.dm-pager button{background:#fff;color:var(--primary-dark)}
+    .dm-tabs button.active,.dm-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .dm-panel{display:none}.dm-panel.active{display:block}
     .dm-form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:12px}
     .dm-form label{color:var(--primary-dark);display:grid;font-size:12px;font-weight:800;gap:5px}
     .dm-form input,.dm-form select,.dm-form textarea{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}
-    .dm-form textarea{min-height:42px;resize:vertical}
-    .dm-span{grid-column:1/-1}
-    .dm-table-wrap{overflow:auto}
-    .dm-table{border-collapse:collapse;width:100%}
+    .dm-form textarea{min-height:42px;resize:vertical}.dm-span{grid-column:1/-1}
+    .dm-table-wrap{max-height:520px;overflow:auto}.dm-table{border-collapse:collapse;width:100%}
     .dm-table th,.dm-table td{border-bottom:1px solid var(--line);font-size:12px;padding:8px;text-align:left;vertical-align:top}
-    .dm-table th{background:var(--soft);color:var(--primary-dark)}
-    .dm-muted{color:var(--muted);font-size:12px}
-    .dm-badge{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}
-    .dm-good{background:#dcfce7;color:#166534}.dm-warn{background:#fff7cc;color:#854d0e}.dm-bad{background:#fee2e2;color:#991b1b}
-    .dm-mini h3{margin:0 0 6px}.dm-mini p{color:var(--muted);margin:0 0 10px}
+    .dm-table th{background:var(--soft);color:var(--primary-dark);position:sticky;top:0;z-index:1}
+    .dm-muted{color:var(--muted);font-size:12px}.dm-badge{border-radius:999px;display:inline-block;font-size:12px;font-weight:800;padding:4px 8px}
+    .dm-good{background:#dcfce7;color:#166534}.dm-warn{background:#fff7cc;color:#854d0e}.dm-bad{background:#fee2e2;color:#991b1b}.dm-info{background:var(--soft);color:var(--primary-dark)}
+    .dm-metric b{color:var(--primary-dark);display:block;font-size:24px}.dm-metric span{color:var(--muted);display:block;font-size:12px}
+    .dm-steps{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin:12px 0}.dm-step{border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px;font-weight:800;padding:8px}.dm-step.active{border-color:var(--primary);color:var(--primary-dark)}
+    .dm-template h3{margin:0 0 6px}.dm-template p{color:var(--muted);margin:0 0 10px}.dm-disabled{opacity:.62}.dm-search{max-width:320px}
   </style>
 </head>
 <body data-page-title="Administration Data Management">
   <main class="container">
     <section class="page-intro">
       <h2>Data Management</h2>
-      <p>Import structured Excel or CSV files, download approved templates, export current records, and review import errors.</p>
+      <p>Stage imports, download approved templates, export current records, and review data-quality issues.</p>
       <div class="dm-actions">
         <button class="primary" data-open-tab="import">Import Data</button>
         <button data-open-tab="export">Export Data</button>
@@ -41,96 +39,117 @@
       </div>
     </section>
 
+    <section class="dm-grid" id="summaryCards"></section>
+
     <section class="card">
       <div class="dm-tabs" role="tablist">
-        <button class="active" data-tab="import">Import Data</button>
-        <button data-tab="export">Export Data</button>
-        <button data-tab="templates">Download Templates</button>
+        <button class="active" data-tab="import">Import Wizard</button>
+        <button data-tab="export">Export Wizard</button>
+        <button data-tab="templates">Template Center</button>
         <button data-tab="history">Import History</button>
-        <button data-tab="errors">Validation Errors</button>
+        <button data-tab="validation">Validation Center</button>
+        <button data-tab="health">Data Health</button>
       </div>
 
       <section class="dm-panel active" id="tab-import">
-        <h3>Import Data</h3>
+        <h3>Import Wizard</h3>
+        <div class="dm-steps" id="importSteps"></div>
         <form class="dm-form" id="importForm">
-          <label>Data type<select id="importType"></select></label>
-          <label>Import mode<select id="importMode"><option value="validate_only">Validate only</option><option value="append">Append new records</option><option value="upsert">Add or update after validation</option></select></label>
-          <label>File<input id="importFile" type="file" accept=".csv,.xlsx,.xls,.xlsm"></label>
-          <label class="dm-span">Optional notes<textarea id="importNotes" placeholder="Batch purpose, source, reviewer, or cleanup notes"></textarea></label>
+          <label>Dataset<select id="importType"></select></label>
+          <label>Import mode<select id="importMode"><option value="validate_only">Validate only</option><option value="stage_for_review">Stage for review</option></select></label>
+          <label>File<input id="importFile" type="file" accept=".csv,.xlsx"></label>
+          <label class="dm-span">Optional notes<textarea id="importNotes" placeholder="Source, reviewer, cleanup context, or batch purpose"></textarea></label>
           <div class="dm-actions dm-span">
             <button type="button" onclick="downloadSelectedTemplate()">Download Template</button>
-            <button type="button" onclick="previewImport()" class="primary">Upload & Preview</button>
-            <button type="button" id="confirmImportButton" onclick="confirmImport()" disabled>Confirm Import</button>
+            <button type="button" onclick="stageImport()" class="primary">Upload, Map & Validate</button>
+            <button type="button" onclick="confirmStagedImport()" id="confirmImportButton" class="primary" hidden>Confirm Staged Batch</button>
           </div>
         </form>
-        <p class="dm-muted" id="importStatus">Uploaded rows are staged for preview and validation before confirmed records are written.</p>
+        <p class="dm-muted" id="importStatus">Rows are staged in import_batches/import_rows/data_validation_errors. Production-table execution is intentionally deferred unless validation is clean and supported.</p>
         <div class="dm-table-wrap"><table class="dm-table" id="previewTable"></table></div>
       </section>
 
       <section class="dm-panel" id="tab-export">
-        <h3>Export Data</h3>
+        <h3>Export Wizard</h3>
         <form class="dm-form">
-          <label>Data type<select id="exportType"></select></label>
-          <label>File format<select id="exportFormat"><option>Excel</option><option>CSV</option></select></label>
-          <label>Date range<input id="exportDateRange" placeholder="YYYY-MM-DD to YYYY-MM-DD"></label>
-          <label>Status<input id="exportStatus" placeholder="open, active, closed"></label>
-          <label>Client<input id="exportClient" placeholder="Client code or name"></label>
-          <label>Department<input id="exportDepartment" placeholder="Department name"></label>
-          <label>Equipment category<input id="exportCategory" placeholder="Category code or name"></label>
-          <label><span>Include archived records</span><input id="exportArchived" type="checkbox"></label>
-          <label><span>Include linked information</span><input id="exportLinked" type="checkbox" checked></label>
+          <label>Dataset<select id="exportType" onchange="renderExportColumns()"></select></label>
+          <label>Format<select id="exportFormat"><option value="xlsx">Excel</option><option value="csv">CSV</option></select></label>
+          <label>Status filter<input id="exportStatus" placeholder="Optional status"></label>
+          <label><span>Include deleted/archived</span><input id="exportDeleted" type="checkbox"></label>
+          <label class="dm-span">Columns<div id="exportColumns" class="dm-grid"></div></label>
           <div class="dm-actions dm-span">
-            <a class="primary" href="/api/export">Export all equipment</a>
-            <a href="/api/admin/reports/open_service_calls_by_engineer/export">Export open service cases</a>
-            <a href="/api/admin/reports/pm_tasks_due_this_month/export">Export upcoming PM tasks</a>
-            <a href="/api/admin/reports/warehouse_low_stock/export">Export warehouse stock</a>
-            <a href="/api/admin/reports/equipment_by_client/export">Export client master data</a>
-            <a href="/api/admin/reports/pending_quotations_by_salesperson/export">Export quotations</a>
+            <button type="button" onclick="selectExportColumns('all')">Select all</button>
+            <button type="button" onclick="selectExportColumns('none')">Clear all</button>
+            <button type="button" onclick="selectExportColumns('recommended')">Recommended fields</button>
+            <button type="button" onclick="previewExport()" class="primary">Preview Export</button>
+            <button type="button" onclick="downloadExport()">Download</button>
           </div>
         </form>
+        <p class="dm-muted" id="exportStatusText">Only datasets with real export queries are enabled.</p>
+        <div class="dm-table-wrap"><table class="dm-table" id="exportPreviewTable"></table></div>
       </section>
 
       <section class="dm-panel" id="tab-templates">
-        <h3>Download Templates</h3>
-        <p class="dm-muted">Templates contain correct column names, one example row, required indicators, accepted values, and an instructions sheet.</p>
+        <h3>Template Center</h3>
+        <p class="dm-muted">Templates are generated from the centralized registry. Unsupported imports are shown as coming soon.</p>
         <div class="dm-grid" id="templateCards"></div>
       </section>
 
       <section class="dm-panel" id="tab-history">
-        <h3>Import History</h3>
-        <div class="dm-table-wrap"><table class="dm-table" id="historyTable"></table></div>
-      </section>
-
-      <section class="dm-panel" id="tab-errors">
         <div class="section-title">
-          <div><h3>Validation Errors</h3><p class="dm-muted">Review row-level import issues and export them for correction.</p></div>
-          <a class="button-like" href="/api/admin/data-management/validation-errors/export">Export Errors</a>
+          <div><h3>Import History</h3><p class="dm-muted">Staged batches, row counts, status, and available reports.</p></div>
+          <input id="historySearch" class="dm-search" placeholder="Search filename or dataset" oninput="renderHistory()">
         </div>
-        <div class="dm-table-wrap"><table class="dm-table" id="errorsTable"></table></div>
+        <div class="dm-table-wrap"><table class="dm-table" id="historyTable"></table></div>
+        <div class="dm-pager"><button onclick="pageHistory(-1)">Previous</button><span id="historyPage"></span><button onclick="pageHistory(1)">Next</button></div>
       </section>
-    </section>
 
-    <section class="dm-grid">
-      <article class="card dm-mini"><h3>Recent Imports</h3><p id="recentImports">Loading...</p><a class="button-like" href="#tab-history" data-open-tab="history">View History</a></article>
-      <article class="card dm-mini"><h3>Validation Issues</h3><p id="validationIssues">Loading...</p><a class="button-like" href="#tab-errors" data-open-tab="errors">Review Errors</a></article>
-      <article class="card dm-mini"><h3>Available Templates</h3><p id="availableTemplates">Loading...</p><a class="button-like" href="#tab-templates" data-open-tab="templates">Download Templates</a></article>
+      <section class="dm-panel" id="tab-validation">
+        <div class="section-title">
+          <div><h3>Validation Center</h3><p class="dm-muted">Read-only until correction storage records who resolved an issue and what changed.</p></div>
+          <a class="button-like" id="validationExportLink" href="#">Download Error Report</a>
+        </div>
+        <div class="dm-actions">
+          <select id="validationStatus" onchange="loadValidation()"><option value="">All</option><option value="open">Open</option><option value="resolved">Resolved</option></select>
+          <select id="validationSeverity" onchange="loadValidation()"><option value="">All severities</option><option value="error">Error</option><option value="warning">Warning</option></select>
+        </div>
+        <div class="dm-table-wrap"><table class="dm-table" id="validationTable"></table></div>
+      </section>
+
+      <section class="dm-panel" id="tab-health">
+        <h3>Data Health</h3>
+        <div class="dm-table-wrap"><table class="dm-table" id="healthTable"></table></div>
+      </section>
     </section>
   </main>
   <script>
-    let dataTypes=[], importTargets={}, currentImport=null;
+    let datasets=[], summary={}, historyRows=[], historyOffset=0, currentImport=null;
+    const steps=["Select Dataset","Upload File","Map Columns","Preview","Validate","Review Issues","Confirm Import","Results"];
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
-    const badge=v=>{const t=String(v??"");const cls=t.includes("error")||t.includes("failed")?"dm-bad":t.includes("valid")||t.includes("complete")?"dm-good":"dm-warn";return `<span class="dm-badge ${cls}">${esc(t||"pending")}</span>`};
-    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
+    const badge=v=>{const t=String(v??"");const cls=t==="unavailable"?"dm-info":/error|failed/i.test(t)?"dm-bad":/ready|valid|success|complete/i.test(t)?"dm-good":"dm-warn";return `<span class="dm-badge ${cls}">${esc(t||"pending")}</span>`};
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok){let msg=await res.text();try{msg=JSON.parse(msg).detail||msg}catch(e){}throw new Error(msg)}return res.json()}
     function setTab(name){document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));document.querySelectorAll(".dm-panel").forEach(p=>p.classList.toggle("active",p.id===`tab-${name}`))}
     document.addEventListener("click",e=>{const tab=e.target.closest("[data-tab],[data-open-tab]");if(tab){e.preventDefault();setTab(tab.dataset.tab||tab.dataset.openTab)}})
-    function fillTypes(){const options=dataTypes.map(t=>`<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("");importType.innerHTML=options;exportType.innerHTML=options;templateCards.innerHTML=dataTypes.map(t=>`<article class="card dm-mini"><h3>${esc(t.label)}</h3><p>${t.fields.length} columns, ${t.required.length} required</p><a class="button-like" href="/api/admin/data-management/templates/${esc(t.id)}">Download Template</a></article>`).join("");availableTemplates.textContent=`${dataTypes.length} approved templates available.`}
-    function downloadSelectedTemplate(){location.href=`/api/admin/data-management/templates/${encodeURIComponent(importType.value)}`}
-    function renderPreview(rows){const cols=["row_no","status","action","errors",...Object.keys(rows[0]?.mapped||{})];previewTable.innerHTML=`<thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c==="status"?badge(r.status):c==="errors"?esc((r.errors||[]).join("; ")):esc(r[c]??r.mapped?.[c]??"")}</td>`).join("")}</tr>`).join("")}</tbody>`}
-    async function previewImport(){if(!importFile.files[0]){importStatus.textContent="Choose an Excel or CSV file first.";return}const legacyTarget={clients:"clients",departments:"departments",contacts:"contacts",equipment:"equipment",inventory_items:"inventory_items",service_calls:"service_calls",preventive_maintenance:"pm_tasks",quotations:"quotation_items"}[importType.value]||"clients";const form=new FormData();form.append("target",legacyTarget);form.append("file",importFile.files[0]);currentImport=await api("/api/admin/imports/preview",{method:"POST",body:form});renderPreview(currentImport.rows);confirmImportButton.disabled=currentImport.summary.valid_rows<1;importStatus.textContent=`Batch ${currentImport.batch_id}: ${currentImport.summary.valid_rows} valid, ${currentImport.summary.error_rows} failed. Mode: ${importMode.value}. Notes are for reviewer context.`;await loadHistory();await loadErrors()}
-    async function confirmImport(){if(!currentImport)return;const data=await api(`/api/admin/imports/${currentImport.batch_id}/confirm`,{method:"POST"});importStatus.textContent=`Saved ${data.saved_rows} row(s), skipped ${data.skipped_rows}. Review reconciliation in Import History.`;confirmImportButton.disabled=true;await loadHistory()}
-    async function loadHistory(){const rows=await api("/api/admin/imports");recentImports.textContent=`${rows.length} recent batch(es).`;historyTable.innerHTML=`<thead><tr><th>File name</th><th>Data type</th><th>Uploaded by</th><th>Upload date</th><th>Total rows</th><th>Successful rows</th><th>Warning rows</th><th>Failed rows</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.filename)}</td><td>${esc(r.target_table)}</td><td>${esc(r.created_by||"")}</td><td>${esc(r.created_at)}</td><td>${r.total_rows}</td><td>${r.saved_rows||r.valid_rows||0}</td><td>0</td><td>${r.error_rows}</td><td>${badge(r.status)}</td><td><button disabled>View results</button> <button disabled>Retry failed rows</button></td></tr>`).join("")}</tbody>`}
-    async function loadErrors(){const rows=await api("/api/admin/data-management/validation-errors");validationIssues.textContent=`${rows.length} validation issue(s).`;errorsTable.innerHTML=`<thead><tr><th>Row</th><th>Column</th><th>Raw value</th><th>Error</th><th>Severity</th><th>Suggested correction</th><th>Resolution status</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.row_no||r.import_row_id||"")}</td><td>${esc(r.field_name)}</td><td>${esc(r.raw_value)}</td><td>${esc(r.error_message)}</td><td>${badge(r.severity)}</td><td>${esc(r.suggested_value)}</td><td>${r.is_resolved?"Resolved":"Open"}</td></tr>`).join("")||"<tr><td colspan='7'>No validation errors.</td></tr>"}</tbody>`}
-    async function init(){dataTypes=await api("/api/admin/data-management/types");importTargets=await api("/api/admin/import-targets");fillTypes();await loadHistory();await loadErrors()}init().catch(e=>{importStatus.textContent=e.message})
+    function renderSteps(active=0){importSteps.innerHTML=steps.map((s,i)=>`<div class="dm-step ${i<=active?"active":""}">${i+1}. ${esc(s)}</div>`).join("")}
+    function datasetOptions(kind){return datasets.map(d=>`<option value="${esc(d.dataset_key)}" ${kind==="import"&&!d.import_supported?"disabled":""} ${kind==="export"&&!d.export_supported?"disabled":""}>${esc(d.display_name)}${kind==="import"&&!d.import_supported?" - Coming soon":kind==="export"&&!d.export_supported?" - Coming soon":""}</option>`).join("")}
+    function renderDatasets(){importType.innerHTML=datasetOptions("import");exportType.innerHTML=datasetOptions("export");renderExportColumns();const byDomain={};datasets.forEach(d=>{(byDomain[d.domain] ||= []).push(d)});templateCards.innerHTML=Object.entries(byDomain).map(([domain,items])=>`<section class="card dm-template"><h3>${esc(domain)}</h3>${items.map(d=>`<article class="${d.import_supported?"":"dm-disabled"}"><b>${esc(d.display_name)}</b><p>${esc(d.description)} Version ${esc(d.version)} · Updated ${esc(d.updated_at)} · ${d.fields.length} columns · ${d.required_fields.length} required</p><div class="dm-actions"><a href="/api/data-management/templates/${esc(d.dataset_key)}/download">Download</a><button onclick="viewStructure('${esc(d.dataset_key)}')">View structure</button>${d.import_supported?"":badge("Coming soon")}</div></article>`).join("")}</section>`).join("")}
+    function renderSummary(){summaryCards.innerHTML=(summary.cards||[]).map(m=>`<article class="card dm-metric"><span>${esc(m.label)}</span><b>${m.count ?? "Unavailable"}</b><p class="dm-muted">${esc(m.description)}</p></article>`).join("");healthTable.innerHTML=`<thead><tr><th>Metric</th><th>Count</th><th>Severity</th><th>Description</th></tr></thead><tbody>${(summary.data_health||[]).map(m=>`<tr><td>${esc(m.label)}</td><td>${m.count ?? "Unavailable"}</td><td>${badge(m.severity)}</td><td>${esc(m.description)}</td></tr>`).join("")}</tbody>`}
+    function downloadSelectedTemplate(){location.href=`/api/data-management/templates/${encodeURIComponent(importType.value)}/download`}
+    async function viewStructure(key){const d=await api(`/api/data-management/templates/${key}`);alert(d.fields.map(f=>`${f.name}${f.required?" *":""}: ${f.description||f.data_type}`).join("\\n"))}
+    function renderTable(el, rows){const cols=Array.from(new Set(rows.flatMap(r=>Object.keys(r||{}))));el.innerHTML=rows.length?`<thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c])}</td>`).join("")}</tr>`).join("")}</tbody>`:"<tbody><tr><td>No records found.</td></tr></tbody>"}
+    async function stageImport(){try{renderSteps(1);const form=new FormData();form.append("dataset_key",importType.value);form.append("import_mode",importMode.value);form.append("notes",importNotes.value);form.append("file",importFile.files[0]);currentImport=await api("/api/data-management/imports",{method:"POST",body:form});renderSteps(currentImport.summary.error_rows?5:6);renderTable(previewTable,currentImport.rows.map(r=>({row:r.row_number,status:r.status,issues:r.issues.map(i=>i.error_message).join("; "),...r.normalized_data})));confirmImportButton.hidden=currentImport.summary.error_rows>0;importStatus.textContent=`Batch ${currentImport.batch_id}: ${currentImport.summary.ready_rows} ready, ${currentImport.summary.error_rows} blocking errors.`;await refresh()}catch(e){importStatus.textContent=e.message;renderSteps(1)}}
+    async function confirmStagedImport(){if(!currentImport)return;const res=await api(`/api/data-management/imports/${currentImport.batch_id}/confirm`,{method:"POST"});renderSteps(7);importStatus.textContent=res.detail;confirmImportButton.hidden=true;await refresh()}
+    function renderExportColumns(){const d=datasets.find(x=>x.dataset_key===exportType.value);exportColumns.innerHTML=d?d.fields.filter(f=>f.export_default).map(f=>`<label><span><input type="checkbox" value="${esc(f.name)}" checked> ${esc(f.label)}</span></label>`).join(""):""}
+    function selectedExportColumns(){return [...exportColumns.querySelectorAll("input:checked")].map(i=>i.value)}
+    function selectExportColumns(mode){exportColumns.querySelectorAll("input").forEach(i=>{i.checked=mode==="all"||mode==="recommended"})}
+    async function previewExport(){try{const body={dataset_key:exportType.value,columns:selectedExportColumns(),format:exportFormat.value,filters:{status:exportStatus.value||undefined},include_deleted:exportDeleted.checked};const data=await api("/api/data-management/exports/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});renderTable(exportPreviewTable,data.rows);exportStatusText.textContent=`Previewing ${data.row_count} row(s).`}catch(e){exportStatusText.textContent=e.message}}
+    async function downloadExport(){const body={dataset_key:exportType.value,columns:selectedExportColumns(),format:exportFormat.value,filters:{status:exportStatus.value||undefined},include_deleted:exportDeleted.checked};const res=await fetch("/api/data-management/exports/download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!res.ok){exportStatusText.textContent=await res.text();return}const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${exportType.value}-export.${exportFormat.value}`;a.click()}
+    async function loadHistory(){const data=await api(`/api/data-management/imports?limit=25&offset=${historyOffset}`);historyRows=data.items;historyPage.textContent=`${data.offset+1}-${data.offset+data.items.length} of ${data.total}`;renderHistory()}
+    function renderHistory(){const q=historySearch.value.toLowerCase();const rows=historyRows.filter(r=>!q||String(r.filename||"").toLowerCase().includes(q)||String(r.dataset||"").toLowerCase().includes(q));historyTable.innerHTML=`<thead><tr><th>Batch</th><th>Filename</th><th>Dataset</th><th>Status</th><th>Started</th><th>Uploaded by</th><th>Total</th><th>Successful</th><th>Failed</th><th>Actions</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td>${esc(r.filename)}</td><td>${esc(r.dataset)}</td><td>${badge(r.status)}</td><td>${esc(r.started_at||"")}</td><td>${esc(r.uploaded_by||"")}</td><td>${r.total_rows}</td><td>${r.successful_rows}</td><td>${r.failed_rows}</td><td><a href="/api/data-management/imports/${r.id}/error-report">Download Error Report</a></td></tr>`).join("")||"<tr><td colspan='10'>No import batches found.</td></tr>"}</tbody>`}
+    function pageHistory(delta){historyOffset=Math.max(0,historyOffset+(delta*25));loadHistory()}
+    async function loadValidation(){const params=new URLSearchParams();if(validationStatus.value)params.set("status",validationStatus.value);if(validationSeverity.value)params.set("severity",validationSeverity.value);const data=await api(`/api/data-management/validation-errors?${params}`);validationExportLink.href=data.items[0]?`/api/data-management/imports/${data.items[0].import_batch_id}/error-report`:"#";validationTable.innerHTML=`<thead><tr><th>Batch</th><th>Row</th><th>Field</th><th>Raw value</th><th>Error code</th><th>Message</th><th>Severity</th><th>Resolution</th><th>Resolved at</th></tr></thead><tbody>${data.items.map(r=>`<tr><td>${r.import_batch_id}</td><td>${r.row_number||""}</td><td>${esc(r.field_name)}</td><td>${esc(r.raw_value)}</td><td>${esc(r.error_code)}</td><td>${esc(r.error_message)}</td><td>${badge(r.severity)}</td><td>${r.is_resolved?"Resolved":"Open"}</td><td>${esc(r.resolved_at||"")}</td></tr>`).join("")||"<tr><td colspan='9'>No validation errors.</td></tr>"}</tbody>`}
+    async function refresh(){summary=await api("/api/data-management/summary");renderSummary();await loadHistory();await loadValidation()}
+    async function init(){renderSteps();datasets=await api("/api/data-management/datasets");renderDatasets();await refresh()}init().catch(e=>{importStatus.textContent=e.message})
   </script>
   <script src="/static/app_layout.js"></script>
 </body>

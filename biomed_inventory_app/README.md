@@ -1,6 +1,103 @@
 
 # Biomedical Inventory ERP Web App v4
 
+## Current checkpoint: database-foundation
+
+This branch is paused at a safe database-foundation checkpoint. It keeps the existing IRM workflows intact while adding the structural base for normalized database work, master data, and an Administration Data Management Center.
+
+Included in this checkpoint:
+
+- Database foundation migrations for normalized manufacturers, suppliers, client sites, locations, equipment categories, import staging, validation errors, audit events, and status history.
+- Master-data foundation services and APIs for canonical manufacturers, suppliers, equipment categories, aliases, and related reference data.
+- Administration -> Data Management Center staging foundation at `/administration/data-management`.
+- Template registry, template downloads, import staging, validation-error review, import history, and limited export preview/download.
+- Sidebar consistency fix in the shared ERP shell.
+- Docker Compose startup port alignment for the app container.
+- Architecture, schema, router/model, call-graph, import/export, and Data Management documentation under `docs/`.
+
+Deliberately not included yet:
+
+- Production-table import execution from staged Data Management batches.
+- Mapping profile persistence.
+- Duplicate merging or automated alias resolution.
+- Validation correction editing.
+- New department workflows or stock/procurement side effects from imports.
+
+The SQLite file `app/data/inventory.db` is local development/runtime state and is intentionally ignored by Git. Rebuild or reset it from Alembic migrations when the schema changes; do not commit runtime database churn.
+
+### Run locally
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 -m uvicorn app.main:app --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+Default local credentials are controlled by environment variables and fall back to:
+
+```text
+APP_USERNAME=admin
+APP_PASSWORD=admin123
+```
+
+### Database and file storage
+
+For SQLite development, the app defaults to:
+
+```text
+sqlite:///./app/data/inventory.db
+```
+
+Use these environment variables when needed:
+
+```bash
+export DATABASE_URL="sqlite:///./app/data/inventory.db"
+export DB_PATH="./app/data/inventory.db"
+export IRM_DATA_ROOT="$HOME/IRM-data"
+```
+
+For local PostgreSQL:
+
+```bash
+export POSTGRES_PASSWORD="change-me"
+docker compose up --build
+```
+
+The app service listens on container port `8080`; Compose maps `${IRM_APP_PORT:-8000}` to `8080`.
+
+### Verification commands
+
+Use these before changing this checkpoint:
+
+```bash
+python3 -m compileall app tests
+python3 -m unittest tests.test_database_foundation -v
+python3 -m unittest tests.test_master_data_backfill -v
+python3 -m unittest tests.test_data_management_center -v
+python3 -m unittest tests.test_aftermarket_service_reports tests.test_quotation_generator -v
+node --check app/static/app_layout.js
+```
+
+Known at this checkpoint: the full legacy suite still has older workflow failures documented in `docs/database/foundation-stabilization-review.md` and `docs/architecture/data-management-structural-review.md`.
+
+### Key documentation
+
+- `docs/database/foundation-implementation.md`
+- `docs/database/foundation-stabilization-review.md`
+- `docs/database/router-model-matrix.md`
+- `docs/architecture/data-management-structural-review.md`
+- `docs/data-management/overview.md`
+- `docs/data-management/import-workflow.md`
+- `docs/data-management/export-workflow.md`
+- `docs/data-management/security.md`
+
 ## Added in v4
 
 - Uses your latest `Deduplicated_Physical_Stock_Sheet` as seed data

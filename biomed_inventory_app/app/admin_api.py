@@ -22,6 +22,7 @@ from sqlalchemy import create_engine, inspect, text
 
 from app import legacy_main
 from app.config.database import get_database_url, get_sqlite_database_path, is_postgresql_database
+from app.data_management.template_registry import all_datasets, get_dataset
 
 DATABASE_URL = get_database_url()
 
@@ -39,7 +40,11 @@ DEFAULT_ROLES = {
         "import_data", "manage_users", "create_backup", "view_reports", "view_after_sales_cases",
         "edit_service_calls", "view_database_map", "run_select_queries", "data.templates.download",
         "data.import.preview", "data.import.execute", "data.export.basic", "data.export.financial",
-        "data.import.history", "data.validation.resolve",
+        "data.import.history", "data.validation.resolve", "data_management.view",
+        "data_management.templates.download", "data_management.import.preview",
+        "data_management.import.execute", "data_management.export", "data_management.export_financial",
+        "data_management.validation.view", "data_management.validation.resolve",
+        "data_management.history.view",
     ],
     "sales": ["view_all_clients", "view_prices", "edit_quotations", "export_pdf", "view_reports"],
     "procurement": ["view_all_clients", "view_prices", "view_reports"],
@@ -607,42 +612,44 @@ def data_management_types(request: Request):
     require_permission(request, "data.import.preview")
     return [
         {
-            "id": key,
-            "label": value["label"],
-            "fields": value["fields"],
-            "required": value["required"],
-            "accepted_values": value["accepted_values"],
+            "id": dataset.dataset_key,
+            "label": dataset.display_name,
+            "fields": dataset.field_names,
+            "required": dataset.required_fields,
+            "accepted_values": dataset.accepted_values,
         }
-        for key, value in DATA_MANAGEMENT_TYPES.items()
+        for dataset in all_datasets()
     ]
 
 
 @router.get("/api/admin/data-management/templates/{data_type}")
 def download_template(data_type: str, request: Request):
     require_permission(request, "data.templates.download")
-    config = DATA_MANAGEMENT_TYPES.get(data_type)
-    if not config:
+    try:
+        dataset = get_dataset(data_type)
+    except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown data type")
+    fields = dataset.field_names
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = f"{config['label']} Import"[:31]
-    sheet.append(config["fields"])
-    sheet.append(["required" if field in config["required"] else "optional" for field in config["fields"]])
+    sheet.title = f"{dataset.display_name} Import"[:31]
+    sheet.append(fields)
+    sheet.append(["required" if field in dataset.required_fields else "optional" for field in fields])
 
     instructions = workbook.create_sheet("Instructions")
-    instructions.append(["Instruction", "Details"])
-    instructions.append(["Stable codes", "Use codes wherever available. Names are accepted for matching but are less safe."])
-    instructions.append(["Validation", "Uploads are staged for preview and validation before rows are eligible for import."])
-    instructions.append(["Required fields", ", ".join(config["required"])])
+    instructions.append(["Field", "Required", "Type", "Description", "Example", "Validation rule"])
+    for field in dataset.fields:
+        instructions.append([field.name, "yes" if field.required else "no", field.data_type, field.description, field.example, field.validation_rule])
 
     accepted = workbook.create_sheet("Accepted Values")
-    accepted.append(["Column", "Accepted values"])
-    for field in config["fields"]:
-        accepted.append([field, ", ".join(config["accepted_values"].get(field, []))])
+    accepted.append(["Field", "Accepted values"])
+    for field in fields:
+        accepted.append([field, ", ".join(dataset.accepted_values.get(field, []))])
 
     example = workbook.create_sheet("Example Data")
-    example.append(config["fields"])
-    example.append([config["example"].get(field, "") for field in config["fields"]])
+    example.append(fields)
+    for row in dataset.example_rows:
+        example.append([row.get(field, "") for field in fields])
 
     output = io.BytesIO()
     workbook.save(output)

@@ -49,6 +49,18 @@ def drop_index_if_exists(bind, name, table_name):
         op.drop_index(name, table_name=table_name)
 
 
+def ensure_import_batch_timestamps(bind):
+    existing = columns(bind, "import_batches")
+    missing = [name for name in ("created_at", "updated_at") if name not in existing]
+    if not missing:
+        return
+    with op.batch_alter_table("import_batches", recreate="always") as batch:
+        if "created_at" in missing:
+            batch.add_column(sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False))
+        if "updated_at" in missing:
+            batch.add_column(sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False))
+
+
 def upgrade():
     bind = op.get_bind()
 
@@ -198,6 +210,7 @@ def upgrade():
     ]
     for column in import_batch_simple_columns:
         add_missing_column(bind, "import_batches", column)
+    ensure_import_batch_timestamps(bind)
     if "imported_by_id" not in columns(bind, "import_batches"):
         with op.batch_alter_table("import_batches") as batch:
             batch.add_column(sa.Column("imported_by_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="SET NULL", name="fk_import_batches_imported_by_id")))
@@ -347,7 +360,7 @@ def downgrade():
     if has_table(bind, "import_batches"):
         existing = columns(bind, "import_batches")
         with op.batch_alter_table("import_batches") as batch:
-            for column in ["failed_rows", "successful_rows", "processed_rows", "completed_at", "started_at", "imported_by_id", "source_checksum", "source_filename", "source_type"]:
+            for column in ["updated_at", "created_at", "failed_rows", "successful_rows", "processed_rows", "completed_at", "started_at", "imported_by_id", "source_checksum", "source_filename", "source_type"]:
                 if column in existing:
                     batch.drop_column(column)
 

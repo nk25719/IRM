@@ -4,6 +4,7 @@ from urllib.parse import unquote, urlparse
 
 APP_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = APP_DIR / "data"
+DATA_ROOT = Path(os.getenv("IRM_DATA_ROOT", Path.home() / "IRM-data")).resolve()
 DEFAULT_SQLITE_PATH = DATA_DIR / "inventory.db"
 DEFAULT_DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
 
