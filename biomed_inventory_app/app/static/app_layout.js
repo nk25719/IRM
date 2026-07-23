@@ -1,8 +1,15 @@
 (function () {
-  if (document.body.dataset.appLayoutInitialized === "true") {
+  if (document.documentElement.dataset.irmLayoutInitialized === "true") {
     return;
   }
-  document.body.dataset.appLayoutInitialized = "true";
+  document.documentElement.dataset.irmLayoutInitialized = "true";
+
+  const SIDEBAR_STORAGE_KEY = "irm.sidebar.collapsed";
+  const desktopQuery = window.matchMedia("(min-width: 861px)");
+  const savedSidebarCollapsed = readSidebarPreference();
+  if (savedSidebarCollapsed && desktopQuery.matches) {
+    document.body.classList.add("sidebar-collapsed");
+  }
 
   const modules = [
     { label: "Home", href: "/", icon: "H", match: ["/", "/home", "/portal"] },
@@ -59,15 +66,16 @@
       href: "/aftersales",
       icon: "A",
       section: "Main Operations",
-      match: ["/aftersales", "/after-sales"],
+      match: ["/aftersales", "/after-sales", "/service/contract-intelligence", "/service/customer-contracts", "/administration/manufacturer-coverage"],
       links: [
         ["Dashboard", "/aftersales"],
-        ["Operations", "/aftersales/operations"],
+        ["Cases", "/aftersales/service-cases"],
+        ["Preventive Maintenance", "/aftersales/pm"],
+        ["Contracts", "/aftersales/contracts"],
         ["Installed Base", "/aftersales/installed-base"],
-        ["Service History", "/aftersales/service-history"],
-        ["Spare Parts", "/aftersales/spare-parts"],
-        ["Coverage", "/aftersales/coverage"],
-        ["Analytics", "/aftersales/analytics"],
+        ["Contract Intelligence", "/service/contract-intelligence"],
+        ["Quotations", "/aftersales/quotations"],
+        ["Reports", "/aftersales/reports"],
       ],
     },
     {
@@ -162,12 +170,13 @@
     ],
     "/aftersales": [
       ["Dashboard", "/aftersales"],
-      ["Operations", "/aftersales/operations"],
+      ["Cases", "/aftersales/service-cases"],
+      ["Preventive Maintenance", "/aftersales/pm"],
+      ["Contracts", "/aftersales/contracts"],
       ["Installed Base", "/aftersales/installed-base"],
-      ["Service History", "/aftersales/service-history"],
-      ["Spare Parts", "/aftersales/spare-parts"],
-      ["Coverage", "/aftersales/coverage"],
-      ["Analytics", "/aftersales/analytics"],
+      ["Contract Intelligence", "/service/contract-intelligence"],
+      ["Quotations", "/aftersales/quotations"],
+      ["Reports", "/aftersales/reports"],
     ],
     "/finance": [
       ["Dashboard", "/finance"],
@@ -175,6 +184,16 @@
       ["Payments", "/finance/payments"],
       ["Customer Balances", "/finance/customer-balances"],
       ["Supplier Balances", "/finance/supplier-balances"],
+    ],
+    "/administration": [
+      ["Dashboard", "/administration"],
+      ["Users & Permissions", "/administration/users"],
+      ["Master Data", "/administration/master-data"],
+      ["Data Management", "/administration/data-management"],
+      ["Backups", "/admin/database-map"],
+      ["Database Map", "/admin/database-map"],
+      ["Query Reports", "/admin/query"],
+      ["System Settings", "/administration/settings"],
     ],
   };
 
@@ -190,19 +209,22 @@
   hideLegacyChrome();
 
   const shell = document.createElement("div");
-  shell.className = "erp-shell";
+  shell.className = "erp-shell app-shell";
   shell.innerHTML = `
-    <aside class="erp-sidebar" aria-label="Primary navigation">
+    <aside class="erp-sidebar app-sidebar" data-app-sidebar aria-label="Primary navigation">
       <a class="erp-brand" href="/">
         <span class="erp-brand-mark">IR</span>
-        <span><strong>IRM ERM</strong><small>Operations Suite</small></span>
+        <span class="erp-brand-text"><strong>IRM ERM</strong><small>Operations Suite</small></span>
       </a>
-      <nav class="erp-nav">
+      <button class="erp-sidebar-collapse app-sidebar__toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true">
+        <span aria-hidden="true">‹</span>
+      </button>
+      <nav class="erp-nav" aria-label="Departments">
         ${renderNavigation()}
       </nav>
     </aside>
     <div class="erp-mobile-backdrop" hidden></div>
-    <header class="erp-topbar">
+    <header class="erp-topbar app-header">
       <button class="erp-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
       ${showBack ? `<button class="erp-back-button" type="button" data-back-target="${escapeHtml(backTarget)}">← Back</button>` : ""}
       <div class="erp-title-block">
@@ -223,9 +245,11 @@
   if (isHome) document.body.classList.add("erp-home-page");
 
   const menuButton = shell.querySelector(".erp-menu-toggle");
+  const collapseButton = shell.querySelector(".erp-sidebar-collapse");
   const sidebar = shell.querySelector(".erp-sidebar");
   const backdrop = shell.querySelector(".erp-mobile-backdrop");
   const backButton = shell.querySelector(".erp-back-button");
+  syncCollapseButton();
   shell.querySelectorAll(".erp-nav-toggle").forEach((button) => {
     button.addEventListener("click", () => {
       const group = button.closest(".erp-nav-group");
@@ -234,6 +258,16 @@
     });
   });
   menuButton.addEventListener("click", () => setSidebar(!sidebar.classList.contains("open")));
+  collapseButton.addEventListener("click", () => {
+    const collapsed = !document.body.classList.contains("sidebar-collapsed");
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? "true" : "false");
+    syncCollapseButton();
+  });
+  desktopQuery.addEventListener?.("change", () => {
+    document.body.classList.toggle("sidebar-collapsed", readSidebarPreference() && desktopQuery.matches);
+    syncCollapseButton();
+  });
   backdrop.addEventListener("click", () => setSidebar(false));
   if (backButton) {
     backButton.addEventListener("click", () => {
@@ -258,13 +292,21 @@
     if (!main || main.querySelector("[data-section-tabs], .erp-page-tabs")) return;
     const activeHref = activeSubnavHref(links, currentPath);
     const tabs = document.createElement("nav");
-    tabs.className = "erp-page-tabs section-tabs";
+    tabs.className = "erp-page-tabs section-tabs department-nav";
     tabs.dataset.sectionTabs = slugify(module.label);
+    tabs.dataset.departmentNav = slugify(module.label);
     tabs.setAttribute("aria-label", `${module.label} sections`);
     tabs.innerHTML = links
-      .map(([label, href]) => `<a class="section-tab ${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>`)
+      .map(([label, href]) => `<a class="section-tab department-nav__item ${href === activeHref ? "active" : ""}" ${href === activeHref ? 'aria-current="page"' : ""} href="${href}">${escapeHtml(label)}</a>`)
       .join("");
     main.insertBefore(tabs, main.firstElementChild);
+  }
+
+  function syncCollapseButton() {
+    const collapsed = document.body.classList.contains("sidebar-collapsed") && desktopQuery.matches;
+    collapseButton.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    collapseButton.setAttribute("aria-expanded", String(!collapsed));
+    collapseButton.querySelector("span").textContent = collapsed ? "›" : "‹";
   }
 
   function setSidebar(open) {
@@ -278,9 +320,9 @@
     const moduleKey = escapeHtml(slugify(module.label));
     if (!module.links) {
       return `
-        <a class="erp-nav-item ${active ? "active" : ""}" href="${module.href}" data-module="${moduleKey}">
+        <a class="erp-nav-item app-sidebar__item ${active ? "active" : ""}" ${active ? 'aria-current="page"' : ""} href="${module.href}" data-module="${moduleKey}" title="${escapeHtml(module.label)}">
           <span>${escapeHtml(module.icon)}</span>
-          <strong>${escapeHtml(module.label)}</strong>
+          <strong class="erp-nav-label app-sidebar__label">${escapeHtml(module.label)}</strong>
         </a>
       `;
     }
@@ -288,14 +330,14 @@
     const expanded = active || module.href === "/sales" || module.href === "/aftersales";
     return `
       <section class="erp-nav-group ${expanded ? "open" : ""}" data-module="${moduleKey}">
-        <button class="erp-nav-item erp-nav-toggle ${active ? "active" : ""}" type="button" aria-expanded="${expanded}">
+        <button class="erp-nav-item app-sidebar__item erp-nav-toggle ${active ? "active" : ""}" type="button" aria-expanded="${expanded}" title="${escapeHtml(module.label)}">
           <span>${escapeHtml(module.icon)}</span>
-          <strong>${escapeHtml(module.label)}</strong>
+          <strong class="erp-nav-label app-sidebar__label">${escapeHtml(module.label)}</strong>
           <i aria-hidden="true">▾</i>
         </button>
         <div class="erp-nav-children">
           ${module.links.map(([label, href]) => `
-            <a class="${href === activeHref ? "active" : ""}" href="${href}">${escapeHtml(label)}</a>
+            <a class="${href === activeHref ? "active" : ""}" ${href === activeHref ? 'aria-current="page"' : ""} href="${href}">${escapeHtml(label)}</a>
           `).join("")}
         </div>
       </section>
@@ -360,6 +402,8 @@
       currentPath.endsWith("/service-cases")
     ) return "/aftersales/service-history";
     if (currentPath.includes("/spare-parts")) return "/aftersales/spare-parts";
+    if (currentPath.includes("/contract-intelligence")) return "/service/contract-intelligence";
+    if (currentPath.includes("/customer-contracts") || currentPath.includes("/manufacturer-coverage")) return "/service/contract-intelligence";
     if (currentPath.includes("/coverage") || currentPath.endsWith("/warranty") || currentPath.endsWith("/contracts")) return "/aftersales/coverage";
     if (currentPath.includes("/analytics")) return "/aftersales/analytics";
     return "/aftersales/operations";
@@ -437,6 +481,9 @@
   function canonicalPath(value) {
     if (value === "/portal" || value === "/home") return "/";
     if (value === "/after-sales" || value.startsWith("/after-sales/")) return value.replace("/after-sales", "/aftersales");
+    if (value === "/service/contract-intelligence" || value.startsWith("/service/contract-intelligence/")) return value.replace("/service/contract-intelligence", "/aftersales/contract-intelligence");
+    if (value === "/service/customer-contracts" || value.startsWith("/service/customer-contracts/")) return value.replace("/service/customer-contracts", "/service/contract-intelligence/customer-contracts");
+    if (value === "/administration/manufacturer-coverage" || value.startsWith("/administration/manufacturer-coverage/")) return value.replace("/administration/manufacturer-coverage", "/service/contract-intelligence/manufacturer-coverage");
     if (value === "/financials" || value.startsWith("/financials/")) return value.replace("/financials", "/finance");
     if (value === "/admin" || value.startsWith("/admin/")) return value.replace("/admin", "/administration");
     if (value === "/inventory" || value.startsWith("/inventory/")) return value.replace("/inventory", "/warehouse");
@@ -452,6 +499,14 @@
       '"': "&quot;",
       "'": "&#039;",
     }[char]));
+  }
+
+  function readSidebarPreference() {
+    try {
+      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
   }
 
   function slugify(value) {

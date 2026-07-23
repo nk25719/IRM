@@ -35,11 +35,41 @@ for path in [UPLOAD_ROOT / "original", UPLOAD_ROOT / "processed", UPLOAD_ROOT / 
 
 EXPORT_COLUMN_MAP = {
     "clients": {"client_name": "name"},
+    "client_sites": {"client_name": None, "site_name": "name"},
     "departments": {"client_name": None, "department_code": None},
     "contacts": {"client_name": None, "department_name": None, "contact_name": "name"},
     "equipment": {"client_name": None, "department_name": None, "asset_number": "asset_tag", "equipment_category": None},
     "inventory_items": {"item_code": "pn", "status": "active"},
 }
+
+SERVICE_INTELLIGENCE_DATASETS = {
+    "service_intelligence_installed_equipment",
+    "service_intelligence_equipment_warranty",
+    "manufacturer_agreements",
+    "manufacturer_covered_equipment",
+    "manufacturer_eosl_data",
+    "service_intelligence_service_contracts",
+    "service_intelligence_contract_equipment",
+    "service_intelligence_pm_history",
+    "service_intelligence_service_opportunities",
+}
+
+IMPORT_ORDER = [
+    "clients",
+    "client_sites",
+    "manufacturers",
+    "equipment_categories",
+    "service_intelligence_installed_equipment",
+    "manufacturer_agreements",
+    "manufacturer_covered_equipment",
+    "service_intelligence_equipment_warranty",
+    "manufacturer_eosl_data",
+    "service_intelligence_service_contracts",
+    "service_intelligence_contract_equipment",
+    "service_intelligence_pm_history",
+    "service_cases",
+    "refresh_service_opportunities",
+]
 
 
 class ExportPreviewRequest(BaseModel):
@@ -92,6 +122,8 @@ def _dataset_payload(dataset: DatasetDefinition) -> dict:
         "import_supported": dataset.import_supported,
         "export_supported": dataset.export_supported,
         "supported_formats": ["xlsx", "csv"],
+        "template_filename": dataset.template_filename or f"{dataset.dataset_key}-import-template.xlsx",
+        "import_order": IMPORT_ORDER,
     }
 
 
@@ -162,6 +194,17 @@ def _mapping_for(dataset: DatasetDefinition, columns: list[str], supplied: dict[
         "client_name": ["hospital", "customer", "client"],
         "department_name": ["department", "dept"],
         "contact_name": ["name", "contact"],
+        "site_name": ["site", "site name", "branch", "institution site"],
+        "equipment_description": ["equipment", "device", "asset", "psi description", "description"],
+        "serial_number": ["serial", "serial #", "serial number", "s/n", "sn", "equipment serial"],
+        "installation_date": ["installation date", "installed", "install date"],
+        "warranty_end_date": ["warranty ends", "warranty end", "warranty expiration", "warranty expiry"],
+        "contract_number": ["contract no", "contract no.", "contract reference", "contract_id"],
+        "contract_start_date": ["contract start date", "start date", "coverage start date"],
+        "contract_end_date": ["contract end date", "last covered date", "end date", "coverage end date"],
+        "system_id": ["system id"],
+        "global_order_number": ["global order number", "order number"],
+        "end_of_service_life_date": ["eosl global date", "eosl date"],
     }
     for field in dataset.field_names:
         if supplied.get(field) in columns:
@@ -194,10 +237,91 @@ def _validate_rows(dataset: DatasetDefinition, dataframe: pd.DataFrame, mapping:
                         "severity": "error",
                     }
                 )
+        row_errors.extend(_service_intelligence_row_issues(dataset.dataset_key, normalized, row_number))
         status = "Ready" if not row_errors else "Error"
         rows.append({"row_number": row_number, "raw_data": raw.to_dict(), "normalized_data": normalized, "status": status, "issues": row_errors})
         errors.extend(row_errors)
     return rows, errors
+
+
+def _parse_date(value: Any) -> datetime | None:
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return pd.to_datetime(value, errors="raise").to_pydatetime()
+    except Exception:
+        return None
+
+
+def _service_intelligence_row_issues(dataset_key: str, normalized: dict[str, Any], row_number: int) -> list[dict]:
+    if dataset_key not in SERVICE_INTELLIGENCE_DATASETS:
+        return []
+    issues = []
+    date_pairs = [
+        ("warranty_start_date", "warranty_end_date", "warranty_date_order", "Warranty end date cannot be earlier than warranty start date"),
+        ("contract_start_date", "contract_end_date", "contract_date_order", "Contract end date cannot be earlier than contract start date"),
+        ("coverage_start_date", "coverage_end_date", "coverage_date_order", "Coverage end date cannot be earlier than coverage start date"),
+    ]
+    for start_field, end_field, code, message in date_pairs:
+        start = _parse_date(normalized.get(start_field))
+        end = _parse_date(normalized.get(end_field))
+        if start and end and end.date() < start.date():
+            issues.append({"row_number": row_number, "field_name": end_field, "raw_value": normalized.get(end_field), "error_code": code, "error_message": message, "severity": "error"})
+    if dataset_key == "service_intelligence_service_opportunities" and str(normalized.get("opportunity_status", "")).upper() == "LOST" and not str(normalized.get("lost_reason", "")).strip():
+        issues.append({"row_number": row_number, "field_name": "lost_reason", "raw_value": "", "error_code": "lost_reason_required", "error_message": "lost_reason is required when opportunity_status is LOST", "severity": "error"})
+    return issues
+
+
+def _service_intelligence_preview_metrics(db: Session, dataset_key: str, rows: list[dict]) -> dict[str, int]:
+    valid_rows = sum(1 for row in rows if row["status"] == "Ready")
+    invalid_rows = len(rows) - valid_rows
+    metrics = {
+        "total_rows": len(rows),
+        "valid_rows": valid_rows,
+        "warning_rows": 0,
+        "invalid_rows": invalid_rows,
+        "new_records": 0,
+        "matched_records": 0,
+        "possible_duplicates": 0,
+        "unmatched_equipment": 0,
+        "unmatched_contracts": 0,
+        "unmatched_clients": 0,
+        "unmatched_sites": 0,
+    }
+    if dataset_key not in SERVICE_INTELLIGENCE_DATASETS:
+        return metrics
+    table_names = {row[0] for row in db.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).all()}
+    equipment_serials = set()
+    duplicate_serials = set()
+    if "equipment" in table_names:
+        serial_rows = db.execute(text("SELECT UPPER(REPLACE(TRIM(serial_number), ' ', '')) AS serial_key, COUNT(*) AS c FROM equipment WHERE serial_number IS NOT NULL AND TRIM(serial_number) != '' GROUP BY serial_key")).mappings().all()
+        equipment_serials = {row["serial_key"] for row in serial_rows}
+        duplicate_serials = {row["serial_key"] for row in serial_rows if row["c"] > 1}
+    contract_numbers = set()
+    if "contracts" in table_names:
+        contract_numbers = {row[0] for row in db.execute(text("SELECT UPPER(TRIM(contract_reference)) FROM contracts WHERE contract_reference IS NOT NULL AND TRIM(contract_reference) != ''")).all()}
+    clients = set()
+    if "clients" in table_names:
+        clients = {row[0] for row in db.execute(text("SELECT LOWER(TRIM(name)) FROM clients")).all()}
+    for row in rows:
+        data = row.get("normalized_data") or {}
+        serial_key = re.sub(r"\s+", "", str(data.get("serial_number") or "").strip().upper())
+        contract_key = str(data.get("contract_number") or "").strip().upper()
+        client_key = str(data.get("client_name") or "").strip().casefold()
+        if serial_key:
+            if serial_key in equipment_serials:
+                metrics["matched_records"] += 1
+            elif dataset_key != "service_intelligence_installed_equipment":
+                metrics["unmatched_equipment"] += 1
+            if serial_key in duplicate_serials:
+                metrics["possible_duplicates"] += 1
+        if contract_key and contract_numbers and contract_key not in contract_numbers and dataset_key in {"service_intelligence_contract_equipment", "service_intelligence_pm_history", "service_intelligence_service_opportunities"}:
+            metrics["unmatched_contracts"] += 1
+        if client_key and clients and client_key not in clients:
+            metrics["unmatched_clients"] += 1
+    metrics["new_records"] = max(0, valid_rows - metrics["matched_records"])
+    metrics["warning_rows"] = metrics["possible_duplicates"] + metrics["unmatched_equipment"] + metrics["unmatched_contracts"] + metrics["unmatched_clients"] + metrics["unmatched_sites"]
+    return metrics
 
 
 def _audit(db: Session, event_type: str, entity_type: str, entity_id: str | None, new_values: dict | None, request: Request | None = None) -> None:
@@ -299,7 +423,7 @@ def template_download(dataset_key: str):
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{dataset.dataset_key}-import-template.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{dataset.template_filename or dataset.dataset_key + "-import-template.xlsx"}"'},
     )
 
 
@@ -364,6 +488,7 @@ async def create_import(
 
     db = _db()
     try:
+        preview_metrics = _service_intelligence_preview_metrics(db, dataset.dataset_key, rows)
         batch = ImportBatch(
             source_type=dataset.dataset_key,
             source_filename=_safe_name(file.filename or "upload"),
@@ -399,9 +524,21 @@ async def create_import(
         return {
             "batch_id": batch.id,
             "status": batch.status,
-            "summary": {"total_rows": batch.total_rows, "ready_rows": batch.successful_rows, "error_rows": batch.failed_rows, "warning_rows": 0},
+            "summary": {"total_rows": batch.total_rows, "ready_rows": batch.successful_rows, "error_rows": batch.failed_rows, "warning_rows": preview_metrics["warning_rows"], **preview_metrics},
             "columns": list(dataframe.columns),
             "mapping": mapping,
+            "field_mapping": [
+                {
+                    "target_field": field.name,
+                    "target_label": field.label,
+                    "required": field.required,
+                    "uploaded_column": mapping.get(field.name),
+                    "sample_value": rows[0]["normalized_data"].get(field.name) if rows else "",
+                    "validation_status": "mapped" if mapping.get(field.name) else "missing" if field.required else "optional",
+                    "transformation": "trim whitespace; normalize known aliases; dates accepted as YYYY-MM-DD",
+                }
+                for field in dataset.fields
+            ],
             "rows": rows,
         }
     except Exception:
@@ -484,6 +621,28 @@ def import_rows(batch_id: int, limit: int = Query(50, ge=1, le=200), offset: int
         total = query.count()
         rows = query.order_by(ImportRow.row_number).offset(offset).limit(limit).all()
         return {"items": [{"id": row.id, "row_number": row.row_number, "status": row.processing_status, "raw_data": row.raw_data, "normalized_data": row.normalized_data, "error_message": row.error_message, "warning_message": row.warning_message} for row in rows], "total": total, "limit": limit, "offset": offset}
+    finally:
+        db.close()
+
+
+@router.get("/imports/{batch_id}/rows-export")
+def import_rows_export(batch_id: int, status: str | None = None):
+    db = _db()
+    try:
+        query = db.query(ImportRow).filter(ImportRow.import_batch_id == batch_id)
+        if status == "accepted":
+            query = query.filter(ImportRow.processing_status == "ready")
+        elif status == "rejected":
+            query = query.filter(ImportRow.processing_status != "ready")
+        rows = query.order_by(ImportRow.row_number).all()
+        keys = sorted({key for row in rows for key in ((row.normalized_data or {}).keys())})
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=["row_number", "status", "error_message", *keys])
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({"row_number": row.row_number, "status": row.processing_status, "error_message": row.error_message, **(row.normalized_data or {})})
+        suffix = status or "all"
+        return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="import-{batch_id}-{suffix}-rows.csv"'})
     finally:
         db.close()
 

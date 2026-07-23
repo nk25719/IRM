@@ -5703,6 +5703,27 @@ def after_sales_pm_alias(path: str = ""):
 def after_sales_contracts_alias(path: str = ""):
     return FileResponse(BASE_DIR / "static" / "pm" / "index.html")
 
+@app.get("/aftersales/contract-intelligence")
+@app.get("/aftersales/contract-intelligence/{path:path}")
+@app.get("/after-sales/contract-intelligence")
+@app.get("/after-sales/contract-intelligence/{path:path}")
+@app.get("/service/contract-intelligence")
+@app.get("/service/contract-intelligence/{path:path}")
+def after_sales_contract_intelligence_page(path: str = ""):
+    return FileResponse(BASE_DIR / "static" / "service_intelligence.html")
+
+@app.get("/service/customer-contracts")
+@app.get("/service/customer-contracts/{path:path}")
+@app.get("/aftersales/customer-contracts")
+@app.get("/aftersales/customer-contracts/{path:path}")
+def customer_service_contracts_page(path: str = ""):
+    return FileResponse(BASE_DIR / "static" / "service_intelligence.html")
+
+@app.get("/administration/manufacturer-coverage")
+@app.get("/administration/manufacturer-coverage/{path:path}")
+def manufacturer_coverage_page(path: str = ""):
+    return FileResponse(BASE_DIR / "static" / "service_intelligence.html")
+
 @app.get("/aftersales/reports")
 @app.get("/after-sales/reports")
 def after_sales_reports_alias():

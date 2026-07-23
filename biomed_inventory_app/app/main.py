@@ -19,9 +19,11 @@ from app.routers import (
     imports_api,
     master_data_api,
     sales_api,
+    service_intelligence_api,
     warehouse_api,
     web_pages,
 )
+from app.routers.service_intelligence_api import ensure_service_intelligence_tables
 
 
 # Expose init_db at module level for tests and direct initialization
@@ -30,6 +32,7 @@ def init_db():
     result = legacy_main.init_db()
     ensure_admin_foundation()
     ensure_service_report_tables()
+    ensure_service_intelligence_tables()
     return result
 
 
@@ -82,6 +85,7 @@ async def auth_middleware(request: Request, call_next):
         (("/quotations", "/sales/quotations"), "edit_quotations"),
         (("/warehouse", "/api/warehouse"), "view_reports"),
         (("/aftersales", "/api/aftermarket", "/api/after-sales"), "view_after_sales_cases"),
+        (("/service/contract-intelligence", "/api/service-intelligence", "/service/customer-contracts", "/aftersales/customer-contracts", "/administration/manufacturer-coverage"), "service_intelligence.view"),
         (("/clients", "/api/crm", "/api/erp/clients"), "view_all_clients"),
     ]
     for prefixes, permission in route_permissions:
@@ -103,6 +107,7 @@ app.include_router(aftermarket_alias_router)
 app.include_router(web_pages.router)
 app.include_router(dashboard_api.router)
 app.include_router(sales_api.router)
+app.include_router(service_intelligence_api.router)
 app.include_router(procurement_api.router)
 app.include_router(warehouse_api.router)
 app.include_router(aftersales_api.router)

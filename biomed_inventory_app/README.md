@@ -423,3 +423,157 @@ New CRM tables are additive and non-destructive:
 - `crm_attachments`
 
 Existing PM assets can now carry client and warranty fields (`client_id`, `warranty_start`, `warranty_end`, `warranty_status`, `vendor`, `warranty_notes`). Clients are automatically discovered from PM asset hospitals, client orders, and transaction client names. Editing permissions are role-aware through the session role, with `APP_ROLE` defaulting to `admin` for local development.
+
+## v5.1 Unified Contract Intelligence Domains
+
+Contract Intelligence remains one Service Department module. Inside that hub it separates two independent domains: Manufacturer Coverage represents agreements between the manufacturer and our company as distributor, and Customer Service Contracts represent contracts between our company and hospitals, clinics, laboratories, or other end users.
+
+Never infer customer service contract coverage from manufacturer coverage. Never infer manufacturer coverage from a customer service contract.
+
+Lifecycle classifications are computed on the backend and are not stored as permanent equipment state:
+- `CONTRACTED`
+- `UNDER_WARRANTY_NOT_CONTRACTED`
+- `WARRANTY_EXPIRING_SOON_NOT_CONTRACTED`
+- `OUT_OF_WARRANTY_NOT_CONTRACTED`
+- `WARRANTY_UNKNOWN_NOT_CONTRACTED`
+
+Scoring is centralized in `app/services/service_intelligence.py`. Initial rules add points for no active service contract, expired or expiring warranty, unknown warranty, overdue PM, missing completed PM in the last 12 months, open/repeated corrective cases, and equipment age greater than eight years. Priorities are `HIGH` at 80+, `MEDIUM` at 50-79, and `LOW` below 50.
+
+Database addition:
+- `service_opportunities`, added by Alembic migration `20260723_service_contract_intelligence.py`
+
+API endpoints:
+- `GET /api/service-intelligence/summary`
+- `GET /api/service-intelligence/opportunities`
+- `GET /api/service-intelligence/opportunities/{id}`
+- `POST /api/service-intelligence/refresh`
+- `PATCH /api/service-intelligence/opportunities/{id}`
+- `GET /api/service-intelligence/export`
+
+The API uses the Contract Intelligence permission boundary (`service_intelligence.view`). Opportunity changes and refreshes write to the existing `audit_events` table. Refresh is idempotent for open opportunities, updates still-applicable opportunities, dismisses no-longer-applicable open opportunities, and preserves `WON` / `LOST` history.
+
+Import matching support should use the existing Data Management Center row and validation-error flow. Serial matching is normalized by trimming whitespace, using consistent case, and removing formatting spaces for matching while preserving the original serial display value. Never match equipment by model alone; flag missing serials, duplicate serials, ambiguous client/site matches, invalid dates, warranty end before start, contract end before start, and unmatched contract equipment.
+
+Run migrations with:
+
+```bash
+alembic upgrade head
+```
+
+Focused validation:
+
+```bash
+python3 -m unittest tests.test_service_intelligence tests.test_static_layout tests.test_data_management_center -v
+```
+
+### Service Contract Intelligence Imports And Navigation
+
+Final source tables reused or added by the feature:
+- `clients` -> parent customer records.
+- `client_sites` -> optional physical site records for imported installed-base rows.
+- `equipment` -> installed base, serial number, model, manufacturer, installation date, warranty dates, PM dates.
+- `equipment_models`, `manufacturers`, `equipment_categories` -> model/manufacturer/category references.
+- `manufacturer_agreements` -> manufacturer agreement headers.
+- `manufacturer_agreement_equipment` -> GE ANNEXURE/manufacturer-covered equipment, last covered dates, global order numbers, manufacturer values, and EOSL dates.
+- `customer_service_contracts` -> end-user/customer service contract headers, values, coverage types, response time, owner, and renewal status.
+- `customer_contract_equipment` -> equipment linked to customer contracts and labor/parts/calibration/travel flags.
+- `contract_pm_commitments` -> PM visits per year, completed visits, next PM, and PM commitment status.
+- `pm_tasks` -> PM history and next due dates.
+- `cases` and `service_calls` -> corrective-maintenance signals.
+- `service_opportunities` -> refreshable opportunity workflow records.
+- `import_batches`, `import_rows`, `data_validation_errors`, `audit_events` -> import staging, validation, reconciliation, and audit trail.
+
+Foreign-key relationships:
+
+```mermaid
+flowchart TD
+  clients --> client_sites
+  clients --> equipment
+  client_sites --> service_opportunities
+  equipment --> service_opportunities
+  ManufacturerAgreement["manufacturer_agreements"] --> ManufacturerAgreementEquipment["manufacturer_agreement_equipment"]
+  equipment --> ManufacturerAgreementEquipment
+  clients --> CustomerServiceContract["customer_service_contracts"]
+  client_sites --> CustomerServiceContract
+  CustomerServiceContract --> CustomerContractEquipment["customer_contract_equipment"]
+  equipment --> CustomerContractEquipment
+  CustomerServiceContract --> ContractPMCommitment["contract_pm_commitments"]
+  CustomerServiceContract --> service_opportunities
+  equipment --> pm_tasks
+  contracts --> pm_tasks
+  equipment --> cases
+  equipment --> service_calls
+  quotations --> service_opportunities
+  users --> service_opportunities
+  import_batches --> import_rows
+  import_batches --> data_validation_errors
+  import_rows --> data_validation_errors
+```
+
+Contract Intelligence / Manufacturer Coverage templates:
+- `manufacturer_agreements_import_template.xlsx`
+- `manufacturer_covered_equipment_import_template.xlsx`
+- `equipment_warranty_import_template.xlsx`
+- `manufacturer_eosl_import_template.xlsx`
+
+Contract Intelligence / Customer Contracts templates:
+- `installed_equipment_import_template.xlsx`
+- `service_contracts_import_template.xlsx`
+- `contract_equipment_import_template.xlsx`
+- `preventive_maintenance_import_template.xlsx`
+- `service_opportunities_import_template.xlsx`
+
+Recommended import order:
+1. Clients
+2. Client Sites
+3. Manufacturers
+4. Equipment Categories
+5. Installed Equipment
+6. Equipment Warranties
+7. Service Contracts
+8. Contracted Equipment
+9. Preventive Maintenance History
+10. Service Cases
+11. Refresh Service Opportunities
+
+Contract Intelligence frontend routes:
+- `/service/contract-intelligence`
+- `/service/contract-intelligence/opportunities`
+- `/service/contract-intelligence/manufacturer-coverage`
+- `/service/contract-intelligence/customer-contracts`
+- `/service/contract-intelligence/warranties`
+- `/service/contract-intelligence/uncovered-equipment`
+- `/service/contract-intelligence/coverage`
+- `/service/contract-intelligence/customers`
+- `/service/contract-intelligence/equipment`
+- `/service/contract-intelligence/reconciliation`
+- `/service/contract-intelligence/reports`
+- `/service/contract-intelligence/settings`
+- Legacy `/administration/manufacturer-coverage` and `/service/customer-contracts` URLs serve the central Contract Intelligence hub.
+
+Sidebar and related navigation:
+- Service Department sidebar includes Dashboard, Cases, Preventive Maintenance, Contracts, Installed Base, Contract Intelligence, Quotations, and Reports.
+- Contract Intelligence sub-navigation includes Overview, Opportunities, Manufacturer Coverage, Customer Contracts, Warranty Expirations, Uncovered Equipment, Coverage Analysis, By Customer, By Equipment, Import & Reconciliation, Reports, and Settings.
+- Client detail links open filtered Contract Coverage, Uncovered Equipment, Service Opportunities, and Warranty Expirations.
+- Equipment detail links open Manufacturer Coverage, Customer Contracts, and Opportunities inside Contract Intelligence.
+- Service dashboard Contract Intelligence cards open filtered manufacturer opportunity, customer opportunity, warranty, uncovered-equipment, contract, and reconciliation views.
+
+Permission matrix:
+- `service_intelligence.view`: read Contract Intelligence pages and API.
+- `service_intelligence.refresh`: manually refresh opportunities.
+- `service_intelligence.manage_opportunities`: edit opportunity workflow state.
+- `service_intelligence.assign_opportunities`: assign opportunities.
+- `service_intelligence.import`: import Contract Intelligence datasets.
+- `service_intelligence.export`: export filtered opportunity lists.
+- `service_intelligence.reconcile`: review and resolve reconciliation issues.
+- `service_intelligence.configure`: access settings.
+- `manufacturer_agreements.view`, `manufacturer_agreements.manage`, `manufacturer_agreements.import`, `manufacturer_agreements.reconcile`, `manufacturer_agreements.view_values`: manufacturer-domain controls inside Contract Intelligence.
+- `customer_contracts.view`, `customer_contracts.manage`, `customer_contracts.import`, `customer_contracts.renew`, `customer_contracts.view_values`, `contract_pm.manage`: customer-domain controls inside Contract Intelligence.
+
+User walkthrough:
+1. Open Service Department from the sidebar.
+2. Choose Contract Intelligence.
+3. Use the sub-navigation for Opportunities, Manufacturer Coverage, Customer Contracts, Warranty Expirations, Uncovered Equipment, Coverage Analysis, Customers, Equipment, Import & Reconciliation, Reports, or Settings.
+4. Use Import & Reconciliation to download templates and open the Data Management Center import wizard.
+5. Upload, preview, validate, review errors, then commit only clean supported batches.
+6. Resolve unmatched rows in Data Reconciliation, then refresh opportunities.
