@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, FileText, FileUp, PlusCircle, Wrench } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Download, FileText, FileUp, PlusCircle, Wrench } from "lucide-react";
 
 function getContractTimingLabel(daysLeft) {
   if (daysLeft < 0) return { label: `Expired ${Math.abs(daysLeft)} day(s) ago`, className: "badge badge-overdue" };
@@ -13,6 +13,7 @@ export default function ContractTrackerView({
   contractFileInputRef,
   onImportContracts,
   onExportContractsCsv,
+  onOpenHospitalStatus,
   isAddEquipmentVisible,
   onToggleAddEquipment,
   addEquipmentPanel,
@@ -67,6 +68,10 @@ export default function ContractTrackerView({
           <button className="button button-soft" onClick={onExportContractsCsv}>
             <Download size={15} className="inline-icon" />
             Export contracts
+          </button>
+          <button className="button button-soft" onClick={onOpenHospitalStatus} aria-label="Open Hospital Contract Status">
+            <BarChart3 size={15} className="inline-icon" />
+            Hospital Contract Status
           </button>
           <button className="button button-primary" onClick={onToggleAddEquipment}>
             <PlusCircle size={15} className="inline-icon" />

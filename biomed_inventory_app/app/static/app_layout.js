@@ -70,6 +70,7 @@
       links: [
         ["Dashboard", "/aftersales"],
         ["Cases", "/aftersales/service-cases"],
+        ["Engineer Schedule", "/aftersales/schedule"],
         ["Preventive Maintenance", "/aftersales/pm"],
         ["Contracts", "/aftersales/contracts"],
         ["Installed Base", "/aftersales/installed-base"],
@@ -171,6 +172,7 @@
     "/aftersales": [
       ["Dashboard", "/aftersales"],
       ["Cases", "/aftersales/service-cases"],
+      ["Engineer Schedule", "/aftersales/schedule"],
       ["Preventive Maintenance", "/aftersales/pm"],
       ["Contracts", "/aftersales/contracts"],
       ["Installed Base", "/aftersales/installed-base"],

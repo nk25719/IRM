@@ -4,12 +4,12 @@ import { loadRowsFromStorage, saveRowsToStorage } from "./storage";
 import DashboardCards from "./components/DashboardCards";
 import EquipmentTable from "./components/EquipmentTable";
 import FiltersBar from "./components/FiltersBar";
-import HospitalSummary from "./components/HospitalSummary";
 import ImportExportBar from "./components/ImportExportBar";
 import EquipmentDetailModal from "./components/EquipmentDetailModal";
 import HospitalDetailView from "./components/HospitalDetailView";
 import ContractTrackerView from "./components/ContractTrackerView";
 import ContractDetailView from "./components/ContractDetailView";
+import HospitalContractStatusView from "./components/HospitalContractStatusView";
 import {
   addMonths,
   getIntervalMonths,
@@ -307,11 +307,11 @@ export default function App() {
   const [selectedContractId, setSelectedContractId] = useState(null);
   const [showContractAddEquipment, setShowContractAddEquipment] = useState(false);
   const [currentPage, setCurrentPage] = useState(initialPageFromPath);
-  const [hospitalSummaryFilter, setHospitalSummaryFilter] = useState("All");
   const [bulkEquipmentText, setBulkEquipmentText] = useState("");
   const [reminderWindow, setReminderWindow] = useState("next-week");
   const [reminderScheduleAt, setReminderScheduleAt] = useState("");
   const [quickActionFeedback, setQuickActionFeedback] = useState("");
+  const [hospitalStatusLastRefreshed, setHospitalStatusLastRefreshed] = useState("");
   const [contractEquipmentDraft, setContractEquipmentDraft] = useState({
     equipment: "",
     serial: "",
@@ -322,23 +322,6 @@ export default function App() {
   });
   const fileInputRef = useRef(null);
   const contractFileInputRef = useRef(null);
-
-  const aiInsights = useMemo(() => {
-    const overdueRows = rows.filter((row) => getTrackingMeta(row).isOverdue);
-    const soonRows = rows.filter((row) => getTrackingMeta(row).dueSoon7);
-    const grouped = overdueRows.reduce((acc, row) => {
-      acc[row.hospital] = (acc[row.hospital] || 0) + 1;
-      return acc;
-    }, {});
-    const riskiestHospital =
-      Object.entries(grouped).sort((a, b) => b[1] - a[1])[0] || null;
-
-    return {
-      overdueRows,
-      soonRows,
-      riskiestHospital,
-    };
-  }, [rows]);
 
   useEffect(() => {
     let isMounted = true;
@@ -545,6 +528,10 @@ export default function App() {
 
   function openContractsView() {
     navigatePage("contracts");
+  }
+
+  function openHospitalStatusView() {
+    navigatePage("hospital-status");
   }
 
   function openContractDetail(contractId) {
@@ -839,6 +826,12 @@ export default function App() {
     anchor.download = "pm-contracts-export.csv";
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  function refreshHospitalContractStatus() {
+    const refreshedAt = new Date().toLocaleString();
+    setHospitalStatusLastRefreshed(refreshedAt);
+    setQuickActionFeedback(`Hospital contract status refreshed at ${refreshedAt}.`);
   }
 
   function updateRow(id, patch, actor = "System") {
@@ -1246,82 +1239,6 @@ export default function App() {
     }));
   }
 
-  function renderHospitalSummaryPanel() {
-    return (
-      <HospitalSummary
-        byHospital={byHospital}
-        selectedHospital={selectedHospitalDetail}
-        onSelectHospital={openHospitalDetail}
-        hospitalSummaryFilter={hospitalSummaryFilter}
-        onHospitalSummaryFilterChange={setHospitalSummaryFilter}
-        quickActions={
-          <div className="status-workflow-panel">
-            <div>
-              <div className="strong">Automation recommendations</div>
-              <div className="muted">
-                {aiInsights.riskiestHospital
-                  ? `${aiInsights.riskiestHospital[0]} has the highest overdue load (${aiInsights.riskiestHospital[1]} item(s)).`
-                  : "No overdue hospital risk detected."}
-              </div>
-              <div className="muted">
-                {aiInsights.soonRows.length} item(s) are due within 7 days and ready for availability confirmation.
-              </div>
-            </div>
-            <div className="actions">
-              <button className="button button-soft" onClick={markOverdueReminderOneSent}>Mark overdue R1</button>
-              <button className="button button-soft" onClick={markOverdueReminderTwoSent}>Mark overdue R2</button>
-              <button className="button button-primary" onClick={markOverdueEngineerAlertSent}>Alert engineers</button>
-            </div>
-          </div>
-        }
-      />
-    );
-  }
-
-  function showOverdueQuickAction() {
-    setTimingFilter("Overdue only");
-    navigatePage("dashboard");
-    setQuickActionFeedback("Showing overdue equipment in the main table.");
-  }
-
-  function applyStatusQuickAction({ label, matcher, patch }) {
-    const targetRows = rows.filter(matcher);
-    if (!targetRows.length) {
-      setQuickActionFeedback(`No equipment matched for "${label}".`);
-      return;
-    }
-
-    const targetIds = new Set(targetRows.map((row) => row.id));
-    setRows((prevRows) =>
-      prevRows.map((row) => (targetIds.has(row.id) ? { ...row, ...patch } : row))
-    );
-    setQuickActionFeedback(`${label} applied to ${targetRows.length} equipment item(s).`);
-  }
-
-  function markOverdueReminderOneSent() {
-    applyStatusQuickAction({
-      label: "Reminder 1 marked as sent for overdue equipment",
-      matcher: (row) => getTrackingMeta(row).isOverdue && !row.reminder1Sent,
-      patch: { reminder1Sent: true },
-    });
-  }
-
-  function markOverdueReminderTwoSent() {
-    applyStatusQuickAction({
-      label: "Reminder 2 marked as sent for overdue equipment",
-      matcher: (row) => getTrackingMeta(row).isOverdue && !row.reminder2Sent,
-      patch: { reminder2Sent: true },
-    });
-  }
-
-  function markOverdueEngineerAlertSent() {
-    applyStatusQuickAction({
-      label: "Engineer alert marked as sent for overdue equipment",
-      matcher: (row) => getTrackingMeta(row).isOverdue && !row.engineerAlertSent,
-      patch: { engineerAlertSent: true },
-    });
-  }
-
   function handleMetricFilterSelect(nextTimingFilter) {
     setTimingFilter(nextTimingFilter);
     navigatePage("dashboard");
@@ -1342,20 +1259,36 @@ export default function App() {
     }
   }
 
+  const topbarCopy =
+    currentPage === "hospital-status"
+      ? {
+          title: "After Sales Contracts",
+          subtitle: "Customer service contract coverage, renewal risk, and uncovered equipment by hospital.",
+        }
+      : currentPage === "contracts" || currentPage === "contract-detail"
+        ? {
+            title: "After Sales Contracts",
+            subtitle: "Contracts, equipment coverage, PM commitments, imports, and renewal tracking.",
+          }
+        : {
+            title: "Preventive Maintenance Tracker",
+            subtitle: "User-friendly PM dashboard with CSV/Excel import, COM history, and reminder tracking.",
+          };
+
   return (
     <div className="app-shell">
       <div className="app-container">
         <div className="topbar">
           <div>
-            <h1 className="page-title">Preventive Maintenance Tracker</h1>
-            <p className="subtitle">User-friendly PM dashboard with CSV/Excel import, COM history, and reminder tracking.</p>
+            <h1 className="page-title">{topbarCopy.title}</h1>
+            <p className="subtitle">{topbarCopy.subtitle}</p>
           </div>
 
           <div className="erp-top-actions">
             <a className="button button-soft" href="/">Home</a>
             <a className="button button-soft" href="/warehouse">Warehouse</a>
             {currentPage === "dashboard" ? (
-      <ImportExportBar
+              <ImportExportBar
                 fileInputRef={fileInputRef}
                 onImportChange={handleImportFile}
                 onExportCsv={() => exportRowsToCsv(rows, getIntervalMonths)}
@@ -1366,14 +1299,14 @@ export default function App() {
         </div>
 
         {currentPage === "dashboard" ? (
-          <DashboardCards metrics={metrics} timingFilter={timingFilter} onMetricFilterSelect={handleMetricFilterSelect} />
+            <DashboardCards metrics={metrics} timingFilter={timingFilter} onMetricFilterSelect={handleMetricFilterSelect} />
         ) : null}
         <div className="view-toggle-row">
           <button className={`button ${currentPage === "dashboard" ? "button-primary" : ""}`} onClick={() => navigatePage("dashboard")}>
             Dashboard
           </button>
           <button className={`button ${currentPage === "hospital-status" ? "button-primary" : ""}`} onClick={() => navigatePage("hospital-status")}>
-            Hospital Equipment Status
+            Hospital Contract Status
           </button>
           <button className={`button ${currentPage === "contracts" ? "button-primary" : ""}`} onClick={openContractsView}>
             Contracts View
@@ -1407,10 +1340,18 @@ export default function App() {
             quickActionFeedback={quickActionFeedback}
           />
         ) : currentPage === "hospital-status" ? (
-          renderHospitalSummaryPanel()
+          <HospitalContractStatusView
+            rows={rows}
+            contracts={contractRows}
+            onBackToContracts={openContractsView}
+            onOpenContract={openContractDetail}
+            onRefresh={refreshHospitalContractStatus}
+            lastRefreshed={hospitalStatusLastRefreshed}
+          />
         ) : currentPage === "contracts" ? (
           <ContractTrackerView
             contracts={contractRows}
+            onOpenHospitalStatus={openHospitalStatusView}
             onOpenContract={openContractDetail}
             contractFileInputRef={contractFileInputRef}
             onImportContracts={handleImportContractsFile}

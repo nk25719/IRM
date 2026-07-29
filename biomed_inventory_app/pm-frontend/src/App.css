@@ -104,15 +104,32 @@ button, input, select, textarea { font: inherit; }
 .feedback-banner { padding: 10px 12px; background: #ecfeff; border: 1px solid #99f6e4; border-radius: 12px; color: #115e59; margin-bottom: 12px; }
 .empty-state { text-align: center; color: var(--muted); padding: 28px 12px !important; font-weight: 800; }
 
+.hospital-status-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.breadcrumbs { color: var(--muted); font-size: 12px; font-weight: 900; margin-bottom: 8px; }
+.hospital-status-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.hospital-status-kpi { min-height: 126px; margin-bottom: 0; }
+.hospital-status-filters { display: grid; gap: 10px; }
+.hospital-status-filter-grid { display: grid; grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(150px, 1fr)); gap: 10px; align-items: center; }
+.hospital-status-table-card { padding: 0; overflow: hidden; }
+.hospital-status-table-card .table-wrap { border: 0; border-radius: 0; }
+.hospital-status-mobile-list { display: none; }
+.hospital-status-mobile-card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.hospital-status-empty-actions { margin-top: 12px; justify-content: center; }
+.hospital-status-detail { background: #fbfdff; }
+.hospital-status-detail .detail-grid { margin-bottom: 0; }
+
 @media (max-width: 900px) {
   .app-container { padding: 12px; }
-  .topbar, .hospital-head, .hospital-summary-head, .detail-head, .form-head { flex-direction: column; align-items: stretch; }
+  .topbar, .hospital-head, .hospital-summary-head, .detail-head, .form-head, .hospital-status-header { flex-direction: column; align-items: stretch; }
   .erp-top-actions, .actions-friendly { justify-content: stretch; }
   .status-workflow-panel { flex-direction: column; align-items: stretch; }
   .row-actions { flex-wrap: wrap; }
   .contract-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .button { width: 100%; }
-  .filters-grid, .form-grid, .detail-grid, .audit-grid { grid-template-columns: 1fr; }
+  .filters-grid, .form-grid, .detail-grid, .audit-grid, .hospital-status-filter-grid, .hospital-status-kpis { grid-template-columns: 1fr; }
+  .hospital-status-desktop-table { display: none; }
+  .hospital-status-mobile-list { display: grid; gap: 12px; padding: 12px; }
+  .hospital-status-table-card { padding: 0; }
   .table-wrap { border: none; overflow: visible; }
   .table, .table thead, .table tbody, .table th, .table td, .table tr { display: block; min-width: 0; }
   .table thead { display: none; }

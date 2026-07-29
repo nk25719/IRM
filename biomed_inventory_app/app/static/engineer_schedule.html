@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Engineer Schedule</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .schedule-shell{display:grid;gap:14px}.schedule-toolbar{align-items:end;display:grid;gap:10px;grid-template-columns:repeat(8,minmax(110px,1fr))}.schedule-toolbar label{display:grid;gap:4px;font-size:12px;font-weight:800}.schedule-toolbar input,.schedule-toolbar select,.schedule-toolbar button,.schedule-form input,.schedule-form select,.schedule-form textarea{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.schedule-toolbar button,.schedule-form button,.button-link{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:800;padding:9px;text-decoration:none}.schedule-toolbar .primary,.schedule-form .primary{background:var(--primary);border-color:var(--primary);color:#fff}.view-tabs{display:flex;flex-wrap:wrap;gap:8px}.view-tabs button{background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-weight:800;padding:9px}.view-tabs button.active{background:var(--primary);color:#fff}.week-grid{border:1px solid var(--line);display:grid;grid-template-columns:180px repeat(6,minmax(150px,1fr));overflow:auto}.week-grid>*{border-bottom:1px solid var(--line);border-right:1px solid var(--line);min-height:62px;padding:8px}.week-head{background:var(--soft);color:var(--primary-dark);font-weight:900}.engineer-name{background:#fff;font-weight:900;position:sticky;left:0;z-index:1}.event-card{background:#fff;border:1px solid var(--line);border-left:4px solid #2563eb;border-radius:8px;margin:0 0 7px;padding:8px}.event-card.conflict{border-left-color:#dc2626;background:#fff7f7}.event-card .time{color:var(--muted);font-size:12px;font-weight:800}.badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.badge{border-radius:999px;display:inline-block;font-size:11px;font-weight:900;padding:3px 7px}.scheduled{background:#dbeafe;color:#1d4ed8}.confirmed{background:#dcfce7;color:#166534}.draft{background:#f3f4f6;color:#374151}.cancelled{background:#fee2e2;color:#991b1b}.warning{background:#fef3c7;color:#92400e}.time-grid{display:grid;gap:8px;grid-template-columns:70px repeat(6,minmax(150px,1fr));overflow:auto}.time-grid .slot{border-top:1px solid var(--line);min-height:54px;padding:5px}.queue,.workload{display:grid;gap:8px}.schedule-form{display:grid;gap:10px;grid-template-columns:repeat(4,minmax(160px,1fr))}.schedule-form textarea,.schedule-form .wide{grid-column:1/-1}.legend{display:flex;flex-wrap:wrap;gap:8px}.mobile-list{display:none}@media(max-width:900px){.schedule-toolbar,.schedule-form{grid-template-columns:1fr 1fr}.week-grid,.time-grid{display:none}.mobile-list{display:grid;gap:8px}.container{padding:12px}}@media(max-width:620px){.schedule-toolbar,.schedule-form{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-page-title="Engineer Schedule">
+  <main class="container schedule-shell">
+    <section class="page-hero">
+      <div>
+        <h1>Engineer Schedule</h1>
+        <p>Integrated weekly planning for all After Sales engineers.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="schedule-toolbar">
+        <label>Week <input id="weekInput" type="date"></label>
+        <label>Engineer <select id="engineerFilter"><option value="">All</option></select></label>
+        <label>Type <select id="typeFilter"><option value="">All</option></select></label>
+        <label>Status <select id="statusFilter"><option value="">All</option></select></label>
+        <label>Client <select id="clientFilter"><option value="">All</option></select></label>
+        <label>Conflict <select id="conflictFilter"><option value="">All</option><option value="conflict">Conflicts</option><option value="clear">Clear</option></select></label>
+        <button onclick="shiftWeek(-7)">Previous Week</button>
+        <button class="primary" onclick="goToday()">Today</button>
+        <button onclick="shiftWeek(7)">Next Week</button>
+        <a class="button-link" href="/api/schedule/export" id="exportLink">Export Excel</a>
+        <a class="button-link" href="/api/schedule/export?grid=true" id="gridExportLink">Weekly Grid</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="view-tabs" role="tablist">
+        <button id="tabWeekly" class="active" onclick="setMode('weekly')">Engineer Week</button>
+        <button id="tabTime" onclick="setMode('time')">Time Grid</button>
+        <button id="tabQueue" onclick="setMode('queue')">Unassigned</button>
+        <button id="tabForm" onclick="setMode('form')">New Event</button>
+        <button id="tabImport" onclick="setMode('import')">Import</button>
+        <button id="tabWorkload" onclick="setMode('workload')">Workload</button>
+      </div>
+    </section>
+
+    <section id="weeklyPanel" class="card"><div id="weeklyGrid" class="week-grid"></div><div id="mobileList" class="mobile-list"></div></section>
+    <section id="timePanel" class="card" hidden><div id="timeGrid" class="time-grid"></div></section>
+    <section id="queuePanel" class="card" hidden><h2>Unassigned Activities</h2><div id="queue" class="queue"></div></section>
+    <section id="formPanel" class="card" hidden>
+      <h2 id="formTitle">Create Schedule Event</h2>
+      <form id="eventForm" class="schedule-form">
+        <input name="id" type="hidden">
+        <input name="title" required placeholder="Title">
+        <select name="event_type" id="eventTypeInput"></select>
+        <select name="status" id="statusInput"></select>
+        <select name="priority"><option>normal</option><option>low</option><option>high</option><option>urgent</option></select>
+        <input name="start_datetime" type="datetime-local">
+        <input name="end_datetime" type="datetime-local">
+        <label><input name="all_day" type="checkbox"> All-day</label>
+        <select name="client_id" id="clientInput"><option value="">Client</option></select>
+        <select name="equipment_id" id="equipmentInput"><option value="">Equipment</option></select>
+        <input name="location_text" placeholder="Location">
+        <input name="meeting_link" placeholder="Meeting link">
+        <input name="travel_time_before_minutes" type="number" min="0" placeholder="Travel before minutes">
+        <input name="travel_time_after_minutes" type="number" min="0" placeholder="Travel after minutes">
+        <input name="conflict_override_reason" class="wide" placeholder="Conflict override reason">
+        <select id="assignmentEngineers" class="wide" multiple></select>
+        <textarea name="description" rows="3" placeholder="Description"></textarea>
+        <textarea name="internal_notes" rows="2" placeholder="Internal notes"></textarea>
+        <button class="primary" type="submit">Schedule</button>
+        <button type="button" onclick="saveDraft()">Save as Draft</button>
+        <button type="button" onclick="resetForm()">Clear</button>
+      </form>
+    </section>
+    <section id="importPanel" class="card" hidden>
+      <h2>Weekly Excel Import</h2>
+      <input id="importFile" type="file" accept=".xlsx,.xlsm">
+      <button onclick="previewImport()">Preview Import</button>
+      <button class="primary" onclick="confirmImport()">Confirm Import</button>
+      <div id="importPreview"></div>
+    </section>
+    <section id="workloadPanel" class="card" hidden><h2>Weekly Workload</h2><div id="workload" class="workload"></div></section>
+    <section class="card legend"><span class="badge scheduled">scheduled</span><span class="badge confirmed">confirmed</span><span class="badge warning">conflict warning</span><span class="muted">Conflicts warn coordinators but do not block saving when an override reason is provided.</span></section>
+  </main>
+
+  <script>
+    const eventTypes=["corrective_maintenance","preventive_maintenance","installation","delivery","training","inspection","contract_work","workshop_work","remote_support","manufacturer_case","internal_meeting","travel","leave","administrative","other"];
+    const statuses=["draft","scheduled","confirmed","in_progress","completed","cancelled","postponed"];
+    const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    let events=[],lookups={engineers:[],clients:[],equipment:[]},importPayload=null,mode="weekly";
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    const isoDate=d=>d.toISOString().slice(0,10);
+    const monday=d=>{const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);return x};
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.headers.get("content-type")?.includes("json")?res.json():res.text()}
+    function fillSelect(el,items,label="name"){el.innerHTML+=items.map(i=>`<option value="${i.id}">${esc(i[label])}</option>`).join("")}
+    async function init(){weekInput.value=isoDate(monday(new Date()));lookups=await api("/api/schedule/lookups");fillSelect(engineerFilter,lookups.engineers);fillSelect(clientFilter,lookups.clients);fillSelect(clientInput,lookups.clients);fillSelect(equipmentInput,lookups.equipment);fillSelect(assignmentEngineers,lookups.engineers);typeFilter.innerHTML+=eventTypes.map(v=>`<option>${v}</option>`).join("");eventTypeInput.innerHTML=eventTypes.map(v=>`<option>${v}</option>`).join("");statusFilter.innerHTML+=statuses.map(v=>`<option>${v}</option>`).join("");statusInput.innerHTML=statuses.map(v=>`<option>${v}</option>`).join("");document.querySelectorAll("#weekInput,#engineerFilter,#typeFilter,#statusFilter,#clientFilter,#conflictFilter").forEach(el=>el.addEventListener("change",loadEvents));eventForm.addEventListener("submit",submitForm);await loadEvents()}
+    function params(){const start=new Date(weekInput.value);const end=new Date(start);end.setDate(end.getDate()+7);const p=new URLSearchParams({start:start.toISOString(),end:end.toISOString()});if(engineerFilter.value)p.set("engineer_id",engineerFilter.value);if(typeFilter.value)p.set("event_type",typeFilter.value);if(statusFilter.value)p.set("status",statusFilter.value);if(clientFilter.value)p.set("client_id",clientFilter.value);if(conflictFilter.value)p.set("conflict_status",conflictFilter.value);return p}
+    async function loadEvents(){events=await api(`/api/schedule/events?${params()}`);exportLink.href=`/api/schedule/export?${params()}`;gridExportLink.href=`/api/schedule/export?grid=true&${params()}`;render()}
+    function render(){renderWeekly();renderTime();renderQueue();renderWorkload()}
+    function card(e){const t=e.start_datetime?new Date(e.start_datetime).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"All day";return `<div class="event-card ${e.has_conflict?"conflict":""}" onclick="editEvent(${e.id})"><div class="time">${esc(t)} ${e.has_conflict?"Conflict":""}</div><strong>${esc(e.title)}</strong><div>${esc(e.client_name||"No client")} ${esc(e.site_name||"")}</div><div class="badges"><span class="badge ${esc(e.status)}">${esc(e.status)}</span><span class="badge draft">${esc(e.event_type)}</span></div><div class="muted">${esc((e.assignments||[]).map(a=>a.engineer_name).join(", ")||"Unassigned")}</div></div>`}
+    function renderWeekly(){weeklyGrid.innerHTML=`<div class="week-head">Engineer</div>${days.map(d=>`<div class="week-head">${d}</div>`).join("")}`;const engineers=lookups.engineers.filter(e=>!engineerFilter.value||String(e.id)===engineerFilter.value);for(const eng of engineers){weeklyGrid.innerHTML+=`<div class="engineer-name">${esc(eng.name)}</div>`;for(const day of days){const rows=events.filter(e=>(e.assignments||[]).some(a=>a.engineer_id===eng.id)&&e.start_datetime&&new Date(e.start_datetime).toLocaleDateString("en-US",{weekday:"long"})===day);weeklyGrid.innerHTML+=`<div>${rows.map(card).join("")||'<span class="muted">Available</span>'}</div>`}}mobileList.innerHTML=events.map(card).join("")||'<div class="notice">No schedule events for this week.</div>'}
+    function renderTime(){const hours=Array.from({length:11},(_,i)=>i+8);timeGrid.innerHTML=`<div></div>${days.map(d=>`<div class="week-head">${d}</div>`).join("")}`+hours.map(h=>`<div class="week-head">${String(h).padStart(2,"0")}:00</div>${days.map(d=>`<div class="slot">${events.filter(e=>e.start_datetime&&new Date(e.start_datetime).getHours()===h&&new Date(e.start_datetime).toLocaleDateString("en-US",{weekday:"long"})===d).map(card).join("")}</div>`).join("")}`).join("")}
+    function renderQueue(){const rows=events.filter(e=>!(e.assignments||[]).length);queue.innerHTML=rows.map(card).join("")||'<div class="notice">No unassigned activities.</div>'}
+    async function renderWorkload(){const data=await api(`/api/schedule/workload?${params()}`);workload.innerHTML=data.map(w=>`<div class="event-card"><strong>${esc(w.engineer_name)}</strong><div>${Number(w.total_scheduled_hours||0).toFixed(1)} scheduled hours · ${w.assignment_count||0} assignments · ${w.conflict_count||0} conflicts</div><div class="muted">PM ${w.pm_count||0}, CM ${w.corrective_maintenance_count||0}, Install ${w.installation_count||0}, Training ${w.training_count||0}, Travel ${Number(w.travel_time_hours||0).toFixed(1)}h, Unavailable ${Number(w.unavailable_hours||0).toFixed(1)}h</div></div>`).join("")}
+    function setMode(next){mode=next;["weekly","time","queue","form","import","workload"].forEach(name=>{document.getElementById(`${name}Panel`).hidden=name!==mode;document.getElementById(`tab${name[0].toUpperCase()+name.slice(1)}`).classList.toggle("active",name===mode)})}
+    function shiftWeek(days){const d=new Date(weekInput.value);d.setDate(d.getDate()+days);weekInput.value=isoDate(d);loadEvents()}function goToday(){weekInput.value=isoDate(monday(new Date()));loadEvents()}
+    function formPayload(status){const fd=new FormData(eventForm);const data=Object.fromEntries(fd.entries());data.all_day=eventForm.all_day.checked;data.status=status||data.status;data.assignments=Array.from(assignmentEngineers.selectedOptions).map(o=>({engineer_id:Number(o.value),assignment_role:"lead"}));["client_id","equipment_id","travel_time_before_minutes","travel_time_after_minutes"].forEach(k=>{data[k]=data[k]?Number(data[k]):null});if(!data.id)delete data.id;return data}
+    async function submitForm(e){e.preventDefault();const data=formPayload();if(data.id)await api(`/api/schedule/events/${data.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});else await api("/api/schedule/events",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});resetForm();setMode("weekly");await loadEvents()}
+    async function saveDraft(){eventForm.status.value="draft";await submitForm(new Event("submit"))}
+    function editEvent(id){const e=events.find(x=>x.id===id);if(!e)return;setMode("form");for(const [k,v] of Object.entries(e)){if(eventForm.elements[k]&&v!==null)eventForm.elements[k].value=String(v).slice(0,16)}eventForm.all_day.checked=!!e.all_day;Array.from(assignmentEngineers.options).forEach(o=>o.selected=(e.assignments||[]).some(a=>String(a.engineer_id)===o.value));formTitle.textContent=`Edit ${e.title}`}
+    function resetForm(){eventForm.reset();eventForm.id.value="";formTitle.textContent="Create Schedule Event";Array.from(assignmentEngineers.options).forEach(o=>o.selected=false)}
+    async function previewImport(){const file=importFile.files[0];if(!file)return alert("Choose an Excel file first.");const body=new FormData();body.append("file",file);importPayload=await api("/api/schedule/import/preview",{method:"POST",body});importPreview.innerHTML=`<p>${esc(importPayload.rows.length)} row(s) found from ${esc(importPayload.worksheet)}.</p>`+importPayload.rows.map((r,i)=>`<div class="event-card"><strong>${esc(r.day)} ${esc(r.title)}</strong><div>${esc(r.start_datetime||"Time unresolved")}</div><div class="muted">${esc((r.warnings||[]).join(", "))}</div></div>`).join("")}
+    async function confirmImport(){if(!importPayload)return alert("Preview an import first.");const res=await api("/api/schedule/import/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(importPayload)});importPreview.innerHTML=`<div class="notice">Imported ${esc(res.created)} schedule event(s).</div>`;await loadEvents()}
+    init().catch(err=>{console.error(err);document.body.insertAdjacentHTML("beforeend",`<div class="container"><div class="card">${esc(err.message||err)}</div></div>`)});
+  </script>
+  <script src="/static/app_layout.js"></script>
+</body>
+</html>

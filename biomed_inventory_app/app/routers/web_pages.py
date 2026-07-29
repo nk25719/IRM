@@ -1,5 +1,7 @@
 from fastapi import APIRouter
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+
+from app import legacy_main
 
 from ._legacy import mount_legacy_routes
 
@@ -34,6 +36,18 @@ def aftersales_pm_tracking_alias():
 @router.get("/aftersales/pm-tracking/{section:path}", include_in_schema=False)
 def aftersales_pm_tracking_section_alias(section: str):
     return RedirectResponse(f"/aftersales/pm/{section}", status_code=303)
+
+
+@router.get("/aftersales/schedule", include_in_schema=False)
+@router.get("/after-sales/schedule", include_in_schema=False)
+def aftersales_schedule_page():
+    return FileResponse(legacy_main.BASE_DIR / "static" / "engineer_schedule.html")
+
+
+@router.get("/aftersales/schedule/engineers/{engineer_id}", include_in_schema=False)
+@router.get("/after-sales/schedule/engineers/{engineer_id}", include_in_schema=False)
+def aftersales_engineer_schedule_page(engineer_id: int):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "engineer_schedule.html")
 
 
 @router.get("/sales-cases", include_in_schema=False)

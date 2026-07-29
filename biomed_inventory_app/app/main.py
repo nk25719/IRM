@@ -20,6 +20,7 @@ from app.routers import (
     master_data_api,
     sales_api,
     service_intelligence_api,
+    schedule_api,
     warehouse_api,
     web_pages,
 )
@@ -33,6 +34,7 @@ def init_db():
     ensure_admin_foundation()
     ensure_service_report_tables()
     ensure_service_intelligence_tables()
+    schedule_api.ensure_schedule_tables()
     return result
 
 
@@ -108,6 +110,7 @@ app.include_router(web_pages.router)
 app.include_router(dashboard_api.router)
 app.include_router(sales_api.router)
 app.include_router(service_intelligence_api.router)
+app.include_router(schedule_api.router)
 app.include_router(procurement_api.router)
 app.include_router(warehouse_api.router)
 app.include_router(aftersales_api.router)
