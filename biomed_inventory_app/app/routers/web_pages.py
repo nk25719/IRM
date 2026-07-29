@@ -55,6 +55,16 @@ def sales_cases_alias():
     return RedirectResponse("/sales", status_code=303)
 
 
+@router.get("/crm/contacts", include_in_schema=False)
+def crm_contacts_page():
+    return FileResponse(legacy_main.BASE_DIR / "static" / "crm_contacts.html")
+
+
+@router.get("/crm/contacts/{contact_id}", include_in_schema=False)
+def crm_contact_detail_page(contact_id: int):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "crm_contacts.html")
+
+
 def _is_web_page(path: str) -> bool:
     return not path.startswith("/api") and not path.startswith("/quotations")
 

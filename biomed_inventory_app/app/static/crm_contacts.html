@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRM Contacts</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <style>
+    .contacts-shell{display:grid;gap:14px}.toolbar{align-items:end;display:grid;gap:8px;grid-template-columns:repeat(8,minmax(110px,1fr))}.toolbar label{display:grid;gap:4px;font-size:12px;font-weight:800}.toolbar input,.toolbar select,.toolbar button{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px}.toolbar button{background:#fff;color:var(--primary-dark);cursor:pointer;font-weight:800}.toolbar .primary{background:var(--primary);border-color:var(--primary);color:#fff}.metric-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.metric{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.metric span{color:var(--muted);display:block;font-size:12px}.metric b{color:var(--primary-dark);font-size:22px}.table-wrap{overflow:auto}.table{background:#fff;border:1px solid var(--line);border-collapse:collapse;width:100%}.table th,.table td{border-bottom:1px solid var(--line);font-size:12.5px;padding:8px;text-align:left;vertical-align:top}.table th{background:var(--soft);color:var(--primary-dark);white-space:nowrap}.badge{border-radius:999px;display:inline-block;font-size:11px;font-weight:900;padding:3px 7px}.high{background:#fee2e2;color:#991b1b}.active{background:#ffedd5;color:#9a3412}.moderate{background:#dbeafe;color:#1d4ed8}.low{background:#f3f4f6;color:#374151}.review{background:#fef3c7;color:#92400e}.ok{background:#dcfce7;color:#166534}.detail-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.detail-item{border:1px solid var(--line);border-radius:8px;padding:10px}.muted{color:var(--muted);font-size:12px}.import-preview{display:grid;gap:8px;max-height:420px;overflow:auto}@media(max-width:900px){.toolbar{grid-template-columns:1fr 1fr}.table{min-width:1100px}}@media(max-width:620px){.toolbar{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-page-title="CRM Contacts">
+  <main class="container contacts-shell">
+    <section class="page-hero">
+      <div>
+        <h1>CRM Contacts</h1>
+        <p>Outlook email-history contacts, organization matching, and CRM enrichment.</p>
+      </div>
+    </section>
+    <section class="card metric-grid" id="metrics"></section>
+    <section class="card">
+      <div class="toolbar">
+        <label>Search <input id="q" placeholder="Name, email, phone, domain"></label>
+        <label>Organization <select id="organizationType"><option value="">All</option><option>client</option><option>manufacturer</option><option>supplier</option><option>personal</option><option>unknown</option></select></label>
+        <label>Role type <select id="contactType"><option value="">All</option><option>person</option><option>purchasing</option><option>service</option><option>technical_support</option><option>shared_inbox</option></select></label>
+        <label>Engagement <select id="engagement"><option value="">All</option><option>high</option><option>active</option><option>moderate</option><option>low</option></select></label>
+        <label>Sort <select id="sort"><option value="emails_exchanged">Emails exchanged</option><option value="name">Name</option><option value="newest_imported">Newest imported</option></select></label>
+        <label><input id="missingPhone" type="checkbox"> Missing phone</label>
+        <label><input id="missingRole" type="checkbox"> Missing role</label>
+        <label><input id="needsReview" type="checkbox"> Needs review</label>
+        <button class="primary" onclick="loadContacts()">Apply</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Outlook Customer Contacts Import</h2>
+      <div class="toolbar">
+        <input id="importFile" type="file" accept=".xlsx,.xlsm">
+        <button onclick="previewImport()">Preview workbook</button>
+        <button class="primary" onclick="confirmImport()">Confirm reviewed rows</button>
+        <a id="reportLink" class="button-like" href="#">Download report</a>
+      </div>
+      <div id="importPreview" class="import-preview muted">Upload `Customer_Contacts-2.xlsx` to stage rows before changing CRM contacts.</div>
+    </section>
+    <section id="detailCard" class="card" hidden></section>
+    <section class="card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Name</th><th>Email</th><th>Domain</th><th>Organization</th><th>Type</th><th>Engagement</th><th>Emails</th><th>Phone</th><th>Role</th><th>Status</th><th>Open</th></tr></thead>
+          <tbody id="contactRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script>
+    let importId=null;
+    const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+    async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.headers.get("content-type")?.includes("json")?res.json():res.text()}
+    function badge(v){const c=v==="complete"?"ok":v==="high"||v==="active"||v==="moderate"||v==="low"?v:"review";return `<span class="badge ${c}">${esc(v||"unknown")}</span>`}
+    async function loadMetrics(){const m=await api("/api/contacts/analytics");metrics.innerHTML=Object.entries(m).map(([k,v])=>`<div class="metric"><span>${esc(k.replaceAll("_"," "))}</span><b>${esc(v)}</b></div>`).join("")}
+    async function loadContacts(){const p=new URLSearchParams();if(q.value)p.set("q",q.value);if(organizationType.value)p.set("organization_type",organizationType.value);if(contactType.value)p.set("contact_type",contactType.value);if(engagement.value)p.set("engagement_level",engagement.value);p.set("sort",sort.value);if(missingPhone.checked)p.set("missing_phone","true");if(missingRole.checked)p.set("missing_role","true");if(needsReview.checked)p.set("needs_review","true");const data=await api(`/api/contacts?${p}`);contactRows.innerHTML=data.items.map(c=>`<tr><td>${esc(c.display_name||c.name)}</td><td>${esc(c.email)}</td><td>${esc(c.email_domain)}</td><td>${esc(c.organization_name||"Review needed")}</td><td>${esc(c.contact_type)}</td><td>${badge(c.engagement_level)}</td><td>${esc(c.emails_exchanged)}</td><td>${esc(c.phone||"")}</td><td>${esc(c.role_title||"")}</td><td>${badge(c.data_quality_status)}</td><td><button onclick="openContact(${c.id})">Open</button></td></tr>`).join("")||'<tr><td colspan="11" class="muted">No contacts found.</td></tr>'}
+    async function openContact(id){const c=await api(`/api/contacts/${id}`);detailCard.hidden=false;detailCard.innerHTML=`<h2>${esc(c.display_name||c.name)}</h2><div class="detail-grid">${["email","phone","role_title","department","organization_name","email_domain","contact_type","source","data_quality_status","emails_exchanged","engagement_level","next_action"].map(k=>`<div class="detail-item"><div class="muted">${esc(k.replaceAll("_"," "))}</div><strong>${esc(c[k]||"")}</strong></div>`).join("")}</div><h3>Linked IRM information</h3>${Object.entries(c.linked_records||{}).map(([k,rows])=>`<div class="detail-item"><strong>${esc(k.replaceAll("_"," "))}</strong><div class="muted">${esc((rows||[]).length)} linked record(s)</div></div>`).join("")}`}
+    }
+    async function previewImport(){const file=importFile.files[0];if(!file)return alert("Choose the workbook first.");const body=new FormData();body.append("file",file);body.append("sheet_name","Customer Contacts");const data=await api("/api/imports/customer-contacts/preview",{method:"POST",body});importId=data.import_id;reportLink.href=`/api/imports/customer-contacts/${importId}/report`;importPreview.innerHTML=`<div>${esc(data.metrics.contacts)} contacts staged, ${esc(data.metrics.skipped_group_rows)} grouping rows skipped, ${esc(data.metrics.invalid_rows)} invalid.</div>`+data.rows.slice(0,80).map(r=>`<div class="detail-item"><strong>${esc(r.display_name||r.email||r.skip_reason)}</strong><div>${esc(r.email||"")}</div><div>${badge(r.data_quality_status||r.import_status)} ${badge(r.engagement_level||"")}</div><div class="muted">${esc((r.validation_messages||[]).join("; "))}</div></div>`).join("")}
+    async function confirmImport(){if(!importId)return alert("Preview an import first.");const res=await api("/api/imports/customer-contacts/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({import_id:importId})});importPreview.innerHTML=`Imported: ${esc(res.created)} created, ${esc(res.updated)} updated, ${esc(res.rejected)} rejected, ${esc(res.ignored)} ignored.`;await loadMetrics();await loadContacts()}
+    document.querySelectorAll("#q,#organizationType,#contactType,#engagement,#sort,#missingPhone,#missingRole,#needsReview").forEach(el=>el.addEventListener("change",loadContacts));
+    loadMetrics();loadContacts();const id=location.pathname.match(/\\/crm\\/contacts\\/(\\d+)/)?.[1];if(id)openContact(id);
+  </script>
+  <script src="/static/app_layout.js"></script>
+</body>
+</html>

@@ -28,17 +28,67 @@ class Department(Base):
     notes = Column(Text)
 
 
-class Contact(Base):
+class Contact(Base, TimestampMixin):
     __tablename__ = "contacts"
-    __table_args__ = (Index("ix_contacts_client_id", "client_id"), Index("ix_contacts_department_id", "department_id"))
+    __table_args__ = (
+        Index("ix_contacts_client_id", "client_id"),
+        Index("ix_contacts_department_id", "department_id"),
+        Index("ix_contacts_email_domain", "email_domain"),
+        Index("ix_contacts_organization_type", "organization_type"),
+        Index("ix_contacts_engagement_level", "engagement_level"),
+        UniqueConstraint("normalized_email", name="uq_contacts_normalized_email"),
+    )
     id = Column(Integer, primary_key=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    client_site_id = Column(Integer, nullable=True)
+    manufacturer_id = Column(Integer, nullable=True)
+    supplier_id = Column(Integer, nullable=True)
+    first_name = Column(String(120))
+    last_name = Column(String(120))
+    display_name = Column(String(255))
+    normalized_email = Column(String(255))
     name = Column(String(255), nullable=False)
     title = Column(String(255))
+    role_title = Column(String(255))
+    department = Column(String(255))
     phone = Column(String(80))
+    phone_original = Column(String(120))
+    phone_verified = Column(Boolean, nullable=False, default=False, server_default="0")
     email = Column(String(255))
+    email_domain = Column(String(255))
     notes = Column(Text)
+    contact_type = Column(String(80), nullable=False, default="unknown", server_default="unknown")
+    organization_type = Column(String(80), nullable=False, default="unknown", server_default="unknown")
+    emails_exchanged = Column(Integer, nullable=False, default=0, server_default="0")
+    engagement_level = Column(String(40), nullable=False, default="low", server_default="low")
+    is_shared_inbox = Column(Boolean, nullable=False, default=False, server_default="0")
+    is_automated_address = Column(Boolean, nullable=False, default=False, server_default="0")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    is_primary = Column(Boolean, nullable=False, default=False, server_default="0")
+    source = Column(String(120))
+    source_reference = Column(Text)
+    data_quality_status = Column(String(80), nullable=False, default="needs_review", server_default="needs_review")
+    last_imported_at = Column(DateTime(timezone=True))
+    contact_owner_user_id = Column(Integer, nullable=True)
+    next_action = Column(Text)
+
+
+class OrganizationDomainMapping(Base, TimestampMixin):
+    __tablename__ = "organization_domain_mappings"
+    __table_args__ = (
+        UniqueConstraint("domain", name="uq_organization_domain_mappings_domain"),
+        Index("ix_organization_domain_mappings_org", "organization_type", "organization_id"),
+        Index("ix_organization_domain_mappings_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    domain = Column(String(255), nullable=False)
+    organization_type = Column(String(80), nullable=False)
+    organization_id = Column(Integer, nullable=False)
+    status = Column(String(50), nullable=False, default="approved", server_default="approved")
+    notes = Column(Text)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 class User(Base, TimestampMixin):

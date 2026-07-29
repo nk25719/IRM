@@ -15,6 +15,26 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+FOUNDATION_TABLES = {
+    "clients",
+    "departments",
+    "contacts",
+    "users",
+    "engineers",
+    "equipment_models",
+    "equipment",
+    "contracts",
+    "warranties",
+    "cases",
+    "service_calls",
+    "pm_tasks",
+    "inventory_items",
+    "case_items",
+    "procurement_requests",
+    "client_activities",
+    "invoices",
+}
+
 
 def has_table(bind, table_name):
     return sa.inspect(bind).has_table(table_name)
@@ -63,9 +83,10 @@ def create_indexes(bind, table):
 
 def upgrade():
     bind = op.get_bind()
-    for table in Base.metadata.sorted_tables:
+    tables = [table for table in Base.metadata.tables.values() if table.name in FOUNDATION_TABLES]
+    for table in tables:
         create_or_extend_table(bind, table)
-    for table in Base.metadata.sorted_tables:
+    for table in tables:
         create_indexes(bind, table)
 
 

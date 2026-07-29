@@ -13,6 +13,7 @@ from app.quotation_api import router as quotation_router
 from app.routers import (
     aftersales_api,
     crm_api,
+    customer_contacts_api,
     dashboard_api,
     data_management_api,
     procurement_api,
@@ -35,6 +36,7 @@ def init_db():
     ensure_service_report_tables()
     ensure_service_intelligence_tables()
     schedule_api.ensure_schedule_tables()
+    customer_contacts_api.ensure_customer_contact_tables()
     return result
 
 
@@ -88,7 +90,8 @@ async def auth_middleware(request: Request, call_next):
         (("/warehouse", "/api/warehouse"), "view_reports"),
         (("/aftersales", "/api/aftermarket", "/api/after-sales"), "view_after_sales_cases"),
         (("/service/contract-intelligence", "/api/service-intelligence", "/service/customer-contracts", "/aftersales/customer-contracts", "/administration/manufacturer-coverage"), "service_intelligence.view"),
-        (("/clients", "/api/crm", "/api/erp/clients"), "view_all_clients"),
+        (("/clients", "/crm", "/api/crm", "/api/erp/clients", "/api/contacts"), "view_all_clients"),
+        (("/api/imports/customer-contacts",), "data_management.import.execute"),
     ]
     for prefixes, permission in route_permissions:
         if path.startswith(prefixes) and role != "admin" and permission not in permissions:
@@ -111,6 +114,7 @@ app.include_router(dashboard_api.router)
 app.include_router(sales_api.router)
 app.include_router(service_intelligence_api.router)
 app.include_router(schedule_api.router)
+app.include_router(customer_contacts_api.router)
 app.include_router(procurement_api.router)
 app.include_router(warehouse_api.router)
 app.include_router(aftersales_api.router)
