@@ -272,6 +272,7 @@ function getImportValidationErrors(row) {
 
 function initialPageFromPath() {
   const path = window.location.pathname.replace(/\/$/, "");
+  if (path.endsWith("/preventivemaintenance")) return "dashboard";
   if (path.endsWith("/contracts/dashboard")) return "dashboard";
   if (path.endsWith("/hospital-status")) return "hospital-status";
   if (path.endsWith("/contracts")) return "contracts";
@@ -280,10 +281,15 @@ function initialPageFromPath() {
 
 function routeForPage(page) {
   const path = window.location.pathname.replace(/\/$/, "");
+  if (path.startsWith("/aftersales/preventivemaintenance") || path.startsWith("/after-sales/preventivemaintenance")) {
+    if (page === "contracts") return "/aftersales/contracts";
+    if (page === "hospital-status") return "/aftersales/contracts/hospital-status";
+    return "/aftersales/preventivemaintenance";
+  }
   if (path.startsWith("/aftersales/contracts") || path.startsWith("/after-sales/contracts")) {
     if (page === "contracts") return "/aftersales/contracts";
     if (page === "hospital-status") return "/aftersales/contracts/hospital-status";
-    return "/aftersales/contracts/dashboard";
+    return "/aftersales/preventivemaintenance";
   }
   if (page === "contracts") return "/pm/contracts";
   if (page === "hospital-status") return "/pm/hospital-status";
@@ -1260,8 +1266,26 @@ export default function App() {
     }
   }
 
+  const normalizedPath = window.location.pathname.replace(/\/$/, "");
+  const isPreventiveMaintenanceRoute = normalizedPath.startsWith("/aftersales/preventivemaintenance") || normalizedPath.startsWith("/after-sales/preventivemaintenance");
+  const isContractsRoute = normalizedPath.startsWith("/aftersales/contracts") || normalizedPath.startsWith("/after-sales/contracts");
+  const isAfterSalesContractsRoute = isContractsRoute || isPreventiveMaintenanceRoute;
+  const showViewSwitcher = !(
+    (isPreventiveMaintenanceRoute && currentPage === "dashboard") ||
+    (isContractsRoute && (currentPage === "contracts" || currentPage === "contract-detail"))
+  );
   const topbarCopy =
-    currentPage === "hospital-status"
+    isPreventiveMaintenanceRoute && currentPage === "dashboard"
+      ? {
+          title: "Preventive Maintenance",
+          subtitle: "PM schedule, due work, reminders, and completion tracking.",
+        }
+      : isAfterSalesContractsRoute && currentPage === "dashboard"
+      ? {
+          title: "Manage Contracts",
+          subtitle: "PM commitments, imported schedules, reminders, and contract execution.",
+        }
+      : currentPage === "hospital-status"
       ? {
           title: "After Sales Contracts",
           subtitle: "Customer service contract coverage, renewal risk, and uncovered equipment by hospital.",
@@ -1286,8 +1310,6 @@ export default function App() {
           </div>
 
           <div className="erp-top-actions">
-            <a className="button button-soft" href="/">Home</a>
-            <a className="button button-soft" href="/warehouse">Warehouse</a>
             {currentPage === "dashboard" ? (
               <ImportExportBar
                 fileInputRef={fileInputRef}
@@ -1300,19 +1322,21 @@ export default function App() {
         </div>
 
         {currentPage === "dashboard" ? (
-            <DashboardCards metrics={metrics} timingFilter={timingFilter} onMetricFilterSelect={handleMetricFilterSelect} />
+          <DashboardCards metrics={metrics} timingFilter={timingFilter} onMetricFilterSelect={handleMetricFilterSelect} />
         ) : null}
-        <div className="view-toggle-row">
-          <button className={`button ${currentPage === "dashboard" ? "button-primary" : ""}`} onClick={() => navigatePage("dashboard")}>
-            Dashboard
-          </button>
-          <button className={`button ${currentPage === "hospital-status" ? "button-primary" : ""}`} onClick={() => navigatePage("hospital-status")}>
-            Hospital Contract Status
-          </button>
-          <button className={`button ${currentPage === "contracts" ? "button-primary" : ""}`} onClick={openContractsView}>
-            Contracts View
-          </button>
-        </div>
+        {showViewSwitcher ? (
+          <div className="view-toggle-row">
+            <button className={`button ${currentPage === "dashboard" ? "button-primary" : ""}`} onClick={() => navigatePage("dashboard")}>
+              Dashboard
+            </button>
+            <button className={`button ${currentPage === "hospital-status" ? "button-primary" : ""}`} onClick={() => navigatePage("hospital-status")}>
+              Hospital Contract Status
+            </button>
+            <button className={`button ${currentPage === "contracts" ? "button-primary" : ""}`} onClick={openContractsView}>
+              Contracts View
+            </button>
+          </div>
+        ) : null}
 
         {currentPage === "dashboard" ? (
           <FiltersBar

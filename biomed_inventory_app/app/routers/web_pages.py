@@ -21,7 +21,7 @@ def _redirect_with_query(request: Request, destination: str) -> RedirectResponse
 def _canonical_aftersales_section(section: str) -> str:
     section = section.strip("/")
     if section == "pm" or section.startswith("pm/") or section == "pm-tracking" or section.startswith("pm-tracking/"):
-        return f"/aftersales/preventive-maintenance/{section.split('/', 1)[1]}".rstrip("/") if "/" in section else "/aftersales/preventive-maintenance"
+        return "/aftersales/preventivemaintenance"
     if section == "service-cases" or section.startswith("service-cases/"):
         return "/aftersales/service-calls"
     if section == "service-history" or section.startswith("service-history/"):
@@ -50,22 +50,44 @@ def after_sales_legacy_section_alias(section: str, request: Request):
     return _redirect_with_query(request, _canonical_aftersales_section(section))
 
 
+@router.get("/aftersales/contracts/dashboard", include_in_schema=False)
+@router.get("/after-sales/contracts/dashboard", include_in_schema=False)
+def aftersales_contracts_dashboard_alias(request: Request):
+    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
+
+
+@router.get("/aftersales/preventivemaintenance", include_in_schema=False)
+@router.get("/aftersales/preventivemaintenance/{section:path}", include_in_schema=False)
+@router.get("/after-sales/preventivemaintenance", include_in_schema=False)
+@router.get("/after-sales/preventivemaintenance/{section:path}", include_in_schema=False)
+def aftersales_preventive_maintenance_dashboard(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "pm" / "index.html")
+
+
+@router.get("/aftersales/contracts", include_in_schema=False)
+@router.get("/aftersales/contracts/{section:path}", include_in_schema=False)
+@router.get("/after-sales/contracts", include_in_schema=False)
+@router.get("/after-sales/contracts/{section:path}", include_in_schema=False)
+def aftersales_contracts_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "pm" / "index.html")
+
+
 @router.get("/aftersales/pm", include_in_schema=False)
 @router.get("/aftersales/pm/{section:path}", include_in_schema=False)
 @router.get("/aftersales/preventive-maintenance", include_in_schema=False)
 @router.get("/aftersales/preventive-maintenance/{section:path}", include_in_schema=False)
-def aftersales_preventive_maintenance_page(section: str = ""):
-    return FileResponse(legacy_main.BASE_DIR / "static" / "pm.html")
+def aftersales_preventive_maintenance_page(request: Request, section: str = ""):
+    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
 
 
 @router.get("/aftersales/pm-tracking", include_in_schema=False)
 def aftersales_pm_tracking_alias(request: Request):
-    return _redirect_with_query(request, "/aftersales/preventive-maintenance")
+    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
 
 
 @router.get("/aftersales/pm-tracking/{section:path}", include_in_schema=False)
 def aftersales_pm_tracking_section_alias(section: str, request: Request):
-    return _redirect_with_query(request, f"/aftersales/preventive-maintenance/{section}")
+    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
 
 
 @router.get("/aftersales/service-cases", include_in_schema=False)

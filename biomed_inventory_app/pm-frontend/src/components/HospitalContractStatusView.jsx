@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  MoreHorizontal,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -301,10 +302,17 @@ export default function HospitalContractStatusView({
             <RefreshCw size={15} className="inline-icon" />
             Refresh
           </button>
-          <button className="button button-primary" onClick={exportVisibleRows}>
-            <Download size={15} className="inline-icon" />
-            Export
-          </button>
+          <details className="utility-menu">
+            <summary aria-label="Hospital status utilities">
+              <MoreHorizontal size={18} />
+            </summary>
+            <div className="utility-popover">
+              <button type="button" onClick={exportVisibleRows}>
+                <Download size={15} className="inline-icon" />
+                Export visible rows
+              </button>
+            </div>
+          </details>
         </div>
       </section>
 

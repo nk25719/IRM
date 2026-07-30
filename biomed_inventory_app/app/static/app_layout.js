@@ -71,7 +71,7 @@
         ["Dashboard", "/aftersales/dashboard"],
         ["Service Calls", "/aftersales/service-calls"],
         ["Quotations", "/aftersales/quotations"],
-        ["Preventive Maintenance", "/aftersales/preventive-maintenance"],
+        ["Preventive Maintenance", "/aftersales/preventivemaintenance"],
         ["Installations", "/aftersales/installations"],
         ["Deliveries", "/aftersales/deliveries"],
         ["Trainings", "/aftersales/trainings"],
@@ -174,7 +174,7 @@
       ["Dashboard", "/aftersales/dashboard"],
       ["Service Calls", "/aftersales/service-calls"],
       ["Quotations", "/aftersales/quotations"],
-      ["Preventive Maintenance", "/aftersales/preventive-maintenance"],
+      ["Preventive Maintenance", "/aftersales/preventivemaintenance"],
       ["Installations", "/aftersales/installations"],
       ["Deliveries", "/aftersales/deliveries"],
       ["Trainings", "/aftersales/trainings"],
@@ -385,7 +385,7 @@
 
   function addSubnav(module, currentPath) {
     const links = subnav[module.href];
-    if (!links || isHome) return;
+    if (!links || isHome || module.links?.length) return;
     const main = document.querySelector("main");
     if (!main || main.querySelector("[data-section-tabs], .erp-page-tabs")) return;
     const activeHref = activeSubnavHref(links, currentPath);
@@ -403,6 +403,7 @@
   function addDataActions(currentPath) {
     const main = document.querySelector("main");
     if (!main || isHome || main.querySelector("[data-irm-data-actions]")) return;
+    if (isAftermarketPath(currentPath)) return;
     const config = dataActions.find((item) => item.match.some((value) => {
       const normalized = canonicalPath(value.replace(/\/$/, "") || "/");
       return currentPath === normalized || (normalized !== "/" && currentPath.startsWith(`${normalized}/`));
@@ -533,7 +534,7 @@
       currentPath.startsWith("/aftersales/equipment")
     ) return "/aftersales/service-calls";
     if (currentPath.includes("/quotations")) return "/aftersales/quotations";
-    if (currentPath.includes("/preventive-maintenance") || currentPath.includes("/pm") || currentPath.includes("/pm-tracking") || currentPath.includes("/schedule")) return "/aftersales/preventive-maintenance";
+    if (currentPath.includes("/preventivemaintenance") || currentPath.includes("/contracts/dashboard") || currentPath.includes("/preventive-maintenance") || currentPath.includes("/pm") || currentPath.includes("/pm-tracking") || currentPath.includes("/schedule")) return "/aftersales/preventivemaintenance";
     if (currentPath.includes("/installations") || currentPath.includes("/delivery-installation")) return "/aftersales/installations";
     if (currentPath.includes("/deliveries")) return "/aftersales/deliveries";
     if (currentPath.includes("/trainings") || currentPath.includes("/training-demo")) return "/aftersales/trainings";
@@ -541,6 +542,16 @@
     if (currentPath.includes("/spare-parts")) return "/aftersales/spare-parts";
     if (currentPath.includes("/technical-cases") || currentPath.includes("/fmi-recall") || currentPath.includes("/fmi-field-modifications") || currentPath.includes("/analytics")) return "/aftersales/technical-cases";
     return "/aftersales/dashboard";
+  }
+
+  function isAftermarketPath(currentPath) {
+    return (
+      currentPath.startsWith("/aftersales") ||
+      currentPath.startsWith("/after-sales") ||
+      currentPath.startsWith("/service/contract-intelligence") ||
+      currentPath.startsWith("/service/customer-contracts") ||
+      currentPath.startsWith("/administration/manufacturer-coverage")
+    );
   }
 
   function getBackTarget(currentPath, module) {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, CheckCircle2, Download, FileCog, FileText, FileUp, PlusCircle, Wrench } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Download, FileCog, FileText, FileUp, MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 
 function getContractTimingLabel(daysLeft) {
   if (daysLeft < 0) return { label: `Expired ${Math.abs(daysLeft)} day(s) ago`, className: "badge badge-overdue" };
@@ -45,34 +45,12 @@ export default function ContractTrackerView({
 
   return (
     <div className="card contracts-view-card">
-      <div className="detail-head">
-        <div>
-          <h2 className="section-title">Hospital Contracts</h2>
-          <div className="hospital-headline">
-            <FileText size={16} className="inline-icon" />
-            Independent contract tracker with renewal reminders
-          </div>
-        </div>
+      <div className="contracts-toolbar">
         <div className="actions actions-friendly">
-          <a className="button button-primary" href="/aftersales/contracts/dashboard" aria-label="Manage Contracts">
+          <a className="button button-primary" href="/aftersales/preventivemaintenance" aria-label="Manage Contracts">
             <FileCog size={15} className="inline-icon" />
             Manage Contracts
           </a>
-          <input
-            ref={contractFileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            className="hidden-input"
-            onChange={onImportContracts}
-          />
-          <button className="button button-soft" onClick={() => contractFileInputRef?.current?.click()}>
-            <FileUp size={15} className="inline-icon" />
-            Import contracts
-          </button>
-          <button className="button button-soft" onClick={onExportContractsCsv}>
-            <Download size={15} className="inline-icon" />
-            Export contracts
-          </button>
           <button className="button button-soft" onClick={onOpenHospitalStatus} aria-label="Open Hospital Contract Status">
             <BarChart3 size={15} className="inline-icon" />
             Hospital Contract Status
@@ -81,6 +59,28 @@ export default function ContractTrackerView({
             <PlusCircle size={15} className="inline-icon" />
             {isAddEquipmentVisible ? "Hide add equipment" : "Add equipment"}
           </button>
+          <details className="utility-menu">
+            <summary aria-label="Contract utilities">
+              <MoreHorizontal size={18} />
+            </summary>
+            <div className="utility-popover">
+              <input
+                ref={contractFileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden-input"
+                onChange={onImportContracts}
+              />
+              <button type="button" onClick={() => contractFileInputRef?.current?.click()}>
+                <FileUp size={15} className="inline-icon" />
+                Import contracts
+              </button>
+              <button type="button" onClick={onExportContractsCsv}>
+                <Download size={15} className="inline-icon" />
+                Export contracts
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export default function ContractTrackerView({
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={5} className="empty-state empty-state-compact">
                     No equipment linked to contracts yet.
                   </td>
                 </tr>
@@ -188,7 +188,7 @@ export default function ContractTrackerView({
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={5} className="empty-state empty-state-compact">
                     No contracts found in this view.
                   </td>
                 </tr>

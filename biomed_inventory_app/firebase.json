@@ -24,7 +24,27 @@
       },
       {
         "source": "/after-sales/pm",
-        "destination": "/aftersales/preventive-maintenance",
+        "destination": "/aftersales/preventivemaintenance",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/contracts/dashboard",
+        "destination": "/aftersales/preventivemaintenance",
+        "type": 302
+      },
+      {
+        "source": "/after-sales/contracts/dashboard",
+        "destination": "/aftersales/preventivemaintenance",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/preventive-maintenance",
+        "destination": "/aftersales/preventivemaintenance",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/preventive-maintenance/**",
+        "destination": "/aftersales/preventivemaintenance",
         "type": 302
       },
       {
@@ -34,12 +54,12 @@
       },
       {
         "source": "/aftersales/pm-tracking",
-        "destination": "/aftersales/preventive-maintenance",
+        "destination": "/aftersales/preventivemaintenance",
         "type": 302
       },
       {
         "source": "/after-sales/pm-tracking",
-        "destination": "/aftersales/preventive-maintenance",
+        "destination": "/aftersales/preventivemaintenance",
         "type": 302
       },
       {
@@ -142,6 +162,22 @@
         "destination": "/warehouse.html"
       },
       {
+        "source": "/aftersales/preventivemaintenance",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/aftersales/preventivemaintenance{,/**}",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/after-sales/preventivemaintenance",
+        "destination": "/pm/index.html"
+      },
+      {
+        "source": "/after-sales/preventivemaintenance{,/**}",
+        "destination": "/pm/index.html"
+      },
+      {
         "source": "/aftersales/contracts{,/**}",
         "destination": "/pm/index.html"
       },
@@ -151,23 +187,23 @@
       },
       {
         "source": "/aftersales/pm{,/**}",
-        "destination": "/pm.html"
+        "destination": "/pm/index.html"
       },
       {
         "source": "/aftersales/preventive-maintenance{,/**}",
-        "destination": "/pm.html"
+        "destination": "/pm/index.html"
       },
       {
         "source": "/after-sales/pm{,/**}",
-        "destination": "/pm.html"
+        "destination": "/pm/index.html"
       },
       {
         "source": "/aftersales/pm-tracking{,/**}",
-        "destination": "/pm.html"
+        "destination": "/pm/index.html"
       },
       {
         "source": "/after-sales/pm-tracking{,/**}",
-        "destination": "/pm.html"
+        "destination": "/pm/index.html"
       },
       {
         "source": "/aftersales/reports",

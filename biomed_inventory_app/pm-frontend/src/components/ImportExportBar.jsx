@@ -1,22 +1,27 @@
 import React from "react";
-import { Download, FileUp } from "lucide-react";
+import { Download, FileUp, MoreHorizontal } from "lucide-react";
 
 export default function ImportExportBar({ fileInputRef, onImportChange, onExportCsv, onExportJson }) {
   return (
-    <div className="actions actions-friendly">
+    <details className="utility-menu">
+      <summary aria-label="Import and export">
+        <MoreHorizontal size={18} />
+      </summary>
+      <div className="utility-popover">
       <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.json" className="hidden-input" onChange={onImportChange} />
-      <button className="button button-soft" onClick={() => fileInputRef.current?.click()}>
+      <button type="button" onClick={() => fileInputRef.current?.click()}>
         <FileUp size={15} className="inline-icon" />
         Import CSV/Excel/JSON
       </button>
-      <button className="button button-soft" onClick={onExportCsv}>
+      <button type="button" onClick={onExportCsv}>
         <Download size={15} className="inline-icon" />
         Export CSV
       </button>
-      <button className="button button-soft" onClick={onExportJson}>
+      <button type="button" onClick={onExportJson}>
         <Download size={15} className="inline-icon" />
         Export JSON
       </button>
-    </div>
+      </div>
+    </details>
   );
 }
