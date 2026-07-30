@@ -587,6 +587,68 @@ body.erp-layout-active main {
   padding: 20px;
 }
 
+.irm-data-actions {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.irm-data-actions strong,
+.irm-data-actions span {
+  display: block;
+}
+
+.irm-data-actions strong {
+  color: var(--primary-dark);
+  font-size: 14px;
+}
+
+.irm-data-actions span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.irm-data-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.irm-data-action {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--primary-dark);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.irm-data-action--import,
+.irm-data-action--export {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.irm-data-action--export {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .status-badge,
 .badge {
   border-radius: 8px;
@@ -1071,6 +1133,15 @@ a {
 }
 
 @media (max-width: 860px) {
+  .irm-data-actions {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .irm-data-actions__buttons {
+    justify-content: flex-start;
+  }
+
   body.erp-layout-active {
     padding-left: 0;
     padding-top: 70px;

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import os
+from datetime import datetime
 from typing import Any
 
 from openpyxl import Workbook
@@ -33,6 +35,16 @@ def calculate_totals(items: list[dict[str, Any]], discount_amount: Any = 0, vat_
     vat = round(taxable * (money(vat_rate) / 100), 2)
     total = round(taxable + vat, 2)
     return {"subtotal": subtotal, "discount_amount": discount, "vat_amount": vat, "total_amount": total}
+
+
+def display_date(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        return datetime.fromisoformat(text).strftime("%d/%m/%Y")
+    except ValueError:
+        return text
 
 
 def build_excel(quotation: dict[str, Any], items: list[dict[str, Any]], client: dict[str, Any] | None = None) -> bytes:
@@ -214,7 +226,7 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import mm
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
         output = io.BytesIO()
         doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm)
@@ -230,18 +242,16 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
         sales_person = quotation.get("sales_person") or quotation.get("prepared_by") or "Nagham Kheir"
 
         story = []
-        header = Table([
-            [Paragraph("<b>CMM</b><br/><font size='8'>Clinical Medical Maintenance</font>", styles["Title"]), Paragraph("<b>Financial Offer</b>", title)],
-        ], colWidths=[110 * mm, 48 * mm])
-        header.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ]))
-        story.extend([header, Spacer(1, 6)])
+        logo_path = quotation.get("logo_asset") or os.getenv("CMM_QUOTATION_LOGO_PATH", "")
+        if logo_path and os.path.exists(logo_path):
+            logo = Image(logo_path, width=42 * mm, height=22 * mm)
+            logo.hAlign = "CENTER"
+            story.extend([logo, Spacer(1, 8)])
+        else:
+            story.extend([Paragraph("<para align='center'><b>CMM</b><br/><font size='8'>Clinical Medical Maintenance</font></para>", styles["Title"]), Spacer(1, 8)])
 
         details = [
-            ["Customer", client_name, "Date", quotation.get("quotation_date") or quotation.get("quote_date") or ""],
+            ["Customer", client_name, "Date", display_date(quotation.get("quotation_date") or quotation.get("quote_date"))],
             ["Offer Ref.", offer_ref, "Sales Person", sales_person],
             ["Phone Number", phone, "Email", email],
         ]
@@ -252,11 +262,11 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ]))
-        story.extend([detail_table, Spacer(1, 12), Paragraph("<b>Financial Offer:</b>", title)])
+        story.extend([detail_table, Spacer(1, 12), Paragraph("<b><i><u>Financial Offer:</u></i></b>", title)])
 
-        data = [["Qty", "Description", f"{currency} Unit Price", f"{currency} Tot. Price"]]
+        data = [["Qty", "Description", currency, ""], ["", "", "Unit Price", "Tot. Price"]]
         spans = []
-        row_index = 1
+        row_index = 2
         for group in grouped_items(items, groups):
             data.append([Paragraph(f"<b>{group['title']}</b>", normal), "", "", ""])
             spans.append(row_index)
@@ -264,18 +274,23 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
             for item in group["items"]:
                 code = item.get("item_code") or item.get("manufacturer_part_number") or item.get("ref") or ""
                 desc = item.get("description") or ""
-                description = Paragraph(f"<b>P/N: {code}</b><br/>Description: {desc}", pn_style)
+                prefix = "P/N:" if item.get("item_type") in {"spare_part", "part", None, ""} else f"{str(item.get('item_type') or 'Service').replace('_', ' ').title()}:"
+                description = Paragraph(f"<b>{prefix} {code}</b><br/>Description: {desc}" if code else f"<b>{prefix}</b><br/>Description: {desc}", pn_style)
                 quantity = money(item.get("quantity") if item.get("quantity") is not None else item.get("qty"))
                 line_total = calculate_item_total(item)
                 data.append([f"{quantity:g}", description, f"{money(item.get('unit_price')):,.2f}", f"{line_total:,.2f}"])
                 row_index += 1
 
-        table = Table(data, repeatRows=1, colWidths=[18 * mm, 90 * mm, 28 * mm, 30 * mm])
+        table = Table(data, repeatRows=2, colWidths=[24 * mm, 96 * mm, 20 * mm, 20 * mm])
         table_style = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9D9D9")),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("SPAN", (0, 0), (0, 1)),
+            ("SPAN", (1, 0), (1, 1)),
+            ("SPAN", (2, 0), (3, 0)),
+            ("BACKGROUND", (0, 0), (-1, 1), colors.HexColor("#D9D9D9")),
+            ("FONTNAME", (0, 0), (-1, 1), "Helvetica-Bold"),
             ("ALIGN", (0, 0), (0, -1), "CENTER"),
-            ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+            ("ALIGN", (2, 0), (3, 1), "CENTER"),
+            ("ALIGN", (2, 2), (-1, -1), "RIGHT"),
             ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#808080")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -290,23 +305,30 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
         table.setStyle(TableStyle(table_style))
         story.extend([table, Spacer(1, 10)])
 
+        vat_label = "VAT EXEMPT" if money(quotation.get("vat_rate")) == 0 else f"{money(quotation.get('vat_rate')):g}% VAT"
         total_data = [
-            [f"TOTAL BEFORE VAT {currency}", f"{totals['subtotal']:,.2f}"],
-            [f"{money(quotation.get('vat_rate')):g}% VAT {currency}", f"{totals['vat_amount']:,.2f}"],
-            [f"TOTAL {currency}", f"{totals['total_amount']:,.2f}"],
+            ["TOTAL BEFORE VAT", currency, f"{totals['subtotal']:,.2f}"],
+            [vat_label, currency, f"{totals['vat_amount']:,.2f}"],
+            ["TOTAL", currency, f"{totals['total_amount']:,.2f}"],
         ]
-        total_table = Table(total_data, colWidths=[54 * mm, 30 * mm], hAlign="RIGHT")
+        total_table = Table(total_data, colWidths=[48 * mm, 14 * mm, 30 * mm], hAlign="RIGHT")
         total_table.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#808080")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("LINEABOVE", (0, 0), (-1, 0), 0.6, colors.black),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+            ("ALIGN", (1, 0), (1, -1), "CENTER"),
+            ("ALIGN", (2, 0), (2, -1), "RIGHT"),
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EDEDED")),
         ]))
         story.extend([total_table, Spacer(1, 12)])
         story.extend([
-            Paragraph("<b>Conditions:</b>", normal),
+            Paragraph("<b><i><u>Conditions:</u></i></b>", normal),
             Paragraph(f"Validity: {quotation.get('valid_until') or ''}", normal),
             Paragraph(f"Payment terms: {quotation.get('payment_terms') or ''}", normal),
+            Paragraph(f"Delivery: {quotation.get('delivery_terms') or ''}", normal),
+            Paragraph(f"Warranty: {quotation.get('warranty_terms') or ''}", normal),
+            Spacer(1, 8),
+            Paragraph(f"<i>{quotation.get('disclaimer') or 'Should the issue persist following this service, further troubleshooting or additional parts may be required, and a separate quotation will be issued.'}</i>", small),
         ])
 
         class NumberedCanvas:
@@ -334,11 +356,23 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
 
         def footer(canvas, doc_obj):
             canvas.saveState()
-            canvas.setFont("Helvetica", 8)
-            canvas.drawString(18 * mm, 10 * mm, "Financial Offer")
-            canvas.drawCentredString(A4[0] / 2, 10 * mm, "CMM-SA-F-04-03-Edition01")
+            if str(quotation.get("status") or "draft").casefold() != "approved":
+                canvas.setFillColor(colors.Color(0.75, 0.75, 0.75, alpha=0.18))
+                canvas.setFont("Helvetica-Bold", 72)
+                canvas.translate(A4[0] / 2, A4[1] / 2)
+                canvas.rotate(35)
+                canvas.drawCentredString(0, 0, "DRAFT")
+                canvas.rotate(-35)
+                canvas.translate(-A4[0] / 2, -A4[1] / 2)
+            canvas.setFillColor(colors.HexColor("#666666"))
+            canvas.setFont("Helvetica", 7)
+            form_code = quotation.get("footer_form_code") or quotation.get("form_code") or "CMM-SA-F-04-03-Edition01"
+            canvas.drawString(18 * mm, 12 * mm, "Financial Offer")
+            canvas.drawString(18 * mm, 8 * mm, form_code)
+            legal = quotation.get("company_legal_information") or "CMM approved company profile - capital, registration, VAT, address, telephone, mobile, fax, website"
+            canvas.drawCentredString(A4[0] / 2, 8 * mm, str(legal)[:140])
             page_count = getattr(canvas, "_page_count", doc_obj.page)
-            canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Page {doc_obj.page} of {page_count}")
+            canvas.drawRightString(A4[0] - 18 * mm, 8 * mm, f"Page {doc_obj.page} of {page_count}")
             canvas.restoreState()
 
         doc.build(story, canvasmaker=NumberedCanvas)
@@ -347,7 +381,8 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
         lines = [
             COMPANY_NAME,
             COMPANY_SUBTITLE,
-            "QUOTATION",
+            "DRAFT" if str(quotation.get("status") or "draft").casefold() != "approved" else "APPROVED",
+            "Financial Offer:",
             f"Client: {client_name}",
             f"Quotation No.: {quotation.get('quotation_number') or quotation.get('quotation_no') or ''}",
             f"Date: {quotation.get('quotation_date') or quotation.get('quote_date') or ''} Valid: {quotation.get('valid_until') or ''}",
@@ -356,5 +391,7 @@ def build_pdf(quotation: dict[str, Any], items: list[dict[str, Any]], client: di
         ]
         for item in items:
             lines.append(f"{item.get('item_code') or ''} {item.get('description') or ''} qty {item.get('quantity') or item.get('qty') or ''} total {item.get('line_total') or item.get('total_price') or ''}")
-        lines.extend(["", f"Subtotal: {totals['subtotal']:,.2f}", f"VAT: {totals['vat_amount']:,.2f}", f"Total: {totals['total_amount']:,.2f}", "", "Signature: ____________________"])
+        form_code = quotation.get("footer_form_code") or quotation.get("form_code") or "CMM-SA-F-04-03-Edition01"
+        vat_label = "VAT EXEMPT" if money(quotation.get("vat_rate")) == 0 else f"{money(quotation.get('vat_rate')):g}% VAT"
+        lines.extend(["", f"TOTAL BEFORE VAT {quotation.get('currency') or 'USD'} {totals['subtotal']:,.2f}", f"{vat_label} {quotation.get('currency') or 'USD'} {totals['vat_amount']:,.2f}", f"TOTAL {quotation.get('currency') or 'USD'} {totals['total_amount']:,.2f}", "", "Conditions:", f"Validity: {quotation.get('valid_until') or ''}", f"Payment terms: {quotation.get('payment_terms') or ''}", "", "Financial Offer", form_code, "Page 1 of 1"])
         return _minimal_pdf_bytes(lines)

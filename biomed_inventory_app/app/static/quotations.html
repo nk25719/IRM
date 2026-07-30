@@ -37,11 +37,23 @@
           <button class="primary">Create</button>
         </form>
         <hr>
-        <div class="quote-actions">
+        <div class="quote-actions" id="quotation-import">
           <button onclick="loadQuotations()">Refresh</button>
+          <button onclick="toggleAIComposer()">Create Quotation with AI</button>
           <button onclick="createDemo()">Create CMM Demo</button>
           <label class="quote-actions"><input id="uploadFile" type="file" accept=".xlsx,.xlsm,.csv,.pdf,.doc,.docx,.txt" hidden onchange="uploadImport(event)"><button onclick="uploadFile.click()">Upload file</button></label>
         </div>
+        <section id="aiComposer" class="group-card" hidden>
+          <h3>Create Quotation with AI</h3>
+          <select id="aiClientId"></select>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="aiServiceReport" placeholder="Service report number">
+            <input id="aiCurrency" value="USD" placeholder="Preferred currency">
+          </div>
+          <textarea id="aiInput" placeholder="Paste the engineer's inspection findings, diagnosis, required parts, working hours, prices and any customer requirements. The information can be written informally."></textarea>
+          <div class="quote-actions"><button class="primary" onclick="generateAIDraft()">Generate Draft</button></div>
+          <div id="aiReview" class="muted-small"></div>
+        </section>
         <div id="importReview"></div>
         <h2>Recent quotations</h2>
         <div id="quotationList" class="quote-list"></div>
@@ -52,8 +64,11 @@
             <h2 id="quoteTitle">Open or create a quotation</h2>
             <p class="muted-small">Quotation items remain a commercial offer only. Stock and procurement demand start after conversion to Customer Order.</p>
           </div>
-          <div class="quote-actions">
+          <div class="quote-actions" id="quotation-export">
             <button onclick="validateAI()">AI review</button>
+            <button onclick="submitReview()">Submit for approval</button>
+            <button onclick="approveQuote()">Approve</button>
+            <button onclick="generatePdf()">Generate PDF</button>
             <a id="excelExport" href="#">Export Excel</a>
             <a id="pdfExport" href="#">Export PDF</a>
           </div>
@@ -74,6 +89,13 @@
 
         <div class="groups" id="groups"></div>
         <div class="quote-summary" id="totals"></div>
+        <section class="group-card" id="pdfPreviewCard" hidden>
+          <div class="section-title">
+            <h3>PDF Preview</h3>
+            <div class="quote-actions"><button onclick="refreshPreview()">Refresh preview</button><a id="previewDownload" href="#">Download draft PDF</a></div>
+          </div>
+          <iframe id="pdfPreview" title="Quotation PDF preview" style="border:1px solid var(--line);border-radius:8px;height:680px;width:100%"></iframe>
+        </section>
       </section>
     </section>
   </main>
@@ -84,9 +106,9 @@
     const money=v=>Number(v||0).toFixed(2);
     async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());const type=res.headers.get("content-type")||"";return type.includes("json")?res.json():res.text()}
     function today(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10)}
-    async function loadClients(){try{const clients=await api("/api/erp/clients?limit=500");clientId.innerHTML=`<option value="">Select client</option>`+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}catch(e){clientId.innerHTML=`<option value="1">Client #1</option>`}}
+    async function loadClients(){try{const clients=await api("/api/erp/clients?limit=500");const options=`<option value="">Select client</option>`+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");clientId.innerHTML=options;aiClientId.innerHTML=options;const qs=new URLSearchParams(location.search);if(qs.get("client_id")){clientId.value=qs.get("client_id");aiClientId.value=qs.get("client_id")} }catch(e){clientId.innerHTML=`<option value="1">Client #1</option>`;aiClientId.innerHTML=clientId.innerHTML}}
     async function loadQuotations(){const rows=await api("/quotations");quotationList.innerHTML=rows.map(q=>`<button class="${selectedQuotation&&selectedQuotation.id===q.id?"active":""}" onclick="openQuotation(${q.id})"><b>${esc(q.quotation_number||q.quotation_no||q.id)}</b><span class="muted-small"> ${esc(q.status)} - ${money(q.total_amount)} ${esc(q.currency||"USD")}</span></button>`).join("")||`<span class="muted-small">No quotations yet.</span>`}
-    async function openQuotation(id){selectedQuotation=await api(`/quotations/${id}`);excelExport.href=`/quotations/${id}/export/excel`;pdfExport.href=`/quotations/${id}/export/pdf`;renderQuotation();loadQuotations()}
+    async function openQuotation(id){selectedQuotation=await api(`/quotations/${id}`);excelExport.href=`/quotations/${id}/export/excel`;pdfExport.href=`/quotations/${id}/export/pdf`;renderQuotation();loadQuotations();refreshPreview()}
     async function createQuotation(e){e.preventDefault();const payload={client_id:Number(clientId.value),quotation_number:quotationNumber.value||null,quotation_date:quotationDate.value||today(),valid_until:validUntil.value||today(7),currency:currency.value||"USD",status:status.value||"draft",vat_rate:Number(vatRate.value||11),payment_terms:paymentTerms.value,sales_person:salesPerson.value,phone_number:phoneNumber.value,email:email.value,notes:notes.value,items:importedItems};selectedQuotation=await api("/quotations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});importedItems=[];importReview.innerHTML="";await openQuotation(selectedQuotation.id)}
     async function createDemo(){selectedQuotation=await api("/quotations/demo/cmm-service-offer",{method:"POST"});await openQuotation(selectedQuotation.id)}
     function groupTitle(g){let title=g.equipment_name||g.model||"Equipment";if(g.model&&!(title||"").includes(g.model))title+=` - ${g.model}`;if(g.serial_number)title+=` - S.N.${g.serial_number}`;if(g.service_report_number)title+=` SR#: ${g.service_report_number}`;return title}
@@ -104,8 +126,16 @@
     async function deleteGroup(id){await fetch(`/quotations/${selectedQuotation.id}/equipment-groups/${id}`,{method:"DELETE"});await openQuotation(selectedQuotation.id)}
     async function deleteItem(id){await fetch(`/quotations/${selectedQuotation.id}/items/${id}`,{method:"DELETE"});await openQuotation(selectedQuotation.id)}
     async function validateAI(){if(!selectedQuotation){alert("Open a quotation first.");return}await api(`/quotations/${selectedQuotation.id}/validate-ai`,{method:"POST"});await openQuotation(selectedQuotation.id)}
+    async function submitReview(){if(!selectedQuotation)return alert("Open a quotation first.");await api(`/quotations/${selectedQuotation.id}/submit-review`,{method:"POST"});await openQuotation(selectedQuotation.id)}
+    async function approveQuote(){if(!selectedQuotation)return alert("Open a quotation first.");await api(`/quotations/${selectedQuotation.id}/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({approved_by:"authorised_user"})});await openQuotation(selectedQuotation.id)}
+    async function generatePdf(){if(!selectedQuotation)return alert("Open a quotation first.");await api(`/quotations/${selectedQuotation.id}/generate-pdf`,{method:"POST"});refreshPreview()}
+    function refreshPreview(){if(!selectedQuotation){pdfPreviewCard.hidden=true;return}const url=`/quotations/${selectedQuotation.id}/export/pdf?ts=${Date.now()}`;pdfPreviewCard.hidden=false;pdfPreview.src=url;previewDownload.href=url}
+    function toggleAIComposer(){aiComposer.hidden=!aiComposer.hidden}
+    async function generateAIDraft(){if(!aiClientId.value)return alert("Select or confirm the client first.");if(!aiInput.value.trim())return alert("Describe the required quotation first.");aiReview.innerHTML="Extracting structured draft...";const context={client_id:Number(aiClientId.value),preferred_currency:aiCurrency.value||"USD",service_report_number:aiServiceReport.value||null,contact_id:new URLSearchParams(location.search).get("contact_id")?Number(new URLSearchParams(location.search).get("contact_id")):null};const extracted=await api("/quotations/ai/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:aiInput.value,context})});const result=extracted.result;aiReview.innerHTML=`<div><b>Review required</b></div><div>Items: ${esc((result.items||[]).length)} · Labour: ${esc((result.labour||[]).length)}</div><div>${esc((result.missing_information||[]).join("; "))}</div>`;const draft=await api("/quotations/ai/create-draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({extraction:result,context})});selectedQuotation=draft.quotation;await openQuotation(selectedQuotation.id);aiComposer.hidden=true}
     async function uploadImport(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append("file",file);const data=await api("/quotations/import",{method:"POST",body});importedItems=data.items||[];importReview.innerHTML=`<div class="import-review"><b>${esc(data.filename)}</b><div class="muted-small">${data.item_count} flat item(s) ready for review. They will be saved as General Items when you create a quotation.</div></div>`}
-    quotationDate.value=today();validUntil.value=today(7);loadClients();loadQuotations();
+    function applyDeepLink(){if(location.hash==="#quotation-import")quotationImport?.scrollIntoView({block:"center"});if(location.hash==="#quotation-export")quotationExport?.scrollIntoView({block:"center"})}
+    window.addEventListener("hashchange",applyDeepLink);
+    quotationDate.value=today();validUntil.value=today(7);loadClients();loadQuotations();applyDeepLink();
   </script>
   <script src="/static/app_layout.js"></script>
 </body>

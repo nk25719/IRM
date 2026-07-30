@@ -18,7 +18,7 @@
       </div>
     </section>
     <section class="card metric-grid" id="metrics"></section>
-    <section class="card">
+    <section class="card" id="contact-import">
       <div class="toolbar">
         <label>Search <input id="q" placeholder="Name, email, phone, domain"></label>
         <label>Organization <select id="organizationType"><option value="">All</option><option>client</option><option>manufacturer</option><option>supplier</option><option>personal</option><option>unknown</option></select></label>
@@ -34,12 +34,12 @@
     <section class="card">
       <h2>Outlook Customer Contacts Import</h2>
       <div class="toolbar">
-        <input id="importFile" type="file" accept=".xlsx,.xlsm">
-        <button onclick="previewImport()">Preview workbook</button>
+        <input id="importFile" type="file" accept=".xlsx,.csv">
+        <button onclick="previewImport()">Upload and analyse</button>
         <button class="primary" onclick="confirmImport()">Confirm reviewed rows</button>
         <a id="reportLink" class="button-like" href="#">Download report</a>
       </div>
-      <div id="importPreview" class="import-preview muted">Upload `Customer_Contacts-2.xlsx` to stage rows before changing CRM contacts.</div>
+      <div id="importPreview" class="import-preview muted">Upload .xlsx or .csv customer contacts to create a background import job.</div>
     </section>
     <section id="detailCard" class="card" hidden></section>
     <section class="card">
@@ -52,7 +52,7 @@
     </section>
   </main>
   <script>
-    let importId=null;
+    let importId=null, importPoll=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.headers.get("content-type")?.includes("json")?res.json():res.text()}
     function badge(v){const c=v==="complete"?"ok":v==="high"||v==="active"||v==="moderate"||v==="low"?v:"review";return `<span class="badge ${c}">${esc(v||"unknown")}</span>`}
@@ -60,8 +60,10 @@
     async function loadContacts(){const p=new URLSearchParams();if(q.value)p.set("q",q.value);if(organizationType.value)p.set("organization_type",organizationType.value);if(contactType.value)p.set("contact_type",contactType.value);if(engagement.value)p.set("engagement_level",engagement.value);p.set("sort",sort.value);if(missingPhone.checked)p.set("missing_phone","true");if(missingRole.checked)p.set("missing_role","true");if(needsReview.checked)p.set("needs_review","true");const data=await api(`/api/contacts?${p}`);contactRows.innerHTML=data.items.map(c=>`<tr><td>${esc(c.display_name||c.name)}</td><td>${esc(c.email)}</td><td>${esc(c.email_domain)}</td><td>${esc(c.organization_name||"Review needed")}</td><td>${esc(c.contact_type)}</td><td>${badge(c.engagement_level)}</td><td>${esc(c.emails_exchanged)}</td><td>${esc(c.phone||"")}</td><td>${esc(c.role_title||"")}</td><td>${badge(c.data_quality_status)}</td><td><button onclick="openContact(${c.id})">Open</button></td></tr>`).join("")||'<tr><td colspan="11" class="muted">No contacts found.</td></tr>'}
     async function openContact(id){const c=await api(`/api/contacts/${id}`);detailCard.hidden=false;detailCard.innerHTML=`<h2>${esc(c.display_name||c.name)}</h2><div class="detail-grid">${["email","phone","role_title","department","organization_name","email_domain","contact_type","source","data_quality_status","emails_exchanged","engagement_level","next_action"].map(k=>`<div class="detail-item"><div class="muted">${esc(k.replaceAll("_"," "))}</div><strong>${esc(c[k]||"")}</strong></div>`).join("")}</div><h3>Linked IRM information</h3>${Object.entries(c.linked_records||{}).map(([k,rows])=>`<div class="detail-item"><strong>${esc(k.replaceAll("_"," "))}</strong><div class="muted">${esc((rows||[]).length)} linked record(s)</div></div>`).join("")}`}
     }
-    async function previewImport(){const file=importFile.files[0];if(!file)return alert("Choose the workbook first.");const body=new FormData();body.append("file",file);body.append("sheet_name","Customer Contacts");const data=await api("/api/imports/customer-contacts/preview",{method:"POST",body});importId=data.import_id;reportLink.href=`/api/imports/customer-contacts/${importId}/report`;importPreview.innerHTML=`<div>${esc(data.metrics.contacts)} contacts staged, ${esc(data.metrics.skipped_group_rows)} grouping rows skipped, ${esc(data.metrics.invalid_rows)} invalid.</div>`+data.rows.slice(0,80).map(r=>`<div class="detail-item"><strong>${esc(r.display_name||r.email||r.skip_reason)}</strong><div>${esc(r.email||"")}</div><div>${badge(r.data_quality_status||r.import_status)} ${badge(r.engagement_level||"")}</div><div class="muted">${esc((r.validation_messages||[]).join("; "))}</div></div>`).join("")}
-    async function confirmImport(){if(!importId)return alert("Preview an import first.");const res=await api("/api/imports/customer-contacts/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({import_id:importId})});importPreview.innerHTML=`Imported: ${esc(res.created)} created, ${esc(res.updated)} updated, ${esc(res.rejected)} rejected, ${esc(res.ignored)} ignored.`;await loadMetrics();await loadContacts()}
+    async function renderImportRows(){const data=await api(`/api/imports/customer-contacts/${importId}/rows?page=1&page_size=50`);return data.items.map(r=>`<div class="detail-item"><strong>${esc(r.original_name||r.normalized_email||"Row "+r.source_row_number)}</strong><div>${esc(r.normalized_email||"")}</div><div>${badge(r.validation_status)} ${badge(r.engagement_level||"")}</div><div class="muted">${esc([r.error_code,r.warning_code,r.suggested_organization_name].filter(Boolean).join("; "))}</div></div>`).join("")}
+    async function refreshImportStatus(){if(!importId)return;const s=await api(`/api/imports/customer-contacts/${importId}/status`);reportLink.href=`/api/imports/customer-contacts/${importId}/report`;const header=`<div><strong>Job #${esc(s.id)} ${esc(s.status)}</strong> · ${esc(s.phase)} · ${esc(s.processed_rows)}/${esc(s.total_rows||"streaming")} rows · ${esc(s.progress_percent)}%</div><div class="muted">${esc(s.valid)} valid, ${esc(s.warnings)} warning, ${esc(s.errors)} error, ${esc(s.duplicates)} duplicate, ${esc(s.unmatched_domains)} unmatched domains</div>`;let rows="";if(["awaiting_review","completed","completed_with_errors"].includes(s.status)){rows=await renderImportRows();clearInterval(importPoll);importPoll=null;await loadMetrics();await loadContacts()}importPreview.innerHTML=header+rows}
+    async function previewImport(){const file=importFile.files[0];if(!file)return alert("Choose the file first.");const body=new FormData();body.append("file",file);const data=await api("/api/imports/customer-contacts/upload",{method:"POST",body});if(data.status==="duplicate_detected"){importPreview.innerHTML=`<div>${esc(data.message)} Previous job: #${esc(data.duplicate_of_import_id)}</div>`;return}importId=data.id;importPreview.innerHTML=`Job #${esc(importId)} queued for analysis.`;await refreshImportStatus();clearInterval(importPoll);importPoll=setInterval(refreshImportStatus,2000)}
+    async function confirmImport(){if(!importId)return alert("Upload and analyse an import first.");await api(`/api/imports/customer-contacts/${importId}/confirm`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":`${importId}-${Date.now()}`},body:"{}"});importPreview.innerHTML=`Import job #${esc(importId)} queued for database import.`;await refreshImportStatus();clearInterval(importPoll);importPoll=setInterval(refreshImportStatus,2000)}
     document.querySelectorAll("#q,#organizationType,#contactType,#engagement,#sort,#missingPhone,#missingRole,#needsReview").forEach(el=>el.addEventListener("change",loadContacts));
     loadMetrics();loadContacts();const id=location.pathname.match(/\\/crm\\/contacts\\/(\\d+)/)?.[1];if(id)openContact(id);
   </script>

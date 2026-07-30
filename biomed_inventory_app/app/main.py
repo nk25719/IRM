@@ -86,7 +86,7 @@ async def auth_middleware(request: Request, call_next):
         (("/admin/backups",), "create_backup"),
         (("/admin/query", "/reports/query", "/api/admin/reports"), "view_reports"),
         (("/api/admin/query",), "run_select_queries"),
-        (("/quotations", "/sales/quotations"), "edit_quotations"),
+        (("/quotations", "/api/quotations", "/sales/quotations"), "edit_quotations"),
         (("/warehouse", "/api/warehouse"), "view_reports"),
         (("/aftersales", "/api/aftermarket", "/api/after-sales"), "view_after_sales_cases"),
         (("/service/contract-intelligence", "/api/service-intelligence", "/service/customer-contracts", "/aftersales/customer-contracts", "/administration/manufacturer-coverage"), "service_intelligence.view"),
@@ -106,6 +106,7 @@ app.add_middleware(SessionMiddleware, secret_key=legacy_main.SESSION_SECRET, htt
 
 app.include_router(erp_router)
 app.include_router(quotation_router)
+app.include_router(quotation_router, prefix="/api")
 app.include_router(admin_router)
 app.include_router(aftermarket_router)
 app.include_router(aftermarket_alias_router)

@@ -91,6 +91,95 @@ class OrganizationDomainMapping(Base, TimestampMixin):
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
+class CustomerContactImportJob(Base, TimestampMixin):
+    __tablename__ = "customer_contact_import_jobs"
+    __table_args__ = (
+        Index("ix_customer_contact_import_jobs_status", "status"),
+        Index("ix_customer_contact_import_jobs_checksum", "file_checksum"),
+        Index("ix_customer_contact_import_jobs_dataset", "dataset_key"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    dataset_key = Column(String(120), nullable=False, default="customer_contacts", server_default="customer_contacts")
+    file_name = Column(String(255), nullable=False)
+    stored_file_path = Column(String(1000), nullable=False)
+    file_size_bytes = Column(Integer, nullable=False, default=0, server_default="0")
+    file_checksum = Column(String(128), nullable=False)
+    status = Column(String(80), nullable=False, default="uploaded", server_default="uploaded")
+    phase = Column(String(80), nullable=False, default="file_validation", server_default="file_validation")
+    total_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    processed_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    valid_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    warning_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    error_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    skipped_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    created_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    updated_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    duplicate_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    rejected_rows = Column(Integer, nullable=False, default=0, server_default="0")
+    progress_percent = Column(Integer, nullable=False, default=0, server_default="0")
+    current_batch = Column(Integer, nullable=False, default=0, server_default="0")
+    batch_size = Column(Integer, nullable=False, default=1000, server_default="1000")
+    last_processed_row = Column(Integer, nullable=False, default=0, server_default="0")
+    last_completed_batch = Column(Integer, nullable=False, default=0, server_default="0")
+    retry_attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    idempotency_key = Column(String(120))
+    started_at = Column(DateTime(timezone=True))
+    completed_at = Column(DateTime(timezone=True))
+    failed_at = Column(DateTime(timezone=True))
+    cancel_requested_at = Column(DateTime(timezone=True))
+    cancelled_at = Column(DateTime(timezone=True))
+    failure_message = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    import_batch_id = Column(Integer, ForeignKey("import_batches.id", ondelete="SET NULL"))
+    report_path = Column(String(1000))
+
+
+class CustomerContactImportStaging(Base, TimestampMixin):
+    __tablename__ = "customer_contact_import_staging"
+    __table_args__ = (
+        UniqueConstraint("import_job_id", "normalized_email", name="uq_customer_contact_stage_job_email"),
+        Index("ix_customer_contact_stage_job_id", "import_job_id"),
+        Index("ix_customer_contact_stage_normalized_email", "normalized_email"),
+        Index("ix_customer_contact_stage_domain", "normalized_domain"),
+        Index("ix_customer_contact_stage_status", "validation_status"),
+        Index("ix_customer_contact_stage_action", "proposed_action"),
+        Index("ix_customer_contact_stage_existing_contact", "existing_contact_id"),
+        Index("ix_customer_contact_stage_suggested_org", "suggested_organization_type", "suggested_organization_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    import_job_id = Column(Integer, ForeignKey("customer_contact_import_jobs.id", ondelete="CASCADE"), nullable=False)
+    source_row_number = Column(Integer, nullable=False)
+    original_name = Column(String(255))
+    original_email = Column(String(255))
+    normalized_email = Column(String(255))
+    original_domain = Column(String(255))
+    normalized_domain = Column(String(255))
+    email_count = Column(Integer, nullable=False, default=0, server_default="0")
+    phone = Column(String(120))
+    role = Column(String(255))
+    notes = Column(Text)
+    suggested_organization_id = Column(Integer)
+    suggested_organization_type = Column(String(80))
+    suggested_organization_name = Column(String(255))
+    existing_contact_id = Column(Integer)
+    proposed_action = Column(String(80), nullable=False, default="create_contact", server_default="create_contact")
+    validation_status = Column(String(80), nullable=False, default="valid", server_default="valid")
+    error_code = Column(String(120))
+    warning_code = Column(String(120))
+    decision_status = Column(String(80), nullable=False, default="pending", server_default="pending")
+    decision_action = Column(String(80))
+    is_shared_inbox = Column(Boolean, nullable=False, default=False, server_default="0")
+    is_automated_address = Column(Boolean, nullable=False, default=False, server_default="0")
+    engagement_level = Column(String(40), nullable=False, default="low", server_default="low")
+    contact_type = Column(String(80), nullable=False, default="unknown", server_default="unknown")
+    data_quality_status = Column(String(80), nullable=False, default="needs_review", server_default="needs_review")
+    duplicate_of_row = Column(Integer)
+    duplicate_row_numbers = Column(Text)
+    validation_metadata = Column(Text)
+
+
 class User(Base, TimestampMixin):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
@@ -355,16 +444,39 @@ class Quotation(Base, TimestampMixin):
     quotation_date = Column(Date)
     quote_date = Column(Date)
     valid_until = Column(Date)
+    client_name_snapshot = Column(String(255))
+    client_site_id = Column(Integer)
+    sales_person_id = Column(Integer)
+    sales_person_name_snapshot = Column(String(255))
+    company_phone_snapshot = Column(String(80))
+    company_email_snapshot = Column(String(255))
     currency = Column(String(12), nullable=False, default="USD")
     subtotal = Column(Numeric(12, 2), nullable=False, default=0)
     discount_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    discount_total = Column(Numeric(12, 2), nullable=False, default=0)
     vat_rate = Column(Numeric(5, 2), nullable=False, default=0)
     vat_amount = Column(Numeric(12, 2), nullable=False, default=0)
     total_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    grand_total = Column(Numeric(12, 2), nullable=False, default=0)
     amount = Column(Numeric(12, 2), nullable=False, default=0)
+    validity_days = Column(Integer)
     payment_terms = Column(Text)
     delivery_terms = Column(Text)
     warranty_terms = Column(Text)
+    disclaimer_text = Column(Text)
+    template_id = Column(Integer)
+    template_version = Column(String(80))
+    form_code = Column(String(120))
+    edition = Column(String(80))
+    template_name = Column(String(255))
+    footer_form_code = Column(String(160))
+    template_snapshot = Column(Text)
+    approved_by = Column(String(255))
+    approved_at = Column(DateTime(timezone=True))
+    generated_pdf_path = Column(String(500))
+    ai_source = Column(Text)
+    ai_missing_information = Column(Text)
+    ai_warnings = Column(Text)
     notes = Column(Text)
 
 
@@ -376,15 +488,26 @@ class QuotationItem(Base):
     )
     id = Column(Integer, primary_key=True)
     quotation_id = Column(Integer, ForeignKey("quotations.id", ondelete="CASCADE"), nullable=False)
+    equipment_id = Column(Integer)
+    equipment_description_snapshot = Column(Text)
+    manufacturer_snapshot = Column(String(255))
+    model_snapshot = Column(String(255))
+    serial_number_snapshot = Column(String(255))
+    service_report_number = Column(String(120))
     inventory_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="SET NULL"), nullable=True)
     item_code = Column(String(255))
     manufacturer_part_number = Column(String(255))
+    part_number = Column(String(255))
+    service_code = Column(String(255))
     description = Column(Text, nullable=False)
     ai_normalized_description = Column(Text)
     quantity = Column(Numeric(12, 2), nullable=False, default=1)
+    unit = Column(String(40))
     unit_price = Column(Numeric(12, 2), nullable=False, default=0)
     discount_percent = Column(Numeric(5, 2), nullable=False, default=0)
+    taxable = Column(Boolean, nullable=False, default=True)
     line_total = Column(Numeric(12, 2), nullable=False, default=0)
+    display_order = Column(Integer, nullable=False, default=0)
     warranty = Column(String(255))
     delivery_time = Column(String(255))
     ai_match_confidence = Column(Numeric(5, 3))
@@ -414,12 +537,44 @@ class QuotationTemplate(Base, TimestampMixin):
     __table_args__ = (Index("ix_quotation_templates_default", "is_default"),)
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
+    template_code = Column(String(120))
+    edition = Column(String(80))
+    logo_asset = Column(String(500))
+    company_name = Column(String(255))
+    company_legal_information = Column(Text)
+    company_address = Column(Text)
+    company_telephone = Column(String(120))
+    company_email = Column(String(255))
+    company_website = Column(String(255))
     currency = Column(String(12), nullable=False, default="USD")
+    default_vat_rate = Column(Numeric(5, 2), nullable=False, default=11)
+    default_validity_days = Column(Integer, nullable=False, default=7)
     payment_terms = Column(Text)
     delivery_terms = Column(Text)
     warranty_terms = Column(Text)
+    default_disclaimer = Column(Text)
+    footer_form_code = Column(String(160))
     notes = Column(Text)
     is_default = Column(Boolean, nullable=False, default=False)
+
+
+class QuotationAIAuditLog(Base):
+    __tablename__ = "quotation_ai_audit_logs"
+    __table_args__ = (
+        Index("ix_quotation_ai_audit_logs_quotation_id", "quotation_id"),
+        Index("ix_quotation_ai_audit_logs_event_type", "event_type"),
+    )
+    id = Column(Integer, primary_key=True)
+    quotation_id = Column(Integer, ForeignKey("quotations.id", ondelete="SET NULL"), nullable=True)
+    event_type = Column(String(120), nullable=False)
+    provider = Column(String(120))
+    model = Column(String(120))
+    source_entity = Column(String(255))
+    prompt_template_version = Column(String(120))
+    input_length = Column(Integer, nullable=False, default=0)
+    extracted_summary = Column(Text)
+    user_approved_status = Column(String(80))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class ServiceOpportunity(Base, TimestampMixin):

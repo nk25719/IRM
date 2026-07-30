@@ -3,6 +3,7 @@ import os
 import tempfile
 import types
 import unittest
+import asyncio
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -12,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, build_engine
 from app.erp_models import Client, Contact, OrganizationDomainMapping, User
 from app.models.foundation import AuditEvent, DataValidationError, ImportBatch, ImportRow, Manufacturer, Supplier
-from app.routers.customer_contacts_api import _require_manage
+from app.routers.customer_contacts_api import _require_manage, export_contacts
 from app.services.customer_contacts_import_service import CustomerContactsImportService, engagement_level, normalize_email
 
 
@@ -133,6 +134,17 @@ class CustomerContactsImportTest(unittest.TestCase):
 
     def test_email_normalization(self):
         self.assertEqual(normalize_email(" Jane@Example.COM "), "jane@example.com")
+
+    def test_contacts_export_downloads_filtered_csv(self):
+        response = export_contacts(q="existing", db=self.db)
+        async def collect_body():
+            return b"".join([chunk async for chunk in response.body_iterator])
+
+        content = asyncio.run(collect_body()).decode("utf-8-sig")
+
+        self.assertIn("display_name,email,phone", content)
+        self.assertIn("Existing Person,existing@examplehospital.com,+9611000", content)
+        self.assertIn('attachment; filename="customer-contacts.csv"', response.headers["content-disposition"])
 
 
 if __name__ == "__main__":

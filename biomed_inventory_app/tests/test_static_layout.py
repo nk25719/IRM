@@ -58,6 +58,17 @@ class StaticLayoutRegressionTest(unittest.TestCase):
         self.assertNotIn("viewLinks", render_tabs.group("body"))
         self.assertIn("categories.map", render_tabs.group("body"))
 
+    def test_shared_data_actions_are_centralized_and_specific(self):
+        app_layout_js = (ROOT / "app/static/app_layout.js").read_text()
+        theme_css = (ROOT / "app/static/theme.css").read_text()
+
+        self.assertIn("const dataActions = [", app_layout_js)
+        self.assertIn("strip.dataset.irmDataActions = slugify(config.title);", app_layout_js)
+        self.assertEqual(app_layout_js.count('match: ["/crm/contacts"]'), 1)
+        self.assertLess(app_layout_js.index('match: ["/crm/contacts"]'), app_layout_js.index('match: ["/clients", "/crm"]'))
+        self.assertIn('exportHref: "/api/contacts/export"', app_layout_js)
+        self.assertIn(".irm-data-actions", theme_css)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -199,6 +199,99 @@
     ],
   };
 
+  const dataActions = [
+    {
+      match: ["/warehouse", "/warehouse/stock-items", "/warehouse/stock-movement", "/warehouse/inventory-count"],
+      title: "Warehouse Data",
+      importHref: "/administration/data-management#import",
+      importLabel: "Import Stock",
+      exportHref: "/api/export",
+      exportLabel: "Full ERP Export",
+      manageHref: "/administration/data-management?dataset=warehouse_stock",
+    },
+    {
+      match: ["/crm/contacts"],
+      title: "Contact Data",
+      importHref: "#contact-import",
+      importLabel: "Import Contacts",
+      exportHref: "/api/contacts/export",
+      exportLabel: "Export Contacts",
+      manageHref: "/administration/data-management?dataset=contacts",
+    },
+    {
+      match: ["/clients", "/crm"],
+      title: "Client Data",
+      importHref: "/administration/data-management?dataset=clients#import",
+      importLabel: "Import Clients",
+      exportHref: "/administration/data-management?dataset=clients#export",
+      exportLabel: "Export Clients",
+      manageHref: "/administration/data-management",
+    },
+    {
+      match: ["/equipment", "/aftersales/installed-base"],
+      title: "Equipment Data",
+      importHref: "/administration/data-management?dataset=equipment#import",
+      importLabel: "Import Equipment",
+      exportHref: "/api/exports/equipment-database",
+      exportLabel: "Export Equipment",
+      manageHref: "/administration/data-management?dataset=equipment",
+    },
+    {
+      match: ["/sales/quotations", "/aftersales/quotations"],
+      title: "Quotation Data",
+      importHref: "#quotation-import",
+      importLabel: "Import Quotation",
+      exportHref: "#quotation-export",
+      exportLabel: "Export Selected",
+      manageHref: "/administration/data-management?dataset=quotations",
+    },
+    {
+      match: ["/aftersales/schedule"],
+      title: "Schedule Data",
+      importHref: "#schedule-import",
+      importLabel: "Import Schedule",
+      exportHref: "/api/schedule/export",
+      exportLabel: "Export Schedule",
+      extra: [["Weekly Grid", "/api/schedule/export?grid=true"]],
+    },
+    {
+      match: ["/service/contract-intelligence", "/aftersales/contract-intelligence"],
+      title: "Contract Intelligence Data",
+      importHref: "/administration/data-management#import",
+      importLabel: "Import Coverage",
+      exportHref: "/api/service-intelligence/export",
+      exportLabel: "Export Opportunities",
+      manageHref: "/administration/data-management",
+    },
+    {
+      match: ["/procurement"],
+      title: "Procurement Data",
+      importHref: "/administration/data-management?dataset=purchase_orders#import",
+      importLabel: "Import Procurement",
+      exportHref: "/api/exports/procurement",
+      exportLabel: "Export Procurement",
+      manageHref: "/administration/data-management",
+    },
+    {
+      match: ["/sales"],
+      title: "Sales Data",
+      importHref: "/administration/data-management?dataset=sales#import",
+      importLabel: "Import Sales",
+      exportHref: "/api/exports/sales_requests",
+      exportLabel: "Export Sales",
+      manageHref: "/administration/data-management",
+    },
+    {
+      match: ["/administration/data-management"],
+      title: "Data Management",
+      importHref: "#import",
+      importLabel: "Import",
+      exportHref: "#export",
+      exportLabel: "Export",
+      extra: [["Templates", "#templates"], ["History", "#history"]],
+    },
+  ];
+
   const rawPath = window.location.pathname.replace(/\/$/, "") || "/";
   const path = canonicalPath(rawPath);
   const isHome = path === "/";
@@ -286,6 +379,7 @@
   });
 
   addSubnav(activeModule, path);
+  addDataActions(path);
 
   function addSubnav(module, currentPath) {
     const links = subnav[module.href];
@@ -302,6 +396,41 @@
       .map(([label, href]) => `<a class="section-tab department-nav__item ${href === activeHref ? "active" : ""}" ${href === activeHref ? 'aria-current="page"' : ""} href="${href}">${escapeHtml(label)}</a>`)
       .join("");
     main.insertBefore(tabs, main.firstElementChild);
+  }
+
+  function addDataActions(currentPath) {
+    const main = document.querySelector("main");
+    if (!main || isHome || main.querySelector("[data-irm-data-actions]")) return;
+    const config = dataActions.find((item) => item.match.some((value) => {
+      const normalized = canonicalPath(value.replace(/\/$/, "") || "/");
+      return currentPath === normalized || (normalized !== "/" && currentPath.startsWith(`${normalized}/`));
+    }));
+    if (!config) return;
+    const actions = [
+      [config.importLabel, config.importHref, "import"],
+      [config.exportLabel, config.exportHref, "export"],
+      ...(config.extra || []).map(([label, href]) => [label, href, "extra"]),
+      ...(config.manageHref ? [["Data Center", config.manageHref, "manage"]] : []),
+    ];
+    const strip = document.createElement("section");
+    strip.className = "irm-data-actions";
+    strip.dataset.irmDataActions = slugify(config.title);
+    strip.setAttribute("aria-label", `${config.title} import and export actions`);
+    strip.innerHTML = `
+      <div>
+        <strong>${escapeHtml(config.title)}</strong>
+        <span>Import, export, and review the records behind this view.</span>
+      </div>
+      <div class="irm-data-actions__buttons">
+        ${actions.map(([label, href, kind]) => `<a class="irm-data-action irm-data-action--${kind}" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`).join("")}
+      </div>
+    `;
+    const firstSectionTabs = main.querySelector("[data-section-tabs], .erp-page-tabs");
+    if (firstSectionTabs?.nextSibling) {
+      main.insertBefore(strip, firstSectionTabs.nextSibling);
+      return;
+    }
+    main.insertBefore(strip, main.firstElementChild);
   }
 
   function syncCollapseButton() {

@@ -15,6 +15,20 @@ from app.services.schedule_service import ScheduleService
 
 DAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 TIME_RE = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", re.I)
+TABULAR_HEADERS = {
+    "assigned_to",
+    "engineer",
+    "engineer_name",
+    "task_name",
+    "activity",
+    "title",
+    "due_date",
+    "scheduled_date",
+    "date",
+    "hospital",
+    "client",
+    "status",
+}
 
 
 def parse_time(text: str) -> tuple[time | None, str | None]:
@@ -44,10 +58,25 @@ class ScheduleImportService:
         sheet = self._find_sheet(workbook)
         week_of = self._find_week_of(sheet)
         headers = self._find_day_headers(sheet)
-        rows = []
         warnings = []
-        if not week_of:
+        rows = self._preview_weekly_grid(sheet, week_of, headers)
+        if not rows:
+            rows = self._preview_tabular_sheet(sheet)
+        if not week_of and not rows:
             warnings.append("Missing Week of date. Set dates before confirming import.")
+        elif not week_of and headers:
+            warnings.append("Missing Week of date. Set dates before confirming import.")
+        return {
+            "filename": filename,
+            "checksum": hashlib.sha256(content).hexdigest(),
+            "worksheet": sheet.title,
+            "week_of": week_of.isoformat() if week_of else None,
+            "warnings": warnings,
+            "rows": rows,
+        }
+
+    def _preview_weekly_grid(self, sheet, week_of: date | None, headers: dict[int, str]) -> list[dict[str, Any]]:
+        rows = []
         for column, day_name in headers.items():
             day_index = DAY_NAMES.index(day_name)
             event_date = week_of + timedelta(days=day_index) if week_of else None
@@ -77,14 +106,52 @@ class ScheduleImportService:
                         "warnings": [warning] if warning else [],
                         "assignments": [],
                     })
-        return {
-            "filename": filename,
-            "checksum": hashlib.sha256(content).hexdigest(),
-            "worksheet": sheet.title,
-            "week_of": week_of.isoformat() if week_of else None,
-            "warnings": warnings,
-            "rows": rows,
-        }
+        return rows
+
+    def _preview_tabular_sheet(self, sheet) -> list[dict[str, Any]]:
+        header_row = self._find_tabular_headers(sheet)
+        if not header_row:
+            return []
+        row_number, headers = header_row
+        rows = []
+        for excel_row in range(row_number + 1, sheet.max_row + 1):
+            values = {
+                key: sheet.cell(row=excel_row, column=column).value
+                for key, column in headers.items()
+            }
+            if not any(value not in (None, "") for value in values.values()):
+                continue
+            title = self._first_value(values, "task_name", "activity", "title") or "Imported schedule activity"
+            scheduled_date = self._parse_date(self._first_value(values, "due_date", "scheduled_date", "date"))
+            status = self._normalize_status(str(values.get("status") or "scheduled"))
+            engineer = self._match_engineer(str(self._first_value(values, "assigned_to", "engineer", "engineer_name") or ""))
+            client = self._match_client(str(self._first_value(values, "hospital", "client") or title))
+            warnings = []
+            if self._first_value(values, "assigned_to", "engineer", "engineer_name") and not engineer:
+                warnings.append("Engineer was not found; event will import unassigned.")
+            if not scheduled_date:
+                warnings.append("No confident schedule date found.")
+            start_datetime = datetime.combine(scheduled_date, time(9, 0)) if scheduled_date else None
+            end_datetime = start_datetime + timedelta(hours=1) if start_datetime else None
+            assignments = [{"engineer_id": engineer.id, "assignment_role": "lead"}] if engineer else []
+            rows.append({
+                "row_number": excel_row,
+                "day": scheduled_date.strftime("%A") if scheduled_date else None,
+                "date": scheduled_date.isoformat() if scheduled_date else None,
+                "title": str(title).strip()[:255],
+                "source_reference": self._source_reference(values),
+                "event_type": self._guess_type(str(title)),
+                "status": status,
+                "priority": "normal",
+                "start_datetime": start_datetime.isoformat() if start_datetime else None,
+                "end_datetime": end_datetime.isoformat() if end_datetime else None,
+                "all_day": not bool(start_datetime),
+                "client_id": client.id if client else None,
+                "client_name": client.name if client else None,
+                "warnings": warnings,
+                "assignments": assignments,
+            })
+        return rows
 
     def confirm(self, payload: dict[str, Any]) -> dict[str, Any]:
         checksum = payload.get("checksum")
@@ -144,6 +211,22 @@ class ScheduleImportService:
                 return headers
         return {}
 
+    def _find_tabular_headers(self, sheet) -> tuple[int, dict[str, int]] | None:
+        for row in sheet.iter_rows():
+            headers = {}
+            for cell in row:
+                key = self._normalize_header(cell.value)
+                if key in TABULAR_HEADERS:
+                    headers[key] = cell.column
+            title_headers = {"task_name", "activity", "title"}
+            date_headers = {"due_date", "scheduled_date", "date"}
+            if title_headers & set(headers) and date_headers & set(headers):
+                return row[0].row, headers
+        return None
+
+    def _normalize_header(self, value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
     def _split_cell(self, value: str) -> list[str]:
         parts = re.split(r"(?:\n|;|\s{2,})+", value)
         return [part.strip(" -\t") for part in parts if part.strip(" -\t")]
@@ -167,4 +250,53 @@ class ScheduleImportService:
 
     def _match_client(self, value: str):
         text = value.lower()
-        return self.db.query(erp.Client).filter(erp.Client.name.isnot(None)).all() and next((client for client in self.db.query(erp.Client).all() if client.name.lower() in text), None)
+        if not text:
+            return None
+        clients = self.db.query(erp.Client).filter(erp.Client.name.isnot(None)).all()
+        return next((client for client in clients if client.name.lower() in text), None)
+
+    def _match_engineer(self, value: str):
+        text = value.strip().lower()
+        if not text:
+            return None
+        engineers = self.db.query(erp.Engineer).filter(erp.Engineer.engineer_name.isnot(None)).all()
+        exact_match = next((engineer for engineer in engineers if engineer.engineer_name.lower() == text), None)
+        return exact_match or next((engineer for engineer in engineers if engineer.engineer_name.lower() in text), None)
+
+    def _first_value(self, values: dict[str, Any], *keys: str) -> Any:
+        for key in keys:
+            value = values.get(key)
+            if value not in (None, ""):
+                return value
+        return None
+
+    def _parse_date(self, value: Any) -> date | None:
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if value in (None, ""):
+            return None
+        text = str(value).strip()
+        for parser in (datetime.fromisoformat,):
+            try:
+                return parser(text).date()
+            except ValueError:
+                pass
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%m-%d-%Y"):
+            try:
+                return datetime.strptime(text, fmt).date()
+            except ValueError:
+                pass
+        return None
+
+    def _normalize_status(self, value: str) -> str:
+        text = value.strip().lower().replace(" ", "_")
+        return text if text in {"draft", "scheduled", "confirmed", "in_progress", "completed", "cancelled", "postponed"} else "scheduled"
+
+    def _source_reference(self, values: dict[str, Any]) -> str:
+        parts = []
+        for key, value in values.items():
+            if value not in (None, ""):
+                parts.append(f"{key}: {value}")
+        return "; ".join(parts)

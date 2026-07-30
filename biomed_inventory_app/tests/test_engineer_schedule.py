@@ -141,6 +141,32 @@ class EngineerScheduleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScheduleImportService(self.db, self.user.id, "admin").confirm(dict(payload))
 
+    def test_import_preview_supports_engineer_assignment_report(self):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "engineer-assignments"
+        ws.append(["assigned_to", "task_name", "status", "due_date", "completed_date", "asset_tag", "hospital", "department", "model"])
+        ws.append(["Engineer A", "Telemetry Training", "scheduled", self.base.date(), None, "EQ-1", "HDF", "ICU", "Monitor"])
+        stream = io.BytesIO()
+        wb.save(stream)
+
+        service = ScheduleImportService(self.db, self.user.id, "admin")
+        preview = service.preview(stream.getvalue(), "engineer_assignment_report.xlsx")
+
+        self.assertEqual(len(preview["rows"]), 1)
+        row = preview["rows"][0]
+        self.assertEqual(row["title"], "Telemetry Training")
+        self.assertEqual(row["event_type"], "training")
+        self.assertEqual(row["client_id"], self.client.id)
+        self.assertEqual(row["assignments"], [{"engineer_id": self.engineer_a.id, "assignment_role": "lead"}])
+        self.assertEqual(row["start_datetime"], self.base.replace(hour=9).isoformat())
+
+        result = service.confirm({**preview, "checksum": "assignment-report"})
+        self.assertEqual(result["created"], 1)
+        events = self.service.list_events({"engineer_id": self.engineer_a.id, "start": self.base.isoformat(), "end": (self.base + timedelta(days=1)).isoformat()})
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["assignments"][0]["engineer_id"], self.engineer_a.id)
+
     def test_workload_calculation(self):
         self.create_event("PM", self.base, self.base + timedelta(hours=2), event_type="preventive_maintenance", travel_time_before_minutes=30, travel_time_after_minutes=30)
         start, end = week_bounds(self.base.date())
