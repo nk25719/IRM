@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, CheckCircle2, Download, FileText, FileUp, PlusCircle, Wrench } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Download, FileCog, FileText, FileUp, PlusCircle, Wrench } from "lucide-react";
 
 function getContractTimingLabel(daysLeft) {
   if (daysLeft < 0) return { label: `Expired ${Math.abs(daysLeft)} day(s) ago`, className: "badge badge-overdue" };
@@ -54,6 +54,10 @@ export default function ContractTrackerView({
           </div>
         </div>
         <div className="actions actions-friendly">
+          <a className="button button-primary" href="/aftersales/contracts/dashboard" aria-label="Manage Contracts">
+            <FileCog size={15} className="inline-icon" />
+            Manage Contracts
+          </a>
           <input
             ref={contractFileInputRef}
             type="file"

@@ -115,8 +115,8 @@
 
   <script>
     let currentPMAssets=[],itemOptionsCache=[];
-    const normalizedPMPath=window.location.pathname.replace(/^\/after-sales/,"/aftersales").replace("/aftersales/pm-tracking","/aftersales/pm");
-    const pmRouteBase=normalizedPMPath.startsWith("/aftersales/pm")?"/aftersales/pm":"/pm";
+    const normalizedPMPath=window.location.pathname.replace(/^\/after-sales/,"/aftersales").replace("/aftersales/pm-tracking","/aftersales/preventive-maintenance").replace("/aftersales/pm","/aftersales/preventive-maintenance");
+    const pmRouteBase=normalizedPMPath.startsWith("/aftersales/preventive-maintenance")?"/aftersales/preventive-maintenance":"/pm";
     const sectionBySegment={"":"dashboard","dashboard":"dashboard","due":"calendar","schedule":"schedule","calendar":"calendar","assets":"assets","equipment":"assets","completed":"calendar","reports":"reports","history":"history"};
     function currentPMSection(){const segment=normalizedPMPath.replace(/\/$/,"").replace(pmRouteBase,"").replace(/^\//,"");return sectionBySegment[segment]||"dashboard"}
     function syncPMMenuLinks(){document.querySelectorAll(".pm-menu a").forEach(a=>{const section=a.dataset.section;if(section==="dashboard")a.href=pmRouteBase;else a.href=`${pmRouteBase}/${section}`})}

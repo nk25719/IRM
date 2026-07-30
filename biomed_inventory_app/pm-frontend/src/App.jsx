@@ -272,6 +272,7 @@ function getImportValidationErrors(row) {
 
 function initialPageFromPath() {
   const path = window.location.pathname.replace(/\/$/, "");
+  if (path.endsWith("/contracts/dashboard")) return "dashboard";
   if (path.endsWith("/hospital-status")) return "hospital-status";
   if (path.endsWith("/contracts")) return "contracts";
   return "dashboard";

@@ -3,12 +3,13 @@ from __future__ import annotations
 import io
 import re
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app import legacy_main
 
@@ -80,6 +81,72 @@ ASSET_ALIASES = {
 }
 
 
+class DashboardMetric(BaseModel):
+    key: str
+    label: str
+    count: int | float
+    tone: str
+    icon: str
+    secondary: str = ""
+    href: str = ""
+
+
+class DashboardActivity(BaseModel):
+    key: str
+    label: str
+    icon: str
+    pending: int
+    overdue: int = 0
+    blocked: int = 0
+    completed: int = 0
+    href: str = ""
+
+
+class DashboardStage(BaseModel):
+    key: str
+    label: str
+    count: int
+    largest: bool = False
+    href: str = ""
+
+
+class DashboardCountItem(BaseModel):
+    key: str
+    label: str
+    count: int
+    tone: str = "neutral"
+    icon: str = ""
+    href: str = ""
+
+
+class DashboardEngineerWorkload(BaseModel):
+    engineer_id: str
+    name: str
+    active: int
+    overdue: int
+    capacity: str
+    load_percent: int
+
+
+class DashboardUpcoming(BaseModel):
+    title: str
+    when: str
+    type: str
+    href: str = ""
+
+
+class DashboardSummary(BaseModel):
+    generated_at: str
+    metrics: list[DashboardMetric]
+    activities: list[DashboardActivity]
+    pipeline: list[DashboardStage]
+    aging: list[DashboardCountItem]
+    blockers: list[DashboardCountItem]
+    engineers: list[DashboardEngineerWorkload]
+    upcoming: list[DashboardUpcoming]
+    alerts: list[DashboardCountItem]
+
+
 def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -109,6 +176,51 @@ def to_number(value: Any) -> float:
         return float(cleaned or 0)
     except ValueError:
         return 0
+
+
+def table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return bool(conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
+
+
+def table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    if not table_exists(conn, table):
+        return set()
+    try:
+        return {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except sqlite3.Error:
+        return set()
+
+
+def coalesce_columns(conn: sqlite3.Connection, table: str, candidates: list[str]) -> str:
+    existing = table_columns(conn, table)
+    columns = [column for column in candidates if column in existing]
+    return f"COALESCE({', '.join(columns)}, '')" if columns else "''"
+
+
+def scalar(conn: sqlite3.Connection, sql: str, params: tuple[Any, ...] = ()) -> int:
+    try:
+        row = conn.execute(sql, params).fetchone()
+        return int((row[0] if row else 0) or 0)
+    except sqlite3.Error:
+        return 0
+
+
+def today_iso() -> str:
+    return date.today().isoformat()
+
+
+def in_days(days: int) -> str:
+    return (date.today() + timedelta(days=days)).isoformat()
+
+
+def is_open_status_sql(column: str = "status") -> str:
+    return f"lower(COALESCE({column},'')) NOT IN ('completed','closed','done','cancelled','resolved')"
+
+
+def status_count(conn: sqlite3.Connection, table: str, where: str = "1=1", params: tuple[Any, ...] = ()) -> int:
+    if not table_exists(conn, table):
+        return 0
+    return scalar(conn, f"SELECT COUNT(*) FROM {table} WHERE {where}", params)
 
 
 def ensure_service_report_tables() -> None:
@@ -557,6 +669,162 @@ def spare_parts_usage(limit: int = 500):
             (min(limit, 1000),),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@routes.get("/dashboard/summary", response_model=DashboardSummary)
+def aftermarket_dashboard_summary():
+    ensure_service_report_tables()
+    with db() as conn:
+        open_reports = status_count(conn, "service_reports", is_open_status_sql())
+        completed_today = status_count(conn, "service_reports", "lower(COALESCE(status,'')) IN ('completed','closed','done') AND COALESCE(completed_date, updated_at, '') >= ?", (today_iso(),))
+        overdue_reports = status_count(conn, "service_reports", f"{is_open_status_sql()} AND COALESCE(visit_date, call_date, created_at, '') < ?", (today_iso(),))
+        unmatched_reports = status_count(conn, "service_reports", "lower(COALESCE(match_status,''))='unmatched'")
+        scheduled_events = status_count(conn, "engineer_schedule_events", "lower(COALESCE(status,'')) IN ('scheduled','confirmed','in_progress') AND COALESCE(start_datetime,'') >= ? AND COALESCE(start_datetime,'') < ?", (today_iso(), in_days(7)))
+        unassigned_events = 0
+        if table_exists(conn, "engineer_schedule_events") and table_exists(conn, "engineer_schedule_assignments"):
+            unassigned_events = scalar(conn, """
+                SELECT COUNT(*) FROM engineer_schedule_events e
+                LEFT JOIN engineer_schedule_assignments a ON a.schedule_event_id=e.id
+                WHERE a.id IS NULL AND lower(COALESCE(e.status,'')) NOT IN ('completed','cancelled')
+            """)
+        quotation_pending = status_count(conn, "quotations", "lower(COALESCE(status,'')) NOT IN ('approved','completed','cancelled','rejected')")
+        quotation_approval = status_count(conn, "quotations", "lower(COALESCE(status,'')) IN ('submitted','pending_approval','under_review')")
+        pm_pending = status_count(conn, "pm_tasks", "lower(COALESCE(status,'')) NOT IN ('completed','cancelled','closed')")
+        pm_date = coalesce_columns(conn, "pm_tasks", ["scheduled_date", "due_date", "next_pm_date"])
+        pm_due_today = status_count(conn, "pm_tasks", f"{pm_date} <= ? AND lower(COALESCE(status,'')) NOT IN ('completed','cancelled','closed')", (today_iso(),)) if pm_date != "''" else 0
+        contract_end = coalesce_columns(conn, "customer_service_contracts", ["end_date", "contract_end_date", "expiry_date"])
+        contracts_expiring = status_count(conn, "customer_service_contracts", f"{contract_end} >= ? AND {contract_end} <= ?", (today_iso(), in_days(45))) if contract_end != "''" else 0
+        parts_pending = status_count(conn, "service_report_parts", "COALESCE(quantity,0) > 0")
+        assets_due_soon = status_count(conn, "equipment_assets", "COALESCE(warranty_end_date,'') >= ? AND COALESCE(warranty_end_date,'') <= ?", (today_iso(), in_days(45)))
+        installations = status_count(conn, "engineer_schedule_events", "event_type='installation' AND lower(COALESCE(status,'')) NOT IN ('completed','cancelled')")
+        deliveries = status_count(conn, "engineer_schedule_events", "event_type='delivery' AND lower(COALESCE(status,'')) NOT IN ('completed','cancelled')")
+        trainings = status_count(conn, "engineer_schedule_events", "event_type='training' AND lower(COALESCE(status,'')) NOT IN ('completed','cancelled')")
+        fmi_cases = status_count(conn, "service_opportunities", "lower(COALESCE(opportunity_type,'')) LIKE '%manufacturer%' AND lower(COALESCE(status,'')) NOT IN ('completed','closed','cancelled')")
+
+        critical = overdue_reports + pm_due_today + contracts_expiring
+        pending_total = open_reports + quotation_pending + pm_pending + unassigned_events
+
+        activities = [
+            DashboardActivity(key="service-calls", label="Service Calls", icon="call", pending=open_reports, overdue=overdue_reports, blocked=unmatched_reports, completed=completed_today, href="/aftersales/service-calls"),
+            DashboardActivity(key="quotations", label="Quotations", icon="quote", pending=quotation_pending, overdue=0, blocked=quotation_approval, href="/aftersales/quotations"),
+            DashboardActivity(key="pm", label="Preventive Maintenance", icon="pm", pending=pm_pending, overdue=pm_due_today, href="/aftersales/preventive-maintenance"),
+            DashboardActivity(key="installations", label="Installations", icon="install", pending=installations, href="/aftersales/installations"),
+            DashboardActivity(key="deliveries", label="Deliveries", icon="delivery", pending=deliveries, href="/aftersales/deliveries"),
+            DashboardActivity(key="trainings", label="Trainings", icon="training", pending=trainings, href="/aftersales/trainings"),
+            DashboardActivity(key="contracts", label="Contracts", icon="contract", pending=contracts_expiring, overdue=0, blocked=assets_due_soon, href="/aftersales/contracts"),
+            DashboardActivity(key="parts", label="Spare Parts Requests", icon="parts", pending=parts_pending, href="/aftersales/spare-parts"),
+            DashboardActivity(key="fmi", label="FMI / Technical Cases", icon="fmi", pending=fmi_cases, href="/aftersales/technical-cases"),
+        ]
+
+        pipeline_counts = {
+            "incoming": open_reports,
+            "inspection": status_count(conn, "service_reports", f"{is_open_status_sql()} AND lower(COALESCE(call_reason,'')) NOT LIKE '%quote%'"),
+            "quotation": quotation_pending,
+            "approval": quotation_approval,
+            "parts": parts_pending,
+            "repair": scheduled_events,
+            "completed": completed_today,
+        }
+        largest_stage = max(pipeline_counts.values() or [0])
+        pipeline = [
+            DashboardStage(key=key, label=label, count=pipeline_counts[key], largest=pipeline_counts[key] == largest_stage and largest_stage > 0, href=href)
+            for key, label, href in [
+                ("incoming", "Incoming", "/aftersales/service-calls"),
+                ("inspection", "Inspection", "/aftersales/service-calls?status=open"),
+                ("quotation", "Quotation", "/aftersales/quotations"),
+                ("approval", "Approval", "/aftersales/quotations?status=approval"),
+                ("parts", "Parts", "/aftersales/spare-parts"),
+                ("repair", "Repair", "/aftersales/service-calls?view=assigned"),
+                ("completed", "Completed", "/aftersales/service-calls?status=completed"),
+            ]
+        ]
+
+        aging = []
+        for key, label, start, end, tone in [
+            ("0-2", "0-2 days", 0, 2, "healthy"),
+            ("3-5", "3-5 days", 3, 5, "due"),
+            ("6-10", "6-10 days", 6, 10, "warning"),
+            ("10-plus", ">10 days", 11, 9999, "critical"),
+        ]:
+            modifier = f"-{end} days" if end < 9999 else "-10 days"
+            if key == "10-plus":
+                count = status_count(conn, "service_reports", f"{is_open_status_sql()} AND date(COALESCE(call_date, created_at)) < date('now','-10 days')")
+            else:
+                count = status_count(conn, "service_reports", f"{is_open_status_sql()} AND date(COALESCE(call_date, created_at)) BETWEEN date('now',?) AND date('now',?)", (modifier, f"-{start} days"))
+            aging.append(DashboardCountItem(key=key, label=label, count=count, tone=tone, href=f"/aftersales/service-calls?age={key}"))
+
+        blockers = [
+            DashboardCountItem(key="customer", label="Waiting customer", count=status_count(conn, "service_reports", f"{is_open_status_sql()} AND lower(COALESCE(status,'')) LIKE '%customer%'"), tone="warning", icon="customer", href="/aftersales/service-calls?blocked=customer"),
+            DashboardCountItem(key="engineer", label="Waiting engineer", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventive-maintenance#schedule-import"),
+            DashboardCountItem(key="approval", label="Quote approval", count=quotation_approval, tone="blocked", icon="approval", href="/aftersales/quotations?status=approval"),
+            DashboardCountItem(key="parts", label="Spare parts", count=parts_pending, tone="blocked", icon="parts", href="/aftersales/spare-parts"),
+            DashboardCountItem(key="supplier", label="Supplier", count=status_count(conn, "service_reports", f"{is_open_status_sql()} AND lower(COALESCE(supplier,''))!=''"), tone="blocked", icon="supplier", href="/aftersales/service-calls?blocked=supplier"),
+            DashboardCountItem(key="manufacturer", label="Manufacturer", count=fmi_cases, tone="blocked", icon="factory", href="/aftersales/technical-cases"),
+            DashboardCountItem(key="scheduling", label="Scheduling", count=scheduled_events, tone="active", icon="calendar", href="/aftersales/preventive-maintenance"),
+        ]
+        blockers.sort(key=lambda item: item.count, reverse=True)
+
+        engineer_rows = []
+        if table_exists(conn, "service_reports"):
+            engineer_rows = conn.execute("""
+                SELECT COALESCE(engineer_id, 'Unassigned') AS engineer_id,
+                       COUNT(*) AS active,
+                       SUM(CASE WHEN COALESCE(visit_date, call_date, created_at, '') < date('now') THEN 1 ELSE 0 END) AS overdue
+                FROM service_reports
+                WHERE lower(COALESCE(status,'')) NOT IN ('completed','closed','done','cancelled','resolved')
+                GROUP BY COALESCE(engineer_id, 'Unassigned')
+                ORDER BY active DESC
+                LIMIT 8
+            """).fetchall()
+        engineers = []
+        for row in engineer_rows:
+            active = int(row["active"] or 0)
+            load_percent = min(100, active * 18)
+            capacity = "available" if active <= 2 else "balanced" if active <= 4 else "busy" if active <= 6 else "overloaded"
+            engineers.append(DashboardEngineerWorkload(engineer_id=str(row["engineer_id"]), name=str(row["engineer_id"]), active=active, overdue=int(row["overdue"] or 0), capacity=capacity, load_percent=load_percent))
+
+        upcoming_rows = []
+        if table_exists(conn, "engineer_schedule_events"):
+            upcoming_rows = conn.execute("""
+                SELECT title, event_type, start_datetime
+                FROM engineer_schedule_events
+                WHERE COALESCE(start_datetime,'') >= date('now') AND COALESCE(start_datetime,'') < date('now','+7 days')
+                  AND lower(COALESCE(status,'')) NOT IN ('cancelled','completed')
+                ORDER BY start_datetime
+                LIMIT 6
+            """).fetchall()
+        upcoming = [DashboardUpcoming(title=row["title"], when=row["start_datetime"], type=row["event_type"], href="/aftersales/preventive-maintenance") for row in upcoming_rows]
+        if contracts_expiring:
+            upcoming.append(DashboardUpcoming(title="Contracts expiring soon", when="45 days", type="contract", href="/aftersales/contracts"))
+
+    alerts = [
+        DashboardCountItem(key="overdue-calls", label="Overdue calls", count=overdue_reports, tone="critical", icon="alert", href="/aftersales/service-calls?status=overdue"),
+        DashboardCountItem(key="pm-today", label="PM due today", count=pm_due_today, tone="critical", icon="pm", href="/aftersales/preventive-maintenance"),
+        DashboardCountItem(key="contracts", label="Contracts expiring", count=contracts_expiring, tone="warning", icon="contract", href="/aftersales/contracts"),
+        DashboardCountItem(key="quotation-approval", label="Quotes awaiting approval", count=quotation_approval, tone="warning", icon="quote", href="/aftersales/quotations"),
+        DashboardCountItem(key="parts-delayed", label="Parts delayed", count=parts_pending, tone="blocked", icon="parts", href="/aftersales/spare-parts"),
+        DashboardCountItem(key="unassigned", label="Unassigned activities", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventive-maintenance"),
+        DashboardCountItem(key="stale", label="No update >10 days", count=aging[-1].count if aging else 0, tone="critical", icon="clock", href="/aftersales/service-calls?age=10-plus"),
+    ]
+    alerts = [item for item in alerts if item.count > 0]
+    alerts.sort(key=lambda item: (item.tone != "critical", -item.count))
+
+    return DashboardSummary(
+        generated_at=now(),
+        metrics=[
+            DashboardMetric(key="critical", label="Critical / Overdue", count=critical, tone="critical", icon="alert", secondary=f"{overdue_reports} calls", href="/aftersales/service-calls?status=overdue"),
+            DashboardMetric(key="pending", label="Pending", count=pending_total, tone="warning", icon="inbox", secondary=f"{open_reports} calls", href="/aftersales/operations"),
+            DashboardMetric(key="scheduled", label="Scheduled", count=scheduled_events, tone="active", icon="calendar", secondary="next 7 days", href="/aftersales/preventive-maintenance"),
+            DashboardMetric(key="completed", label="Completed Today", count=completed_today, tone="healthy", icon="check", secondary="closed work", href="/aftersales/service-calls?status=completed"),
+        ],
+        activities=activities,
+        pipeline=pipeline,
+        aging=aging,
+        blockers=blockers,
+        engineers=engineers,
+        upcoming=upcoming[:7],
+        alerts=alerts[:7],
+    )
 
 
 @routes.get("/equipment/service-history")

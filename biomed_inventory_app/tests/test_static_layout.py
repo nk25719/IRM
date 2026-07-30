@@ -69,6 +69,63 @@ class StaticLayoutRegressionTest(unittest.TestCase):
         self.assertIn('exportHref: "/api/contacts/export"', app_layout_js)
         self.assertIn(".irm-data-actions", theme_css)
 
+    def test_after_sales_dashboard_uses_operational_summary(self):
+        after_sales_html = (ROOT / "app/static/after_sales.html").read_text()
+
+        for marker in [
+            "opsScoreboard",
+            "activityCards",
+            "workflowPipeline",
+            "agingBar",
+            "blockedWork",
+            "engineerWorkload",
+            "priorityAlerts",
+            "upcomingList",
+        ]:
+            self.assertIn(marker, after_sales_html)
+        self.assertIn("/api/aftermarket/dashboard/summary", after_sales_html)
+        self.assertNotIn("dashboardMetrics", after_sales_html)
+        self.assertNotIn("dashboardLinks", after_sales_html)
+
+    def test_aftermarket_navigation_uses_ten_primary_tabs(self):
+        app_layout_js = (ROOT / "app/static/app_layout.js").read_text()
+        expected_tabs = [
+            '["Dashboard", "/aftersales/dashboard"]',
+            '["Service Calls", "/aftersales/service-calls"]',
+            '["Quotations", "/aftersales/quotations"]',
+            '["Preventive Maintenance", "/aftersales/preventive-maintenance"]',
+            '["Installations", "/aftersales/installations"]',
+            '["Deliveries", "/aftersales/deliveries"]',
+            '["Trainings", "/aftersales/trainings"]',
+            '["Contracts", "/aftersales/contracts"]',
+            '["Spare Parts Requests", "/aftersales/spare-parts"]',
+            '["FMI / Technical Cases", "/aftersales/technical-cases"]',
+        ]
+
+        for tab in expected_tabs:
+            self.assertEqual(app_layout_js.count(tab), 2)
+        self.assertNotIn('["Cases", "/aftersales/service-cases"]', app_layout_js)
+        self.assertNotIn('["Installed Base", "/aftersales/installed-base"]', app_layout_js)
+        self.assertNotIn('["Reports", "/aftersales/reports"]', app_layout_js)
+        self.assertIn('return "/aftersales/technical-cases";', app_layout_js)
+
+    def test_after_sales_contract_routes_stay_owned_by_contracts(self):
+        app_layout_js = (ROOT / "app/static/app_layout.js").read_text()
+        pm_app = (ROOT / "pm-frontend/src/App.jsx").read_text()
+        contract_view = (ROOT / "pm-frontend/src/components/ContractTrackerView.jsx").read_text()
+        served_index = (ROOT / "app/static/pm/index.html").read_text()
+
+        self.assertIn('["Contracts", "/aftersales/contracts"]', app_layout_js)
+        self.assertIn('currentPath.includes("/contracts")', app_layout_js)
+        self.assertIn('return "/aftersales/contracts";', app_layout_js)
+        self.assertIn("function getBreadcrumb", app_layout_js)
+        self.assertIn("ERM / ${module.label} / ${sectionLabel}", app_layout_js)
+        self.assertIn('path.endsWith("/contracts/dashboard")', pm_app)
+        self.assertIn('href="/aftersales/contracts/dashboard"', contract_view)
+        self.assertIn("Manage Contracts", contract_view)
+        self.assertIn("After Sales Contracts", served_index)
+        self.assertNotIn('data-page-title="Preventive Maintenance"', served_index)
+
 
 if __name__ == "__main__":
     unittest.main()

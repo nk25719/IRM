@@ -24,7 +24,7 @@
       },
       {
         "source": "/after-sales/pm",
-        "destination": "/aftersales/pm",
+        "destination": "/aftersales/preventive-maintenance",
         "type": 302
       },
       {
@@ -34,12 +34,37 @@
       },
       {
         "source": "/aftersales/pm-tracking",
-        "destination": "/aftersales/pm",
+        "destination": "/aftersales/preventive-maintenance",
         "type": 302
       },
       {
         "source": "/after-sales/pm-tracking",
-        "destination": "/aftersales/pm",
+        "destination": "/aftersales/preventive-maintenance",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/service-cases",
+        "destination": "/aftersales/service-calls",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/training-demo",
+        "destination": "/aftersales/trainings",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/fmi-recall",
+        "destination": "/aftersales/technical-cases",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/fmi-field-modifications",
+        "destination": "/aftersales/technical-cases",
+        "type": 302
+      },
+      {
+        "source": "/aftersales/delivery-installation",
+        "destination": "/aftersales/installations",
         "type": 302
       },
       {
@@ -126,6 +151,10 @@
       },
       {
         "source": "/aftersales/pm{,/**}",
+        "destination": "/pm.html"
+      },
+      {
+        "source": "/aftersales/preventive-maintenance{,/**}",
         "destination": "/pm.html"
       },
       {

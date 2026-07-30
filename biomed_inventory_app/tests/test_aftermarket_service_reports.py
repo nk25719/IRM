@@ -122,6 +122,28 @@ class AftermarketServiceReportImportTest(unittest.TestCase):
         self.assertEqual(result["service_report"]["match_status"], "matched")
         self.assertIsNotNone(result["service_report"]["equipment_asset_id"])
 
+    def test_aftermarket_dashboard_summary_has_operational_schema(self):
+        asset_rows = self.service_reports.parse_installed_base(self.installed_base_bytes(), "installed.xlsx")
+        conn = self.legacy_main.db()
+        try:
+            self.service_reports.upsert_equipment_asset(conn, asset_rows[0])
+            conn.commit()
+        finally:
+            conn.close()
+
+        report, parts = self.service_reports.parse_service_report(self.workbook_bytes(), "sr.xlsx")
+        self.service_reports.upsert_service_report(report, parts)
+
+        summary = self.service_reports.aftermarket_dashboard_summary()
+        data = summary.model_dump() if hasattr(summary, "model_dump") else summary.dict()
+
+        self.assertEqual([m["key"] for m in data["metrics"]], ["critical", "pending", "scheduled", "completed"])
+        self.assertGreaterEqual(next(m["count"] for m in data["metrics"] if m["key"] == "pending"), 1)
+        self.assertIn("service-calls", {activity["key"] for activity in data["activities"]})
+        self.assertEqual([stage["key"] for stage in data["pipeline"]], ["incoming", "inspection", "quotation", "approval", "parts", "repair", "completed"])
+        self.assertIn("10-plus", {item["key"] for item in data["aging"]})
+        self.assertIn("parts", {item["key"] for item in data["blockers"]})
+
 
 if __name__ == "__main__":
     unittest.main()

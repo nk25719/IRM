@@ -68,15 +68,16 @@
       section: "Main Operations",
       match: ["/aftersales", "/after-sales", "/service/contract-intelligence", "/service/customer-contracts", "/administration/manufacturer-coverage"],
       links: [
-        ["Dashboard", "/aftersales"],
-        ["Cases", "/aftersales/service-cases"],
-        ["Engineer Schedule", "/aftersales/schedule"],
-        ["Preventive Maintenance", "/aftersales/pm"],
-        ["Contracts", "/aftersales/contracts"],
-        ["Installed Base", "/aftersales/installed-base"],
-        ["Contract Intelligence", "/service/contract-intelligence"],
+        ["Dashboard", "/aftersales/dashboard"],
+        ["Service Calls", "/aftersales/service-calls"],
         ["Quotations", "/aftersales/quotations"],
-        ["Reports", "/aftersales/reports"],
+        ["Preventive Maintenance", "/aftersales/preventive-maintenance"],
+        ["Installations", "/aftersales/installations"],
+        ["Deliveries", "/aftersales/deliveries"],
+        ["Trainings", "/aftersales/trainings"],
+        ["Contracts", "/aftersales/contracts"],
+        ["Spare Parts Requests", "/aftersales/spare-parts"],
+        ["FMI / Technical Cases", "/aftersales/technical-cases"],
       ],
     },
     {
@@ -170,15 +171,16 @@
       ["Warehouse Count", "/warehouse/inventory-count"],
     ],
     "/aftersales": [
-      ["Dashboard", "/aftersales"],
-      ["Cases", "/aftersales/service-cases"],
-      ["Engineer Schedule", "/aftersales/schedule"],
-      ["Preventive Maintenance", "/aftersales/pm"],
-      ["Contracts", "/aftersales/contracts"],
-      ["Installed Base", "/aftersales/installed-base"],
-      ["Contract Intelligence", "/service/contract-intelligence"],
+      ["Dashboard", "/aftersales/dashboard"],
+      ["Service Calls", "/aftersales/service-calls"],
       ["Quotations", "/aftersales/quotations"],
-      ["Reports", "/aftersales/reports"],
+      ["Preventive Maintenance", "/aftersales/preventive-maintenance"],
+      ["Installations", "/aftersales/installations"],
+      ["Deliveries", "/aftersales/deliveries"],
+      ["Trainings", "/aftersales/trainings"],
+      ["Contracts", "/aftersales/contracts"],
+      ["Spare Parts Requests", "/aftersales/spare-parts"],
+      ["FMI / Technical Cases", "/aftersales/technical-cases"],
     ],
     "/finance": [
       ["Dashboard", "/finance"],
@@ -297,7 +299,7 @@
   const isHome = path === "/";
   const activeModule = findActiveModule(path);
   const pageTitle = getPageTitle(isHome, activeModule);
-  const breadcrumb = isHome ? "ERM / Home" : `ERM / ${activeModule.label}`;
+  const breadcrumb = getBreadcrumb(isHome, activeModule, path);
   const backTarget = getBackTarget(path, activeModule);
   const showBack = Boolean(backTarget);
 
@@ -522,22 +524,23 @@
 
   function aftermarketParentHref(currentPath) {
     if (!currentPath.startsWith("/aftersales/")) return "";
+    if (currentPath === "/aftersales/dashboard") return "/aftersales/dashboard";
     if (
-      currentPath.includes("/installed-base") ||
-      currentPath.endsWith("/history") ||
-      currentPath.startsWith("/aftersales/equipment")
-    ) return "/aftersales/installed-base";
-    if (
+      currentPath.includes("/service-calls") ||
+      currentPath.includes("/service-cases") ||
       currentPath.includes("/service-history") ||
-      currentPath.endsWith("/service-calls") ||
-      currentPath.endsWith("/service-cases")
-    ) return "/aftersales/service-history";
+      currentPath.includes("/installed-base") ||
+      currentPath.startsWith("/aftersales/equipment")
+    ) return "/aftersales/service-calls";
+    if (currentPath.includes("/quotations")) return "/aftersales/quotations";
+    if (currentPath.includes("/preventive-maintenance") || currentPath.includes("/pm") || currentPath.includes("/pm-tracking") || currentPath.includes("/schedule")) return "/aftersales/preventive-maintenance";
+    if (currentPath.includes("/installations") || currentPath.includes("/delivery-installation")) return "/aftersales/installations";
+    if (currentPath.includes("/deliveries")) return "/aftersales/deliveries";
+    if (currentPath.includes("/trainings") || currentPath.includes("/training-demo")) return "/aftersales/trainings";
+    if (currentPath.includes("/contracts") || currentPath.includes("/contract-intelligence") || currentPath.includes("/customer-contracts") || currentPath.includes("/coverage") || currentPath.endsWith("/warranty")) return "/aftersales/contracts";
     if (currentPath.includes("/spare-parts")) return "/aftersales/spare-parts";
-    if (currentPath.includes("/contract-intelligence")) return "/service/contract-intelligence";
-    if (currentPath.includes("/customer-contracts") || currentPath.includes("/manufacturer-coverage")) return "/service/contract-intelligence";
-    if (currentPath.includes("/coverage") || currentPath.endsWith("/warranty") || currentPath.endsWith("/contracts")) return "/aftersales/coverage";
-    if (currentPath.includes("/analytics")) return "/aftersales/analytics";
-    return "/aftersales/operations";
+    if (currentPath.includes("/technical-cases") || currentPath.includes("/fmi-recall") || currentPath.includes("/fmi-field-modifications") || currentPath.includes("/analytics")) return "/aftersales/technical-cases";
+    return "/aftersales/dashboard";
   }
 
   function getBackTarget(currentPath, module) {
@@ -601,6 +604,13 @@
       document.title ||
       module.label
     ).replace(/\bInventory\b/g, "Warehouse");
+  }
+
+  function getBreadcrumb(home, module, currentPath) {
+    if (home) return "ERM / Home";
+    const activeSection = activeSubnavHref(module.links, currentPath);
+    const sectionLabel = module.links?.find(([, href]) => href === activeSection)?.[0];
+    return sectionLabel ? `ERM / ${module.label} / ${sectionLabel}` : `ERM / ${module.label}`;
   }
 
   function hideLegacyChrome() {
