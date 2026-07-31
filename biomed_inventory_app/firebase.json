@@ -93,6 +93,36 @@
         "type": 302
       },
       {
+        "source": "/reports",
+        "destination": "/administration/reports",
+        "type": 302
+      },
+      {
+        "source": "/reports/**",
+        "destination": "/administration/reports",
+        "type": 302
+      },
+      {
+        "source": "/clients",
+        "destination": "/administration/clients",
+        "type": 302
+      },
+      {
+        "source": "/clients/**",
+        "destination": "/administration/clients",
+        "type": 302
+      },
+      {
+        "source": "/training-demo",
+        "destination": "/aftersales/trainings",
+        "type": 302
+      },
+      {
+        "source": "/training",
+        "destination": "/aftersales/trainings",
+        "type": 302
+      },
+      {
         "source": "/sales-cases",
         "destination": "/sales",
         "type": 302
@@ -253,6 +283,14 @@
         }
       },
       {
+        "source": "/administration/clients{,/**}",
+        "destination": "/crm.html"
+      },
+      {
+        "source": "/administration/reports{,/**}",
+        "destination": "/module_page.html"
+      },
+      {
         "source": "/administration{,/**}",
         "destination": "/module_page.html"
       },
@@ -261,20 +299,8 @@
         "destination": "/module_page.html"
       },
       {
-        "source": "/reports",
-        "destination": "/module_page.html"
-      },
-      {
-        "source": "/reports{,/**}",
-        "destination": "/module_page.html"
-      },
-      {
         "source": "/dashboard",
         "destination": "/dashboard.html"
-      },
-      {
-        "source": "/clients",
-        "destination": "/crm.html"
       },
       {
         "source": "/crm",

@@ -4709,6 +4709,72 @@ def create_commercial_quotation(customer_id: int, items: list[dict], quotation_n
     finally:
         conn.close()
 
+def available_commercial_stock(conn, item: dict, exclude_ids: set[int] | None = None) -> list[dict]:
+    exclude_ids = exclude_ids or set()
+    clauses = ["status='in_stock'", "COALESCE(customer_order_id, 0)=0", "qty > 0"]
+    params: list = []
+    if item.get("product_id"):
+        clauses.append("product_id=?")
+        params.append(item.get("product_id"))
+    elif item.get("ref"):
+        clauses.append("ref=?")
+        params.append(item.get("ref"))
+    else:
+        clauses.append("description=?")
+        params.append(item.get("description", ""))
+    rows = [dict(r) for r in conn.execute(f"SELECT * FROM stock_items WHERE {' AND '.join(clauses)} ORDER BY id", params).fetchall()]
+    return [row for row in rows if row["id"] not in exclude_ids]
+
+def reserve_commercial_stock_for_order(conn, stock_item: dict, reserve_qty: int, customer_order_id: int, customer_order_item_id: int,
+                                       co_no: str, customer_id: int, ts: str) -> dict:
+    stock_qty = int(stock_item.get("qty") or 0)
+    if reserve_qty <= 0 or stock_qty <= 0:
+        raise HTTPException(status_code=400, detail="Stock quantity must be positive before reservation")
+    if reserve_qty < stock_qty:
+        remaining_qty = stock_qty - reserve_qty
+        conn.execute("UPDATE stock_items SET qty=?, updated_at=? WHERE id=?", (remaining_qty, ts, stock_item["id"]))
+        cur = conn.execute("""
+            INSERT INTO stock_items
+            (product_id, ref, description, qty, customer_order_id, customer_order_item_id, co_no,
+             customer_id, source, status, location, serial_number, barcode, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            stock_item.get("product_id"),
+            stock_item.get("ref", ""),
+            stock_item.get("description", ""),
+            reserve_qty,
+            customer_order_id,
+            customer_order_item_id,
+            co_no,
+            customer_id,
+            "existing_stock",
+            "in_stock",
+            stock_item.get("location"),
+            stock_item.get("serial_number"),
+            stock_item.get("barcode"),
+            f"Reserved from stock item {stock_item['id']} for {co_no}",
+            ts,
+            ts,
+        ))
+        reserved_id = cur.lastrowid
+    else:
+        reserved_id = stock_item["id"]
+        conn.execute("""
+            UPDATE stock_items
+            SET customer_order_id=?, customer_order_item_id=?, co_no=?, customer_id=?,
+                source='existing_stock', status='in_stock', notes=?, updated_at=?
+            WHERE id=?
+        """, (
+            customer_order_id,
+            customer_order_item_id,
+            co_no,
+            customer_id,
+            f"Reserved from available stock for {co_no}",
+            ts,
+            reserved_id,
+        ))
+    return dict(conn.execute("SELECT * FROM stock_items WHERE id=?", (reserved_id,)).fetchone())
+
 def approve_quotation(quotation_id: int):
     conn = db()
     try:
@@ -4734,6 +4800,7 @@ def approve_quotation(quotation_id: int):
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (co_no, quotation_id, customer_id, "open", date.today().isoformat(), quotation["notes"] if "notes" in quotation.keys() else "", ts))
         customer_order_id = cur.lastrowid
+        reserved_stock_ids: set[int] = set()
         for item in quotation_items:
             qty = int(item.get("qty") or 0)
             co_item_cur = conn.execute("""
@@ -4751,26 +4818,45 @@ def approve_quotation(quotation_id: int):
                 qty,
                 "pending_procurement",
             ))
+            customer_order_item_id = co_item_cur.lastrowid
+            remaining_qty = qty
+            reserved_qty = 0
+            for stock_item in available_commercial_stock(conn, item, reserved_stock_ids):
+                if remaining_qty <= 0:
+                    break
+                reserve_qty = min(remaining_qty, int(stock_item.get("qty") or 0))
+                reserved = reserve_commercial_stock_for_order(conn, stock_item, reserve_qty, customer_order_id, customer_order_item_id, co_no, customer_id, ts)
+                reserved_stock_ids.add(reserved["id"])
+                reserved_qty += reserve_qty
+                remaining_qty -= reserve_qty
+            if remaining_qty > 0:
+                conn.execute("""
+                    INSERT INTO stock_items
+                    (product_id, ref, description, qty, customer_order_id, customer_order_item_id, co_no,
+                     customer_id, source, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    item.get("product_id"),
+                    item.get("ref", ""),
+                    item.get("description", ""),
+                    remaining_qty,
+                    customer_order_id,
+                    customer_order_item_id,
+                    co_no,
+                    customer_id,
+                    "customer_order",
+                    "pending_procurement",
+                    ts,
+                    ts,
+                ))
+            line_status = "in_stock" if remaining_qty == 0 else ("partially_in_stock" if reserved_qty else "pending_procurement")
             conn.execute("""
-                INSERT INTO stock_items
-                (product_id, ref, description, qty, customer_order_id, customer_order_item_id, co_no,
-                 customer_id, source, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                item.get("product_id"),
-                item.get("ref", ""),
-                item.get("description", ""),
-                qty,
-                customer_order_id,
-                co_item_cur.lastrowid,
-                co_no,
-                customer_id,
-                "customer_order",
-                "pending_procurement",
-                ts,
-                ts,
-            ))
+                UPDATE customer_order_items
+                SET procured_qty=?, received_qty=?, pending_qty=?, status=?
+                WHERE id=?
+            """, (reserved_qty, reserved_qty, remaining_qty, line_status, customer_order_item_id))
         conn.execute("UPDATE quotations SET status='approved', updated_at=? WHERE id=?", (ts, quotation_id))
+        update_customer_order_status(conn, customer_order_id)
         conn.commit()
         return {
             "customer_order": dict(conn.execute("SELECT * FROM customer_orders WHERE id=?", (customer_order_id,)).fetchone()),

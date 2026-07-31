@@ -229,13 +229,18 @@ class RuleBasedQuotationExtractionProvider:
         currency = _extract_currency(source) or context.preferred_currency or "USD"
         part_number = _first_match(r"(?:part\s*(?:number|no\.?|#)|p/?n)\s*[:#]?\s*([A-Za-z0-9][A-Za-z0-9_.\-/]+)", source)
         quantity = _number_before(r"(?:flow\s+sensor|sensor|part|piece|pcs|units?)", source) or 1
+        equipment_quantity, equipment_description = _extract_equipment_request(source)
         unit_price = _price_near(source, ["sensor", "part", part_number or ""])
         labour_hours = _first_float(r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\s*(?:labou?r|work|service)?", lower)
         labour_rate = _price_near(source, ["labour", "labor", "hour"])
         warranty = _first_match(r"warranty\s+([A-Za-z0-9 ]{3,40})", source)
+        contract_period = _first_match(r"(\d+\s*-?\s*(?:year|month)s?)\s+(?:contract|agreement|coverage)", source) or _first_match(r"(?:contract|agreement|coverage)\s+(?:for\s+)?(\d+\s*-?\s*(?:year|month)s?)", source)
+        pm_frequency = _first_match(r"((?:annual|quarterly|monthly|biannual|semi-annual)\s+(?:pm|preventive maintenance))", source)
         diagnosis = _sentence_with(lower, source, ["defective", "faulty", "failed", "broken"])
         issue = _sentence_with(lower, source, ["problem", "issue", "fault", "not working"]) or source[:240]
         action = _sentence_with(lower, source, ["replace", "replacement", "corrective", "repair"]) or ("Replace defective part" if part_number or "sensor" in lower else None)
+        if not action and pm_frequency:
+            action = f"Prepare quotation for {pm_frequency}"
         items = []
         if part_number or "sensor" in lower or unit_price is not None:
             items.append(ExtractedItem(
@@ -249,10 +254,30 @@ class RuleBasedQuotationExtractionProvider:
                 source_text=_sentence_with(lower, source, [part_number or "sensor", "price"]) or source[:240],
                 confidence="High" if part_number and unit_price is not None else "Medium",
             ))
+        if not items and equipment_description:
+            service_description = equipment_description
+            if pm_frequency:
+                service_description = f"{pm_frequency.title()} for {equipment_description}"
+            elif "installation" in lower:
+                service_description = f"Installation service for {equipment_description}"
+            elif "training" in lower:
+                service_description = f"Training service for {equipment_description}"
+            elif "contract" in lower or "coverage" in lower:
+                service_description = f"Service contract coverage for {equipment_description}"
+            items.append(ExtractedItem(
+                item_type="service",
+                description=service_description,
+                quantity=equipment_quantity or 1,
+                unit_price=_price_near(source, [equipment_description, "service", "contract", "pm"]),
+                currency=currency,
+                warranty=warranty,
+                source_text=_sentence_with(lower, source, [equipment_description.split()[0], "contract", "pm"]) or source[:240],
+                confidence="Medium",
+            ))
         labour = []
         if labour_hours is not None or labour_rate is not None or "labour" in lower or "labor" in lower:
             labour.append(ExtractedLabour(
-                description="Corrective maintenance labour",
+                description="Included labour" if "included" in lower and ("labour" in lower or "labor" in lower) else "Corrective maintenance labour",
                 hours=labour_hours,
                 hourly_rate=labour_rate,
                 currency=currency if labour_rate is not None else None,
@@ -264,24 +289,26 @@ class RuleBasedQuotationExtractionProvider:
             missing.append("Client must be confirmed from IRM records.")
         if not part_number and items:
             missing.append("Part number is missing or unclear.")
-        if any(item.unit_price is None for item in items):
+        if any(item.unit_price is None for item in items if item.item_type in {"part", "spare_part"}):
             missing.append("Unit price for one or more parts is missing.")
         if any(row.hours is None for row in labour):
             missing.append("Labour hours are missing.")
         if any(row.hourly_rate is None for row in labour):
             missing.append("Labour rate is missing.")
+        if any(item.unit_price is None for item in items):
+            missing.append("Unit price for one or more quotation lines is missing.")
         if not currency:
             missing.append("Currency was not specified.")
         if not warranty:
             missing.append("Warranty period was not found.")
         result = QuotationExtractionResult(
             client=ExtractedClient(id=context.client_id, name=context.client_name, site_id=context.site_id, site_name=context.site_name, contact_id=context.contact_id, contact_name=context.contact_name),
-            equipment=ExtractedEquipment(equipment_id=context.equipment_id, model=context.equipment_name),
+            equipment=ExtractedEquipment(equipment_id=context.equipment_id, model=context.equipment_name or equipment_description),
             references=ExtractedReferences(service_case_id=context.service_case_id, service_report_number=context.service_report_number),
             technical_summary=ExtractedTechnicalSummary(reported_issue=issue, inspection_findings=diagnosis, diagnosis=diagnosis, troubleshooting_performed=[], recommended_action=action),
             items=items,
             labour=labour,
-            commercial_terms=ExtractedCommercialTerms(currency=currency, warranty=warranty),
+            commercial_terms=ExtractedCommercialTerms(currency=currency, warranty=warranty or contract_period, delivery_time=_first_match(r"(urgent delivery|delivery within [A-Za-z0-9 ]{3,40}|[0-9]+ weeks? delivery)", source), payment_terms=_first_match(r"(cash in advance|net\s*\d+|payment [A-Za-z0-9 ]{3,40})", source)),
             missing_information=missing,
             warnings=["AI extraction creates an editable draft only; review every commercial and technical value before approval."],
         )
@@ -318,6 +345,19 @@ def _extract_currency(text: str) -> str | None:
 def _number_before(pattern: str, text: str) -> float | None:
     match = re.search(r"(\d+(?:\.\d+)?)\s+" + pattern, text, re.I)
     return float(match.group(1)) if match else None
+
+
+def _extract_equipment_request(text: str) -> tuple[float | None, str | None]:
+    skip = {"hours", "hrs", "days", "weeks", "months", "years", "usd", "dollars"}
+    pattern = r"\b(\d+(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9 /-]{2,60}?)(?:,|\.|;|\s+(?:with|for|annual|quarterly|monthly|biannual|semi-annual|urgent|labor|labour|contract|coverage|delivery|pm|preventive maintenance)\b|$)"
+    for match in re.finditer(pattern, text, re.I):
+        quantity = float(match.group(1))
+        description = " ".join(match.group(2).strip(" .,:;-").split())
+        first = description.split()[0].casefold() if description else ""
+        if not description or first in skip:
+            continue
+        return quantity, description
+    return None, None
 
 
 def _price_near(text: str, terms: list[str]) -> float | None:

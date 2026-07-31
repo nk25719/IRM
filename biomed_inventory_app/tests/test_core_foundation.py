@@ -189,6 +189,61 @@ class CoreFoundationSmokeTest(unittest.TestCase):
         self.assertEqual(final_stock["status"], "delivered")
         self.assertEqual(final_order["status"], "delivered")
 
+    def test_approved_service_offer_uses_stock_before_procurement(self):
+        m = self.main
+        client = m.create_crm_client(m.CRMClient(name="Stock Bypass Hospital"), self.request)
+        product = m.create_product(
+            {
+                "ref": "STOCK-CABLE-001",
+                "description": "ECG cable",
+                "category": "spare_parts",
+                "product_type": "spare_part",
+                "brand": "GE",
+                "model": "Leadwire",
+                "unit_price": 35,
+            }
+        )
+        conn = m.db()
+        try:
+            conn.execute(
+                """
+                INSERT INTO stock_items
+                (product_id, ref, description, qty, source, status, location, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (product["id"], product["ref"], product["description"], 2, "reception", "in_stock", "Main Stock", m.now(), m.now()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        quotation = m.create_commercial_quotation(
+            client["id"],
+            [{"product_id": product["id"], "qty": 2}],
+            quotation_no="QT-STOCK-BYPASS-001",
+        )
+        approved = m.approve_quotation(quotation["quotation"]["id"])
+
+        self.assertEqual(approved["customer_order"]["status"], "procured")
+        self.assertEqual(len(approved["stock_items"]), 1)
+        self.assertEqual(approved["stock_items"][0]["status"], "in_stock")
+        self.assertEqual(approved["stock_items"][0]["source"], "existing_stock")
+        self.assertEqual(approved["stock_items"][0]["po_no"], None)
+        self.assertEqual(approved["items"][0]["pending_qty"], 0)
+
+        delivery = m.create_delivery_order(client["id"], approved["customer_order"]["id"], [approved["stock_items"][0]["id"]], notes="Deliver stock item for service report")
+        self.assertEqual(delivery["delivery_order"]["status"], "delivered")
+
+        conn = m.db()
+        try:
+            po_count = conn.execute("SELECT COUNT(*) AS c FROM purchase_order_items WHERE stock_item_id=?", (approved["stock_items"][0]["id"],)).fetchone()["c"]
+            final_order = dict(conn.execute("SELECT * FROM customer_orders WHERE id=?", (approved["customer_order"]["id"],)).fetchone())
+        finally:
+            conn.close()
+
+        self.assertEqual(po_count, 0)
+        self.assertEqual(final_order["status"], "delivered")
+
     def test_pending_offer_import_department_progress_search_and_bulk_edit(self):
         m = self.main
         df = m.pd.DataFrame(

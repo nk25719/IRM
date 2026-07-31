@@ -117,6 +117,60 @@ class StaticLayoutRegressionTest(unittest.TestCase):
         self.assertNotIn('["Reports", "/aftersales/reports"]', app_layout_js)
         self.assertIn('return "/aftersales/technical-cases";', app_layout_js)
 
+    def test_aftermarket_views_have_compact_import_export_utilities(self):
+        after_sales_html = (ROOT / "app/static/after_sales.html").read_text()
+
+        self.assertIn('id="contextImportButton"', after_sales_html)
+        self.assertIn('id="contextExportButton"', after_sales_html)
+        self.assertIn("function importCurrentView()", after_sales_html)
+        self.assertIn("function exportCurrentView()", after_sales_html)
+        self.assertIn("function exportAftermarketWorkbook()", after_sales_html)
+        self.assertIn("downloadCsv(`aftermarket-${id}-export.csv`", after_sales_html)
+        self.assertIn('onclick="exportAftermarketWorkbook()"', after_sales_html)
+        for route_token in [
+            "/service-calls",
+            "/spare-parts",
+            "/contracts",
+            "/quotations",
+            "/installations",
+            "/deliveries",
+            "/trainings",
+            "/technical-cases",
+        ]:
+            self.assertIn(route_token, after_sales_html)
+
+    def test_clients_reports_and_training_demo_are_owned_by_correct_departments(self):
+        app_layout_js = (ROOT / "app/static/app_layout.js").read_text()
+        module_page = (ROOT / "app/static/module_page.html").read_text()
+        web_pages = (ROOT / "app/routers/web_pages.py").read_text()
+        firebase_json = (ROOT / "firebase.json").read_text()
+
+        self.assertNotIn('label: "Clients",\n      href: "/clients"', app_layout_js)
+        self.assertNotIn('label: "Training & Demo",', app_layout_js)
+        self.assertNotIn('label: "Reports",\n      href: "/reports"', app_layout_js)
+        self.assertIn('["Clients", "/administration/clients"]', app_layout_js)
+        self.assertIn('["Reports", "/administration/reports"]', app_layout_js)
+        self.assertEqual(app_layout_js.count('["Trainings", "/aftersales/trainings"]'), 2)
+        self.assertIn('value.replace("/clients", "/administration/clients")', app_layout_js)
+        self.assertIn('value.replace("/reports", "/administration/reports")', app_layout_js)
+        self.assertIn('value.replace("/training-demo", "/aftersales/trainings")', app_layout_js)
+        self.assertIn('if (currentPath.startsWith("/equipment")) return "/administration/clients";', app_layout_js)
+        self.assertIn('"/administration/reports":{title:"Reports"', module_page)
+        self.assertIn('["Clients","/administration/clients"', module_page)
+        self.assertIn('["Reports","/administration/reports"', module_page)
+        self.assertNotIn('"/training-demo":{title:"Training & Demo"', module_page)
+        self.assertNotIn('["Training & Demo","/training-demo"', module_page)
+        self.assertNotIn('["After Sales Operations Training","/aftersales/training-demo"', module_page)
+        self.assertNotIn('["Clients","/clients"', module_page)
+        self.assertIn('@router.get("/clients/{section:path}", include_in_schema=False)', web_pages)
+        self.assertIn('target = f"/administration/clients/{section}".rstrip("/")', web_pages)
+        self.assertIn('return _redirect_with_query(request, "/aftersales/trainings")', web_pages)
+        self.assertIn('return FileResponse(legacy_main.BASE_DIR / "static" / "crm.html")', web_pages)
+        self.assertIn('"source": "/clients"', firebase_json)
+        self.assertIn('"destination": "/administration/clients"', firebase_json)
+        self.assertIn('"source": "/training-demo"', firebase_json)
+        self.assertIn('"destination": "/aftersales/trainings"', firebase_json)
+
     def test_after_sales_contract_routes_and_pm_dashboard_mapping(self):
         app_layout_js = (ROOT / "app/static/app_layout.js").read_text()
         pm_app = (ROOT / "pm-frontend/src/App.jsx").read_text()

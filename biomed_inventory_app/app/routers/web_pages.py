@@ -137,6 +137,38 @@ def aftersales_engineer_schedule_page(engineer_id: int):
     return FileResponse(legacy_main.BASE_DIR / "static" / "engineer_schedule.html")
 
 
+@router.get("/training-demo", include_in_schema=False)
+@router.get("/training", include_in_schema=False)
+def training_demo_legacy_page(request: Request):
+    return _redirect_with_query(request, "/aftersales/trainings")
+
+
+@router.get("/reports", include_in_schema=False)
+@router.get("/reports/{section:path}", include_in_schema=False)
+def reports_legacy_page(request: Request, section: str = ""):
+    target = f"/administration/reports/{section}".rstrip("/")
+    return _redirect_with_query(request, target)
+
+
+@router.get("/clients", include_in_schema=False)
+@router.get("/clients/{section:path}", include_in_schema=False)
+def clients_legacy_page(request: Request, section: str = ""):
+    target = f"/administration/clients/{section}".rstrip("/")
+    return _redirect_with_query(request, target)
+
+
+@router.get("/administration/clients", include_in_schema=False)
+@router.get("/administration/clients/{section:path}", include_in_schema=False)
+def administration_clients_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "crm.html")
+
+
+@router.get("/administration/reports", include_in_schema=False)
+@router.get("/administration/reports/{section:path}", include_in_schema=False)
+def administration_reports_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "module_page.html")
+
+
 @router.get("/sales-cases", include_in_schema=False)
 def sales_cases_alias():
     return RedirectResponse("/sales", status_code=303)

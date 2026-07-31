@@ -2,6 +2,7 @@ import io
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from zipfile import ZipFile
 
 from openpyxl import Workbook
@@ -77,6 +78,29 @@ class QuotationGeneratorTest(unittest.TestCase):
         self.assertEqual(result.labour[0].hours, 2)
         self.assertIn("review", " ".join(result.warnings).lower())
         self.assertIsNone(result.references.customer_reference)
+
+    def test_ai_extraction_handles_plain_language_pm_service_request(self):
+        text = "Create a quotation for HMC Lab A for 3 patient monitors, annual PM, labor included, 2-year contract, urgent delivery."
+
+        result = RuleBasedQuotationExtractionProvider().extract_quotation_sync(text, QuotationContext(client_id=1, client_name="HMC Lab A", preferred_currency="USD"))
+
+        self.assertEqual(result.client.id, 1)
+        self.assertEqual(result.equipment.model, "patient monitors")
+        self.assertEqual(result.items[0].item_type, "service")
+        self.assertEqual(result.items[0].quantity, 3)
+        self.assertIn("Annual Pm", result.items[0].description)
+        self.assertEqual(result.commercial_terms.warranty, "2-year")
+        self.assertIn("urgent delivery", result.commercial_terms.delivery_time)
+        self.assertTrue(any("Unit price" in item for item in result.missing_information))
+
+    def test_quotation_page_has_ai_review_before_draft_creation(self):
+        html = (Path(__file__).resolve().parents[1] / "app/static/quotations.html").read_text(encoding="utf-8")
+
+        self.assertIn("Generate Structured Preview", html)
+        self.assertIn("Create Reviewed Draft", html)
+        self.assertIn("pendingAIExtraction", html)
+        self.assertIn("aiExtractionEditor", html)
+        self.assertIn("/quotations/ai/create-draft", html)
 
     def test_excel_export_generation(self):
         content = build_excel(
@@ -198,6 +222,83 @@ class QuotationGeneratorTest(unittest.TestCase):
             approved = approve_quotation(draft["quotation"]["id"], {"approved_by": "manager"})
             self.assertEqual(approved["status"], "approved")
             self.assertEqual(approved["approved_by"], "manager")
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_active_quotation_approval_creates_client_order_and_procurement_demand(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        previous = os.environ.get("DB_PATH")
+        try:
+            os.environ["DB_PATH"] = db_path
+            with connect() as conn:
+                conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+                conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
+                conn.commit()
+            quotation = create_quotation(
+                QuotationIn(
+                    client_id=1,
+                    quotation_number="QT-FLOW-001",
+                    items=[QuotationItemIn(item_code="PN-NEEDS-ORDER", description="Service spare part", quantity=2, unit_price=50)],
+                )
+            )
+
+            approved = approve_quotation(quotation["id"], {"approved_by": "manager"})
+
+            self.assertEqual(approved["status"], "approved")
+            self.assertEqual(approved["fulfillment"]["customer_order"]["status"], "open")
+            self.assertEqual(approved["fulfillment"]["items"][0]["pending_qty"], 2)
+            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "pending_procurement")
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_active_quotation_approval_bypasses_procurement_when_stock_exists(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        previous = os.environ.get("DB_PATH")
+        try:
+            os.environ["DB_PATH"] = db_path
+            with connect() as conn:
+                conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+                conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
+                conn.commit()
+            quotation = create_quotation(
+                QuotationIn(
+                    client_id=1,
+                    quotation_number="QT-STOCK-001",
+                    items=[QuotationItemIn(item_code="PN-IN-STOCK", description="Stock cable", quantity=2, unit_price=25)],
+                )
+            )
+            with connect() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO stock_items
+                    (ref, description, qty, source, status, location, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("PN-IN-STOCK", "Stock cable", 3, "reception", "in_stock", "Main Stock", "2026-07-31", "2026-07-31"),
+                )
+                conn.commit()
+
+            approved = approve_quotation(quotation["id"], {"approved_by": "manager"})
+
+            self.assertEqual(approved["fulfillment"]["customer_order"]["status"], "procured")
+            self.assertEqual(approved["fulfillment"]["items"][0]["pending_qty"], 0)
+            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "in_stock")
+            self.assertEqual(approved["fulfillment"]["stock_items"][0]["source"], "existing_stock")
+            with connect() as conn:
+                remaining = conn.execute("SELECT qty FROM stock_items WHERE customer_order_id IS NULL AND ref='PN-IN-STOCK'").fetchone()["qty"]
+            self.assertEqual(remaining, 1)
         finally:
             if previous is None:
                 os.environ.pop("DB_PATH", None)

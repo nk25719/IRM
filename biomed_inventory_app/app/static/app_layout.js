@@ -95,13 +95,6 @@
       ],
     },
     {
-      label: "Clients",
-      href: "/clients",
-      icon: "C",
-      section: "Master Data / Relationship",
-      match: ["/clients", "/crm", "/crm/client"],
-    },
-    {
       label: "Products",
       href: "/products",
       icon: "P",
@@ -109,20 +102,15 @@
       match: ["/products", "/sales/products"],
     },
     {
-      label: "Training & Demo",
-      href: "/training-demo",
-      icon: "T",
-      section: "Master Data / Relationship",
-      match: ["/training-demo", "/training"],
-    },
-    {
       label: "Administration",
       href: "/administration",
       icon: "M",
       section: "System",
-      match: ["/administration", "/admin", "/departments", "/equipment", "/cases", "/imports"],
+      match: ["/administration", "/admin", "/departments", "/equipment", "/cases", "/imports", "/clients", "/crm", "/crm/client", "/reports"],
       links: [
         ["Dashboard", "/administration"],
+        ["Clients", "/administration/clients"],
+        ["Reports", "/administration/reports"],
         ["Users & Permissions", "/administration/users"],
         ["Master Data", "/administration/master-data"],
         ["Data Management", "/administration/data-management"],
@@ -131,12 +119,6 @@
         ["Query Reports", "/admin/query"],
         ["System Settings", "/administration/settings"],
       ],
-    },
-    {
-      label: "Reports",
-      href: "/reports",
-      icon: "R",
-      section: "System",
     },
   ];
 
@@ -191,6 +173,8 @@
     ],
     "/administration": [
       ["Dashboard", "/administration"],
+      ["Clients", "/administration/clients"],
+      ["Reports", "/administration/reports"],
       ["Users & Permissions", "/administration/users"],
       ["Master Data", "/administration/master-data"],
       ["Data Management", "/administration/data-management"],
@@ -563,14 +547,13 @@
       "/warehouse",
       "/aftersales",
       "/finance",
-      "/clients",
       "/products",
-      "/training-demo",
       "/administration",
-      "/reports",
     ]);
     if (mainPages.has(currentPath)) return "";
-    if (currentPath.startsWith("/crm/client/")) return "/clients";
+    if (currentPath.startsWith("/crm/client/")) return "/administration/clients";
+    if (currentPath === "/clients" || currentPath.startsWith("/crm")) return "/administration";
+    if (currentPath === "/reports") return "/administration";
     if (currentPath === "/departments" || currentPath === "/equipment" || currentPath === "/cases" || currentPath === "/imports") return "/administration";
     if (currentPath.startsWith("/sales/quotations")) return "/sales";
     if (currentPath.startsWith("/sales/customer-orders")) return "/sales";
@@ -580,7 +563,7 @@
     if (currentPath.startsWith("/aftersales/")) return "/aftersales";
     if (currentPath.startsWith("/finance/")) return "/finance";
     if (currentPath.startsWith("/administration/")) return "/administration";
-    if (currentPath.startsWith("/equipment")) return "/clients";
+    if (currentPath.startsWith("/equipment")) return "/administration/clients";
     if (currentPath.startsWith("/imports")) return "/dashboard";
     return module.href === currentPath ? "" : module.href;
   }
@@ -639,7 +622,11 @@
     if (value === "/financials" || value.startsWith("/financials/")) return value.replace("/financials", "/finance");
     if (value === "/admin" || value.startsWith("/admin/")) return value.replace("/admin", "/administration");
     if (value === "/inventory" || value.startsWith("/inventory/")) return value.replace("/inventory", "/warehouse");
-    if (value === "/training" || value.startsWith("/training/")) return value.replace("/training", "/training-demo");
+    if (value === "/training-demo" || value.startsWith("/training-demo/")) return value.replace("/training-demo", "/aftersales/trainings");
+    if (value === "/training" || value.startsWith("/training/")) return value.replace("/training", "/aftersales/trainings");
+    if (value === "/clients" || value.startsWith("/clients/")) return value.replace("/clients", "/administration/clients");
+    if (value === "/crm" || value.startsWith("/crm/")) return value.replace("/crm", "/administration/clients");
+    if (value === "/reports" || value.startsWith("/reports/")) return value.replace("/reports", "/administration/reports");
     return value;
   }
 

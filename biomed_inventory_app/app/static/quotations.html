@@ -6,7 +6,7 @@
   <title>Service Quotations</title>
   <link rel="stylesheet" href="/static/theme.css">
   <style>
-    .quote-shell{display:grid;gap:16px;grid-template-columns:330px 1fr}.quote-panel,.group-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}.quote-form,.group-form,.line-form{display:grid;gap:10px}.quote-form input,.quote-form select,.quote-form textarea,.group-form input,.line-form input,.line-form select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.quote-form textarea{min-height:76px}.quote-actions{display:flex;flex-wrap:wrap;gap:8px}.quote-actions button,.quote-actions a{align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font-weight:800;gap:6px;padding:9px 11px;text-decoration:none}.quote-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-actions .success{background:#136f63;border-color:#136f63;color:#fff}.quote-actions .warn{background:#9a5b13;border-color:#9a5b13;color:#fff}.quote-list{display:grid;gap:8px;margin-top:10px}.quote-list button{background:#fff;border:1px solid var(--line);border-radius:8px;color:inherit;cursor:pointer;padding:10px;text-align:left}.quote-list button.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,78,120,.12)}.muted-small{color:var(--muted);font-size:12px}.groups{display:grid;gap:14px;margin-top:14px}.group-head{align-items:flex-start;background:#f3f4f6;border-radius:8px;display:flex;justify-content:space-between;gap:10px;padding:10px}.group-head h3{margin:0}.group-head p{color:var(--muted);margin:4px 0 0}.group-subtotal{font-size:13px;font-weight:800;margin-top:6px}.quote-table{border-collapse:collapse;margin-top:10px;width:100%}.quote-table th,.quote-table td{border-bottom:1px solid var(--line);font-size:13px;padding:8px;text-align:left;vertical-align:top}.quote-table th{background:var(--soft);color:var(--primary-dark)}.quote-table button{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:700;padding:6px 8px}.quote-summary{display:grid;gap:6px;justify-content:end;margin-top:14px}.quote-summary div{display:grid;grid-template-columns:160px 120px;gap:12px}.quote-summary strong{text-align:right}.line-composer{background:#f8fafc;border:1px solid var(--line);border-radius:8px;margin-top:12px;padding:12px}.line-composer h4{margin:0}.line-form{grid-template-columns:90px 140px minmax(220px,1fr) 110px 120px 130px}.line-form .readonly-total{background:#eef2f7;color:var(--primary-dark);font-weight:800}.section-title{align-items:center;display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}@media(max-width:1100px){.quote-shell{grid-template-columns:1fr}.line-form{grid-template-columns:1fr 1fr}}@media(max-width:720px){.group-head,.section-title{display:grid}.line-form{grid-template-columns:1fr}.quote-table{display:block;overflow-x:auto}.quote-summary{justify-content:stretch}.quote-summary div{grid-template-columns:1fr auto}}
+    .quote-shell{display:grid;gap:16px;grid-template-columns:330px 1fr}.quote-panel,.group-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px}.quote-form,.group-form,.line-form{display:grid;gap:10px}.quote-form input,.quote-form select,.quote-form textarea,.group-form input,.line-form input,.line-form select{border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px;width:100%}.quote-form textarea{min-height:76px}.quote-actions{display:flex;flex-wrap:wrap;gap:8px}.quote-actions button,.quote-actions a{align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;display:inline-flex;font-weight:800;gap:6px;padding:9px 11px;text-decoration:none}.quote-actions .primary{background:var(--primary);border-color:var(--primary);color:#fff}.quote-actions .success{background:#136f63;border-color:#136f63;color:#fff}.quote-actions .warn{background:#9a5b13;border-color:#9a5b13;color:#fff}.quote-list{display:grid;gap:8px;margin-top:10px}.quote-list button{background:#fff;border:1px solid var(--line);border-radius:8px;color:inherit;cursor:pointer;padding:10px;text-align:left}.quote-list button.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,78,120,.12)}.muted-small{color:var(--muted);font-size:12px}.ai-review-card{background:#f8fafc;border:1px solid var(--line);border-radius:8px;display:grid;gap:8px;margin-top:10px;padding:10px}.ai-review-card ul{margin:0;padding-left:18px}.ai-review-editor{border:1px solid var(--line);border-radius:8px;font:12px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;min-height:210px;padding:9px;width:100%}.ai-review-kpis{display:grid;gap:6px;grid-template-columns:repeat(3,1fr)}.ai-review-kpis div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}.groups{display:grid;gap:14px;margin-top:14px}.group-head{align-items:flex-start;background:#f3f4f6;border-radius:8px;display:flex;justify-content:space-between;gap:10px;padding:10px}.group-head h3{margin:0}.group-head p{color:var(--muted);margin:4px 0 0}.group-subtotal{font-size:13px;font-weight:800;margin-top:6px}.quote-table{border-collapse:collapse;margin-top:10px;width:100%}.quote-table th,.quote-table td{border-bottom:1px solid var(--line);font-size:13px;padding:8px;text-align:left;vertical-align:top}.quote-table th{background:var(--soft);color:var(--primary-dark)}.quote-table button{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--primary-dark);cursor:pointer;font-weight:700;padding:6px 8px}.quote-summary{display:grid;gap:6px;justify-content:end;margin-top:14px}.quote-summary div{display:grid;grid-template-columns:160px 120px;gap:12px}.quote-summary strong{text-align:right}.line-composer{background:#f8fafc;border:1px solid var(--line);border-radius:8px;margin-top:12px;padding:12px}.line-composer h4{margin:0}.line-form{grid-template-columns:90px 140px minmax(220px,1fr) 110px 120px 130px}.line-form .readonly-total{background:#eef2f7;color:var(--primary-dark);font-weight:800}.section-title{align-items:center;display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}@media(max-width:1100px){.quote-shell{grid-template-columns:1fr}.line-form{grid-template-columns:1fr 1fr}}@media(max-width:720px){.group-head,.section-title{display:grid}.line-form{grid-template-columns:1fr}.quote-table{display:block;overflow-x:auto}.quote-summary{justify-content:stretch}.quote-summary div{grid-template-columns:1fr auto}.ai-review-kpis{grid-template-columns:1fr}}
   </style>
 </head>
 <body data-page-title="Sales Quotations">
@@ -51,7 +51,10 @@
             <input id="aiCurrency" value="USD" placeholder="Preferred currency">
           </div>
           <textarea id="aiInput" placeholder="Paste the engineer's inspection findings, diagnosis, required parts, working hours, prices and any customer requirements. The information can be written informally."></textarea>
-          <div class="quote-actions"><button class="primary" onclick="generateAIDraft()">Generate Draft</button></div>
+          <div class="quote-actions">
+            <button class="primary" onclick="generateAIDraft()">Generate Structured Preview</button>
+            <button class="success" id="createReviewedDraftButton" onclick="createReviewedAIDraft()" disabled>Create Reviewed Draft</button>
+          </div>
           <div id="aiReview" class="muted-small"></div>
         </section>
         <div id="importReview"></div>
@@ -102,6 +105,8 @@
   <script>
     let selectedQuotation=null;
     let importedItems=[];
+    let pendingAIContext=null;
+    let pendingAIExtraction=null;
     const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
     const money=v=>Number(v||0).toFixed(2);
     async function api(url,opts={}){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());const type=res.headers.get("content-type")||"";return type.includes("json")?res.json():res.text()}
@@ -131,7 +136,58 @@
     async function generatePdf(){if(!selectedQuotation)return alert("Open a quotation first.");await api(`/quotations/${selectedQuotation.id}/generate-pdf`,{method:"POST"});refreshPreview()}
     function refreshPreview(){if(!selectedQuotation){pdfPreviewCard.hidden=true;return}const url=`/quotations/${selectedQuotation.id}/export/pdf?ts=${Date.now()}`;pdfPreviewCard.hidden=false;pdfPreview.src=url;previewDownload.href=url}
     function toggleAIComposer(){aiComposer.hidden=!aiComposer.hidden}
-    async function generateAIDraft(){if(!aiClientId.value)return alert("Select or confirm the client first.");if(!aiInput.value.trim())return alert("Describe the required quotation first.");aiReview.innerHTML="Extracting structured draft...";const context={client_id:Number(aiClientId.value),preferred_currency:aiCurrency.value||"USD",service_report_number:aiServiceReport.value||null,contact_id:new URLSearchParams(location.search).get("contact_id")?Number(new URLSearchParams(location.search).get("contact_id")):null};const extracted=await api("/quotations/ai/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:aiInput.value,context})});const result=extracted.result;aiReview.innerHTML=`<div><b>Review required</b></div><div>Items: ${esc((result.items||[]).length)} · Labour: ${esc((result.labour||[]).length)}</div><div>${esc((result.missing_information||[]).join("; "))}</div>`;const draft=await api("/quotations/ai/create-draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({extraction:result,context})});selectedQuotation=draft.quotation;await openQuotation(selectedQuotation.id);aiComposer.hidden=true}
+    function renderAIReview(result){
+      const missing=result.missing_information||[];
+      const warnings=result.warnings||[];
+      const itemCount=(result.items||[]).length;
+      const labourCount=(result.labour||[]).length;
+      const currency=result.commercial_terms?.currency||aiCurrency.value||"USD";
+      const missingHtml=missing.length?`<ul>${missing.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:`<div>No missing fields detected. Still review prices, quantities, and terms before creating.</div>`;
+      const warningsHtml=warnings.length?`<ul>${warnings.map(item=>`<li>${esc(item)}</li>`).join("")}</ul>`:"";
+      aiReview.innerHTML=`<div class="ai-review-card">
+        <div><b>Structured quotation preview</b></div>
+        <div class="ai-review-kpis">
+          <div><b>${esc(itemCount)}</b><br><span>Line item(s)</span></div>
+          <div><b>${esc(labourCount)}</b><br><span>Labour line(s)</span></div>
+          <div><b>${esc(currency)}</b><br><span>Currency</span></div>
+        </div>
+        <div><b>Needs review</b>${missingHtml}</div>
+        ${warningsHtml?`<div><b>Warnings</b>${warningsHtml}</div>`:""}
+        <label><b>Editable extracted JSON</b><textarea id="aiExtractionEditor" class="ai-review-editor">${esc(JSON.stringify(result,null,2))}</textarea></label>
+        <div class="muted-small">Create Reviewed Draft saves this as an AI draft quotation. You can edit lines again before approval or Excel export.</div>
+      </div>`;
+      createReviewedDraftButton.disabled=false;
+    }
+    async function generateAIDraft(){
+      if(!aiClientId.value)return alert("Select or confirm the client first.");
+      if(!aiInput.value.trim())return alert("Describe the required quotation first.");
+      createReviewedDraftButton.disabled=true;
+      aiReview.innerHTML="Extracting structured quotation preview...";
+      pendingAIContext={client_id:Number(aiClientId.value),preferred_currency:aiCurrency.value||"USD",service_report_number:aiServiceReport.value||null,contact_id:new URLSearchParams(location.search).get("contact_id")?Number(new URLSearchParams(location.search).get("contact_id")):null};
+      const extracted=await api("/quotations/ai/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:aiInput.value,context:pendingAIContext})});
+      pendingAIExtraction=extracted.result;
+      renderAIReview(pendingAIExtraction);
+    }
+    async function createReviewedAIDraft(){
+      if(!pendingAIContext||!pendingAIExtraction)return alert("Generate a structured preview first.");
+      let reviewed=pendingAIExtraction;
+      const editor=document.getElementById("aiExtractionEditor");
+      if(editor){
+        try{reviewed=JSON.parse(editor.value)}
+        catch(error){return alert("The edited AI JSON is not valid. Please fix it before creating the draft.")}
+      }
+      createReviewedDraftButton.disabled=true;
+      createReviewedDraftButton.textContent="Creating...";
+      try{
+        const draft=await api("/quotations/ai/create-draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({extraction:reviewed,context:pendingAIContext})});
+        selectedQuotation=draft.quotation;
+        pendingAIExtraction=null;
+        await openQuotation(selectedQuotation.id);
+        aiReview.innerHTML=`<div class="ai-review-card"><b>AI draft created.</b><div class="muted-small">Review the quotation lines, then use Export Excel when ready.</div><div class="quote-actions"><a class="success" href="/quotations/${selectedQuotation.id}/export/excel">Export Excel</a></div></div>`;
+      }finally{
+        createReviewedDraftButton.textContent="Create Reviewed Draft";
+      }
+    }
     async function uploadImport(e){const file=e.target.files[0];if(!file)return;const body=new FormData();body.append("file",file);const data=await api("/quotations/import",{method:"POST",body});importedItems=data.items||[];importReview.innerHTML=`<div class="import-review"><b>${esc(data.filename)}</b><div class="muted-small">${data.item_count} flat item(s) ready for review. They will be saved as General Items when you create a quotation.</div></div>`}
     function applyDeepLink(){if(location.hash==="#quotation-import")quotationImport?.scrollIntoView({block:"center"});if(location.hash==="#quotation-export")quotationExport?.scrollIntoView({block:"center"})}
     window.addEventListener("hashchange",applyDeepLink);
