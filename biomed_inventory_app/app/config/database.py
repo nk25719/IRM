@@ -37,4 +37,7 @@ def is_sqlite_database(database_url: str | None = None) -> bool:
 
 
 def get_sqlite_database_path(database_url: str | None = None) -> Path:
-    raise RuntimeError("SQLite support has been removed. Use SQLAlchemy sessions from app.database instead.")
+    raise RuntimeError(
+        "Legacy SQLite compatibility is disabled for the target SQLAlchemy/PostgreSQL runtime. "
+        "Migrate this code path to SQLAlchemy sessions from app.database."
+    )

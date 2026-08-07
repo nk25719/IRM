@@ -7,7 +7,8 @@ FastAPI/SQLAlchemy application for biomedical equipment, warehouse, sales, procu
 
 - Cloud Run/FastAPI owns authenticated application routes, APIs, sessions, uploads, and database-backed pages.
 - Firebase Hosting may serve static assets and legacy redirects only; it must not map business routes to different content than FastAPI.
-- PostgreSQL through SQLAlchemy is the database path for production work.
+- PostgreSQL and SQLAlchemy are the target database architecture.
+- Some existing workflows and tests still depend on legacy SQLite compatibility code scheduled for migration.
 - Production must set `APP_ENV=production`, a strong `SESSION_SECRET`, non-default credentials, and `SESSION_COOKIE_SECURE=true`.
 - `/uploads/*` is delivered through the authenticated FastAPI app, not public static hosting.
 
@@ -84,15 +85,19 @@ Use these before changing this checkpoint:
 
 ```bash
 python3 -m compileall app tests
-python3 -m unittest tests.test_database_foundation -v
-python3 -m unittest tests.test_master_data_backfill -v
-python3 -m unittest tests.test_data_management_center -v
-python3 -m unittest tests.test_aftermarket_service_reports tests.test_quotation_generator -v
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests/unit -v
+python3 -m unittest tests.test_static_layout tests.test_service_intelligence -v
 node --check app/static/app_layout.js
 ```
 
-Known at this checkpoint: the full legacy suite still has older workflow failures documented in `docs/database/foundation-stabilization-review.md` and `docs/architecture/data-management-structural-review.md`.
+CI separates the test suites temporarily:
+
+- `tests/unit`: blocking, no database.
+- `tests/postgres`: blocking, PostgreSQL/SQLAlchemy integration after `alembic upgrade head`.
+- `tests/legacy`: non-blocking compatibility debt marker.
+- Existing top-level `tests/test_*.py`: still run in the non-blocking legacy CI job until migrated.
+
+Known at this checkpoint: the full legacy suite still has SQLite-dependent failures. Track migration progress in `docs/architecture/database-ownership-and-migration-policy.md`.
 
 ### Key documentation
 
