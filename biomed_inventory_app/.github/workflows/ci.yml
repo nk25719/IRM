@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  python:
+    name: Python checks
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg2://irm_user:irm_password@localhost:5432/irm_test
+      SESSION_SECRET: test-session-secret-change-me-32-characters
+      APP_USERNAME: admin
+      APP_PASSWORD: admin123
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: irm_test
+          POSTGRES_USER: irm_user
+          POSTGRES_PASSWORD: irm_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U irm_user -d irm_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: pm-frontend/package-lock.json
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Build PM frontend
+        run: npm ci && npm run build
+        working-directory: pm-frontend
+      - name: Compile Python
+        run: python -m compileall app alembic tests
+      - name: Run hardened regression tests
+        run: python -m unittest tests.test_static_layout tests.test_service_intelligence -v

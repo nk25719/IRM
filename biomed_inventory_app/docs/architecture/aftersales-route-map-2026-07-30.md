@@ -26,7 +26,7 @@ Generated before navigation changes on 2026-07-30.
 | Installations | `after_sales.html` operations row | `/aftersales/installations`, `/aftersales/delivery-installation` | `/aftersales/installations` | Installation planning, readiness, checklist, completion | Keep catch-all view for now; split ownership from deliveries in navigation |
 | Deliveries | `after_sales.html` operations row and warehouse cross-links | `/aftersales/deliveries`, `/aftersales/delivery-installation`, `/warehouse/delivery-orders` | `/aftersales/deliveries` | Delivery scheduling, handover, delivery-linked installation | Keep After Sales delivery tab; warehouse delivery orders remain Warehouse-owned cross-links |
 | Trainings | `after_sales.html` operations row and schedule event type | `/aftersales/training-demo`, `/training-demo`, `/training` | `/aftersales/trainings` | User, technical, application, and post-installation training | Redirect After Sales training-demo child route; global Training & Demo remains master-data/cross-module |
-| Contracts | `pm/index.html` React bundle | `/aftersales/contracts`, `/aftersales/contracts/dashboard`, `/aftersales/contracts/hospital-status`, `/after-sales/contracts/*` | `/aftersales/contracts`, `/aftersales/contracts/dashboard`, `/aftersales/contracts/hospital-status`, `/aftersales/contracts/renewals` | Customer service contracts overview, Manage Contracts dashboard, PM contract coverage, hospital contract status | Keep as canonical contracts tab; preserve richer PM/contracts bundle |
+| Contracts | `pm/index.html` React bundle | `/aftersales/contracts`, `/aftersales/contracts/hospital-status`, `/after-sales/contracts/*` | `/aftersales/contracts`, `/aftersales/contracts/hospital-status`, `/aftersales/contracts/renewals` | Customer service contracts overview, PM contract coverage, hospital contract status | Keep as canonical contracts tab; do not route contracts dashboard to PM |
 | Contracts | `service_intelligence.html` | `/aftersales/contract-intelligence`, `/service/contract-intelligence`, `/service/customer-contracts` | `/aftersales/contracts/renewals` or linked intelligence subview | Coverage gaps, warranty timing, renewal opportunities | Merge under Contracts as linked subview; preserve old service-intelligence URLs as aliases |
 | Contracts | Manufacturer coverage | `/administration/manufacturer-coverage` | `/administration/manufacturer-coverage` | Manufacturer coverage/admin data | Keep outside After Sales main tabs |
 | Spare Parts Requests | `after_sales.html` spare parts panel | `/aftersales/spare-parts`, `/aftersales/spare-parts/*` | `/aftersales/spare-parts` | Parts required for calls, usage, approval, availability, delays | Keep as canonical tab; do not expose warehouse stock adjustment here |
@@ -46,7 +46,6 @@ Generated before navigation changes on 2026-07-30.
 - `/aftersales/deliveries`
 - `/aftersales/trainings`
 - `/aftersales/contracts`
-- `/aftersales/contracts/dashboard`
 - `/aftersales/spare-parts`
 - `/aftersales/technical-cases`
 

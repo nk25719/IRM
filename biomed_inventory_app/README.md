@@ -1,5 +1,15 @@
 
-# Biomedical Inventory ERP Web App v4
+# IRM Biomedical Inventory ERP
+
+FastAPI/SQLAlchemy application for biomedical equipment, warehouse, sales, procurement, after-sales, contracts, scheduling, and administration workflows.
+
+## Production Rules
+
+- Cloud Run/FastAPI owns authenticated application routes, APIs, sessions, uploads, and database-backed pages.
+- Firebase Hosting may serve static assets and legacy redirects only; it must not map business routes to different content than FastAPI.
+- PostgreSQL through SQLAlchemy is the database path for production work.
+- Production must set `APP_ENV=production`, a strong `SESSION_SECRET`, non-default credentials, and `SESSION_COOKIE_SECURE=true`.
+- `/uploads/*` is delivered through the authenticated FastAPI app, not public static hosting.
 
 ## Current checkpoint: database-foundation
 
@@ -23,7 +33,7 @@ Deliberately not included yet:
 - Validation correction editing.
 - New department workflows or stock/procurement side effects from imports.
 
-The SQLite file `app/data/inventory.db` is local development/runtime state and is intentionally ignored by Git. Rebuild or reset it from Alembic migrations when the schema changes; do not commit runtime database churn.
+Runtime data and generated exports are intentionally ignored by Git. Rebuild schema from Alembic migrations when it changes; do not commit runtime database churn.
 
 ### Run locally
 
@@ -51,18 +61,12 @@ APP_PASSWORD=admin123
 
 ### Database and file storage
 
-For SQLite development, the app defaults to:
-
-```text
-sqlite:///./app/data/inventory.db
-```
-
-Use these environment variables when needed:
+Use a PostgreSQL SQLAlchemy URL:
 
 ```bash
-export DATABASE_URL="sqlite:///./app/data/inventory.db"
-export DB_PATH="./app/data/inventory.db"
+export DATABASE_URL="postgresql+psycopg2://irm_user:change_me@localhost:5432/irm"
 export IRM_DATA_ROOT="$HOME/IRM-data"
+export SESSION_SECRET="replace-with-a-long-random-secret"
 ```
 
 For local PostgreSQL:
