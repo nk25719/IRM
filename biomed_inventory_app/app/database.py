@@ -1,9 +1,9 @@
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from app.config.database import DATA_DIR, database_driver, get_database_url
+from app.config.database import DATA_DIR, get_database_url, is_postgresql_database
 
 DATA_DIR.mkdir(exist_ok=True)
 
@@ -11,24 +11,15 @@ DATABASE_URL = get_database_url()
 
 
 def _engine_kwargs(url: str) -> dict:
-    driver = database_driver(url)
+    if not is_postgresql_database(url):
+        raise RuntimeError("Only PostgreSQL SQLAlchemy DATABASE_URL values are supported.")
     kwargs = {"future": True, "pool_pre_ping": True}
-    if driver == "sqlite":
-        kwargs["connect_args"] = {"check_same_thread": False}
-    elif driver == "postgresql":
-        kwargs.update(pool_size=10, max_overflow=20, pool_recycle=1800)
+    kwargs.update(pool_size=10, max_overflow=20, pool_recycle=1800)
     return kwargs
 
 
 def build_engine(database_url: str):
-    engine_ = create_engine(database_url, **_engine_kwargs(database_url))
-    if database_driver(database_url) == "sqlite":
-        @event.listens_for(engine_, "connect")
-        def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-    return engine_
+    return create_engine(database_url, **_engine_kwargs(database_url))
 
 
 engine = build_engine(DATABASE_URL)

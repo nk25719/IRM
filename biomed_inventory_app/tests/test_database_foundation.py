@@ -10,7 +10,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.config.database import get_database_url, get_sqlite_database_path, is_sqlite_database
+from app.config.database import DEFAULT_DATABASE_URL, get_database_url, get_sqlite_database_path, is_postgresql_database, is_sqlite_database
 from app.database import Base, build_engine
 from app.erp_models import Client, Department, Equipment, EquipmentModel, User
 from app.models.foundation import AuditEvent, DataValidationError, EquipmentCategoryAlias, ImportBatch, ImportRow, ManufacturerAlias, StatusHistory
@@ -258,29 +258,32 @@ class DatabaseConfigurationTest(unittest.TestCase):
         else:
             os.environ["DB_PATH"] = self.old_db_path
 
-    def test_database_url_and_legacy_path_share_sqlite_location(self):
+    def test_database_url_defaults_to_sqlalchemy_postgresql(self):
         os.environ.pop("DATABASE_URL", None)
         os.environ["DB_PATH"] = "./tmp/test-shared.db"
-        self.assertTrue(is_sqlite_database())
-        self.assertEqual(get_database_url(), "sqlite:///./tmp/test-shared.db")
-        self.assertEqual(get_sqlite_database_path(), Path("./tmp/test-shared.db").resolve())
+        self.assertFalse(is_sqlite_database())
+        self.assertTrue(is_postgresql_database())
+        self.assertEqual(get_database_url(), DEFAULT_DATABASE_URL)
 
-    def test_relative_and_absolute_sqlite_urls_resolve(self):
+    def test_sqlite_urls_are_rejected(self):
         os.environ["DATABASE_URL"] = "sqlite:///./app/data/relative-test.db"
-        self.assertEqual(get_sqlite_database_path(), Path("./app/data/relative-test.db").resolve())
-        absolute = Path(tempfile.gettempdir()) / "absolute-test.db"
-        os.environ["DATABASE_URL"] = f"sqlite:///{absolute}"
-        self.assertEqual(get_sqlite_database_path(), absolute)
+        self.assertFalse(is_sqlite_database())
+        with self.assertRaises(RuntimeError):
+            get_database_url()
+        with self.assertRaises(RuntimeError):
+            get_sqlite_database_path()
 
-    def test_postgresql_url_rejects_legacy_sqlite_path(self):
+    def test_postgresql_url_is_accepted_and_legacy_path_rejected(self):
         os.environ["DATABASE_URL"] = "postgresql+psycopg://irm_user:change_me@db:5432/irm"
         self.assertFalse(is_sqlite_database())
+        self.assertTrue(is_postgresql_database())
+        self.assertEqual(get_database_url(), "postgresql+psycopg://irm_user:change_me@db:5432/irm")
         with self.assertRaises(RuntimeError):
             get_sqlite_database_path()
 
 
 class ApplicationRouteSmokeTest(unittest.TestCase):
-    def test_existing_application_startup_and_routes_remain_registered(self):
+    def test_application_startup_rejects_sqlite_configuration(self):
         fd, db_path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         os.unlink(db_path)
@@ -291,16 +294,11 @@ class ApplicationRouteSmokeTest(unittest.TestCase):
         try:
             import importlib
             import app.database as database
-            import app.main as main
 
-            importlib.reload(database)
-            main = importlib.reload(main)
-            main.init_db()
-            paths = {route.path for route in main.app.routes if hasattr(route, "path")}
-            self.assertIn("/", paths)
-            self.assertIn("/api/erp/dashboard/summary", paths)
-            self.assertIn("/api/master-data/manufacturers", paths)
-            self.assertIn("/api/imports/batches", paths)
+            with self.assertRaises(RuntimeError):
+                importlib.reload(database)
+            with self.assertRaises(RuntimeError):
+                importlib.import_module("app.main")
         finally:
             if old_db_path is None:
                 os.environ.pop("DB_PATH", None)

@@ -1,45 +1,40 @@
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 
 APP_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = APP_DIR / "data"
 DATA_ROOT = Path(os.getenv("IRM_DATA_ROOT", Path.home() / "IRM-data")).resolve()
-DEFAULT_SQLITE_PATH = DATA_DIR / "inventory.db"
-DEFAULT_DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+POSTGRESQL_DRIVERS = {"postgresql", "postgres"}
+DEFAULT_DATABASE_URL = "postgresql+psycopg2://irm:irm@localhost:5432/irm"
 
 
 def get_database_url() -> str:
     database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        return database_url
-    legacy_db_path = os.getenv("DB_PATH")
-    if legacy_db_path:
-        return f"sqlite:///{legacy_db_path}"
-    return DEFAULT_DATABASE_URL
+    if not database_url:
+        database_url = DEFAULT_DATABASE_URL
+    driver = database_driver(database_url)
+    if driver == "postgres":
+        return database_url.replace("postgres://", "postgresql://", 1)
+    if driver != "postgresql":
+        raise RuntimeError(
+            f"Unsupported database driver '{driver}'. Configure DATABASE_URL with a PostgreSQL SQLAlchemy URL."
+        )
+    return database_url
 
 
 def database_driver(database_url: str | None = None) -> str:
-    url = database_url or get_database_url()
+    url = database_url or os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
     return urlparse(url).scheme.split("+", 1)[0]
 
 
-def is_sqlite_database(database_url: str | None = None) -> bool:
-    return database_driver(database_url) == "sqlite"
-
-
 def is_postgresql_database(database_url: str | None = None) -> bool:
-    return database_driver(database_url) == "postgresql"
+    return database_driver(database_url) in POSTGRESQL_DRIVERS
+
+
+def is_sqlite_database(database_url: str | None = None) -> bool:
+    return False
 
 
 def get_sqlite_database_path(database_url: str | None = None) -> Path:
-    url = database_url or get_database_url()
-    if not url.startswith("sqlite:///"):
-        raise RuntimeError("Legacy sqlite3 access is only available when DATABASE_URL is a SQLite URL")
-    raw_value = unquote(url.replace("sqlite:///", "", 1))
-    if not raw_value:
-        raise RuntimeError("SQLite DATABASE_URL must include a database path")
-    if raw_value == ":memory:":
-        return Path(":memory:")
-    path = Path(raw_value)
-    return path if path.is_absolute() else path.resolve()
+    raise RuntimeError("SQLite support has been removed. Use SQLAlchemy sessions from app.database instead.")

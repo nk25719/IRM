@@ -7,7 +7,23 @@ from zipfile import ZipFile
 
 from openpyxl import Workbook
 
-from app.quotation_api import QuotationAIDraftRequest, QuotationEquipmentGroupIn, QuotationIn, QuotationItemIn, approve_quotation, ai_create_draft, connect, create_quotation, submit_review
+from app.quotation_api import (
+    QuotationAIDraftRequest,
+    QuotationEquipmentGroupIn,
+    QuotationIn,
+    QuotationItemIn,
+    approve_quotation,
+    ai_create_draft,
+    cancel_client_order_item,
+    connect,
+    create_purchase_order_from_client_order_items,
+    create_quotation,
+    create_service_report_for_client_order,
+    create_shipment_for_purchase_order_items,
+    ensure_tables,
+    receive_shipment_items,
+    submit_review,
+)
 from app.quotation_ai_service import QuotationAIService, QuotationContext, RuleBasedQuotationExtractionProvider
 from app.quotation_export import build_excel, build_pdf, calculate_totals
 from app.quotation_import_service import parse_excel_bytes
@@ -164,6 +180,7 @@ class QuotationGeneratorTest(unittest.TestCase):
         try:
             os.environ["DB_PATH"] = db_path
             with connect() as conn:
+                ensure_tables(conn)
                 conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
                 conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
                 conn.commit()
@@ -207,6 +224,7 @@ class QuotationGeneratorTest(unittest.TestCase):
         try:
             os.environ["DB_PATH"] = db_path
             with connect() as conn:
+                ensure_tables(conn)
                 conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
                 conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
                 conn.commit()
@@ -253,7 +271,8 @@ class QuotationGeneratorTest(unittest.TestCase):
             self.assertEqual(approved["status"], "approved")
             self.assertEqual(approved["fulfillment"]["customer_order"]["status"], "open")
             self.assertEqual(approved["fulfillment"]["items"][0]["pending_qty"], 2)
-            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "pending_procurement")
+            self.assertEqual(approved["fulfillment"]["items"][0]["status"], "purchase_required")
+            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "purchase_required")
         finally:
             if previous is None:
                 os.environ.pop("DB_PATH", None)
@@ -294,11 +313,148 @@ class QuotationGeneratorTest(unittest.TestCase):
 
             self.assertEqual(approved["fulfillment"]["customer_order"]["status"], "procured")
             self.assertEqual(approved["fulfillment"]["items"][0]["pending_qty"], 0)
-            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "in_stock")
+            self.assertEqual(approved["fulfillment"]["items"][0]["status"], "reserved")
+            self.assertEqual(approved["fulfillment"]["stock_items"][0]["status"], "reserved")
             self.assertEqual(approved["fulfillment"]["stock_items"][0]["source"], "existing_stock")
+            self.assertEqual(approved["fulfillment"]["reservations"][0]["qty"], 2)
             with connect() as conn:
                 remaining = conn.execute("SELECT qty FROM stock_items WHERE customer_order_id IS NULL AND ref='PN-IN-STOCK'").fetchone()["qty"]
             self.assertEqual(remaining, 1)
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_service_workflow_purchase_shipment_reception_and_service_report(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        previous = os.environ.get("DB_PATH")
+        try:
+            os.environ["DB_PATH"] = db_path
+            with connect() as conn:
+                conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+                conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
+                conn.commit()
+            quotation = create_quotation(
+                QuotationIn(
+                    client_id=1,
+                    quotation_number="QT-PURCHASE-001",
+                    items=[QuotationItemIn(item_code="PN-BUY", description="Ordered spare part", quantity=3, unit_price=40)],
+                )
+            )
+            approved = approve_quotation(quotation["id"], {"approved_by": "manager"})
+            order = approved["fulfillment"]["customer_order"]
+            line = approved["fulfillment"]["items"][0]
+
+            self.assertEqual(line["status"], "purchase_required")
+            self.assertEqual(line["required_qty"], 3)
+            with connect() as conn:
+                po = create_purchase_order_from_client_order_items(conn, [line["id"]], supplier_id=55)
+                shipment = create_shipment_for_purchase_order_items(conn, {po["items"][0]["id"]: 3}, supplier_id=55, shipment_no="SH-PURCHASE-001")
+                reception = receive_shipment_items(
+                    conn,
+                    shipment["shipment"]["id"],
+                    [{
+                        "shipment_item_id": shipment["items"][0]["id"],
+                        "received_qty": 3,
+                        "accepted_qty": 3,
+                        "serial_number": "SN-PUR-1",
+                        "batch_lot_number": "LOT-1",
+                        "expiry_date": "2027-12-31",
+                        "warehouse_location": "Main-A1",
+                    }],
+                )
+                ready_line = dict(conn.execute("SELECT * FROM customer_order_items WHERE id=?", (line["id"],)).fetchone())
+                reserved_stock = dict(conn.execute("SELECT * FROM stock_items WHERE source='reception' AND customer_order_item_id=?", (line["id"],)).fetchone())
+                report = create_service_report_for_client_order(
+                    conn,
+                    order["id"],
+                    [{"customer_order_item_id": line["id"], "stock_item_id": reserved_stock["id"], "qty": 3, "action": "installed"}],
+                )
+                issued_stock = dict(conn.execute("SELECT * FROM stock_items WHERE id=?", (reserved_stock["id"],)).fetchone())
+                conn.commit()
+
+            self.assertEqual(po["items"][0]["customer_order_item_id"], line["id"])
+            self.assertEqual(shipment["items"][0]["purchase_order_item_id"], po["items"][0]["id"])
+            self.assertEqual(reception["items"][0]["accepted_qty"], 3)
+            self.assertEqual(ready_line["status"], "ready_for_delivery")
+            self.assertEqual(ready_line["reception_status"], "received")
+            self.assertEqual(report["items"][0]["customer_order_item_id"], line["id"])
+            self.assertEqual(report["items"][0]["stock_item_id"], reserved_stock["id"])
+            self.assertEqual(issued_stock["qty"], 0)
+            self.assertEqual(issued_stock["status"], "issued")
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_service_workflow_partial_stock_partial_shipment_reception_and_duplicate_guard(self):
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        previous = os.environ.get("DB_PATH")
+        try:
+            os.environ["DB_PATH"] = db_path
+            with connect() as conn:
+                ensure_tables(conn)
+                conn.execute("CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+                conn.execute("INSERT INTO clients (name) VALUES (?)", ("Hospital A",))
+                conn.execute(
+                    """
+                    INSERT INTO stock_items
+                    (ref, description, qty, source, status, location, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("PN-PARTIAL", "Partial stock part", 1, "reception", "in_stock", "Main Stock", "2026-07-31", "2026-07-31"),
+                )
+                conn.commit()
+            quotation = create_quotation(
+                QuotationIn(
+                    client_id=1,
+                    quotation_number="QT-PARTIAL-001",
+                    items=[QuotationItemIn(item_code="PN-PARTIAL", description="Partial stock part", quantity=4, unit_price=10)],
+                )
+            )
+            approved = approve_quotation(quotation["id"], {"approved_by": "manager"})
+            line = approved["fulfillment"]["items"][0]
+
+            self.assertEqual(line["reserved_qty"], 1)
+            self.assertEqual(line["required_qty"], 3)
+            self.assertEqual(line["status"], "purchase_required")
+
+            with connect() as conn:
+                po = create_purchase_order_from_client_order_items(conn, [line["id"]], supplier_id=77)
+                shipment = create_shipment_for_purchase_order_items(conn, {po["items"][0]["id"]: 2}, supplier_id=77, shipment_no="SH-PARTIAL-001")
+                reception = receive_shipment_items(
+                    conn,
+                    shipment["shipment"]["id"],
+                    [{
+                        "shipment_item_id": shipment["items"][0]["id"],
+                        "received_qty": 2,
+                        "accepted_qty": 1,
+                        "rejected_qty": 1,
+                        "warehouse_location": "Main-B2",
+                    }],
+                )
+                partial_line = dict(conn.execute("SELECT * FROM customer_order_items WHERE id=?", (line["id"],)).fetchone())
+                with self.assertRaises(Exception):
+                    receive_shipment_items(
+                        conn,
+                        shipment["shipment"]["id"],
+                        [{"shipment_item_id": shipment["items"][0]["id"], "received_qty": 1, "accepted_qty": 1}],
+                    )
+                cancelled = cancel_client_order_item(conn, line["id"], "Customer cancelled remaining quantity")
+                conn.commit()
+
+            self.assertEqual(reception["items"][0]["accepted_qty"], 1)
+            self.assertEqual(reception["items"][0]["rejected_qty"], 1)
+            self.assertEqual(partial_line["status"], "partially_received")
+            self.assertEqual(cancelled["status"], "cancelled")
         finally:
             if previous is None:
                 os.environ.pop("DB_PATH", None)

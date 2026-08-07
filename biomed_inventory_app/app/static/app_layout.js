@@ -518,7 +518,7 @@
       currentPath.startsWith("/aftersales/equipment")
     ) return "/aftersales/service-calls";
     if (currentPath.includes("/quotations")) return "/aftersales/quotations";
-    if (currentPath.includes("/preventivemaintenance") || currentPath.includes("/contracts/dashboard") || currentPath.includes("/preventive-maintenance") || currentPath.includes("/pm") || currentPath.includes("/pm-tracking") || currentPath.includes("/schedule")) return "/aftersales/preventivemaintenance";
+    if (currentPath.includes("/preventivemaintenance") || currentPath.includes("/preventive-maintenance") || currentPath.includes("/pm") || currentPath.includes("/pm-tracking") || currentPath.includes("/schedule")) return "/aftersales/preventivemaintenance";
     if (currentPath.includes("/installations") || currentPath.includes("/delivery-installation")) return "/aftersales/installations";
     if (currentPath.includes("/deliveries")) return "/aftersales/deliveries";
     if (currentPath.includes("/trainings") || currentPath.includes("/training-demo")) return "/aftersales/trainings";

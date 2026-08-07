@@ -78,3 +78,14 @@ pm-frontend/.git/
 
 # dataconnect generated files
 .dataconnect
+
+.DS_Store
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+backups/
+*.db
+*.db-shm
+*.db-wal

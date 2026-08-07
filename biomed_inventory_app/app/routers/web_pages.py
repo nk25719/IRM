@@ -50,26 +50,38 @@ def after_sales_legacy_section_alias(section: str, request: Request):
     return _redirect_with_query(request, _canonical_aftersales_section(section))
 
 
-@router.get("/aftersales/contracts/dashboard", include_in_schema=False)
-@router.get("/after-sales/contracts/dashboard", include_in_schema=False)
-def aftersales_contracts_dashboard_alias(request: Request):
-    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
-
-
 @router.get("/aftersales/preventivemaintenance", include_in_schema=False)
 @router.get("/aftersales/preventivemaintenance/{section:path}", include_in_schema=False)
-@router.get("/after-sales/preventivemaintenance", include_in_schema=False)
-@router.get("/after-sales/preventivemaintenance/{section:path}", include_in_schema=False)
 def aftersales_preventive_maintenance_dashboard(section: str = ""):
     return FileResponse(legacy_main.BASE_DIR / "static" / "pm" / "index.html")
 
 
 @router.get("/aftersales/contracts", include_in_schema=False)
 @router.get("/aftersales/contracts/{section:path}", include_in_schema=False)
-@router.get("/after-sales/contracts", include_in_schema=False)
-@router.get("/after-sales/contracts/{section:path}", include_in_schema=False)
 def aftersales_contracts_page(section: str = ""):
     return FileResponse(legacy_main.BASE_DIR / "static" / "pm" / "index.html")
+
+
+@router.get("/aftersales/contract-intelligence", include_in_schema=False)
+@router.get("/aftersales/contract-intelligence/{section:path}", include_in_schema=False)
+@router.get("/service/contract-intelligence", include_in_schema=False)
+@router.get("/service/contract-intelligence/{section:path}", include_in_schema=False)
+def aftersales_contract_intelligence_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "service_intelligence.html")
+
+
+@router.get("/aftersales/customer-contracts", include_in_schema=False)
+@router.get("/aftersales/customer-contracts/{section:path}", include_in_schema=False)
+@router.get("/service/customer-contracts", include_in_schema=False)
+@router.get("/service/customer-contracts/{section:path}", include_in_schema=False)
+def aftersales_customer_contracts_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "service_intelligence.html")
+
+
+@router.get("/administration/manufacturer-coverage", include_in_schema=False)
+@router.get("/administration/manufacturer-coverage/{section:path}", include_in_schema=False)
+def administration_manufacturer_coverage_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "service_intelligence.html")
 
 
 @router.get("/aftersales/pm", include_in_schema=False)
@@ -81,12 +93,8 @@ def aftersales_preventive_maintenance_page(request: Request, section: str = ""):
 
 
 @router.get("/aftersales/pm-tracking", include_in_schema=False)
-def aftersales_pm_tracking_alias(request: Request):
-    return _redirect_with_query(request, "/aftersales/preventivemaintenance")
-
-
 @router.get("/aftersales/pm-tracking/{section:path}", include_in_schema=False)
-def aftersales_pm_tracking_section_alias(section: str, request: Request):
+def aftersales_pm_tracking_alias(request: Request, section: str = ""):
     return _redirect_with_query(request, "/aftersales/preventivemaintenance")
 
 
@@ -125,6 +133,11 @@ def aftersales_delivery_installation_alias(request: Request, section: str = ""):
     return _redirect_with_query(request, f"/aftersales/installations/{section}".rstrip("/"))
 
 
+@router.get("/aftersales/reports", include_in_schema=False)
+def aftersales_reports_alias(request: Request):
+    return _redirect_with_query(request, "/administration/reports")
+
+
 @router.get("/aftersales/schedule", include_in_schema=False)
 @router.get("/after-sales/schedule", include_in_schema=False)
 def aftersales_schedule_page():
@@ -135,6 +148,12 @@ def aftersales_schedule_page():
 @router.get("/after-sales/schedule/engineers/{engineer_id}", include_in_schema=False)
 def aftersales_engineer_schedule_page(engineer_id: int):
     return FileResponse(legacy_main.BASE_DIR / "static" / "engineer_schedule.html")
+
+
+@router.get("/aftersales", include_in_schema=False)
+@router.get("/aftersales/{section:path}", include_in_schema=False)
+def aftersales_page(section: str = ""):
+    return FileResponse(legacy_main.BASE_DIR / "static" / "after_sales.html")
 
 
 @router.get("/training-demo", include_in_schema=False)
@@ -185,7 +204,13 @@ def crm_contact_detail_page(contact_id: int):
 
 
 def _is_web_page(path: str) -> bool:
-    return not path.startswith("/api") and not path.startswith("/quotations")
+    return not (
+        path.startswith("/api")
+        or path.startswith("/quotations")
+        or path.startswith("/aftersales")
+        or path.startswith("/after-sales")
+        or path.startswith("/aftermarket")
+    )
 
 
 mount_legacy_routes(router, _is_web_page)

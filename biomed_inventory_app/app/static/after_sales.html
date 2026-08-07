@@ -67,7 +67,7 @@
         </section>
         <section class="two-col">
           <div class="visual-panel">
-            <div class="section-title"><div><h2>Engineer Workload</h2><p class="muted">Active assignments and capacity.</p></div><a class="button-like" href="/aftersales/preventive-maintenance">View all</a></div>
+            <div class="section-title"><div><h2>Engineer Workload</h2><p class="muted">Active assignments and capacity.</p></div><a class="button-like" href="/aftersales/preventivemaintenance">View all</a></div>
             <div id="engineerWorkload" class="workload"></div>
           </div>
           <div class="alert-panel">
@@ -76,7 +76,7 @@
           </div>
         </section>
         <section class="visual-panel">
-          <div class="section-title"><div><h2>Upcoming</h2><p class="muted">Today, tomorrow, and this week.</p></div><a class="button-like" href="/aftersales/preventive-maintenance/calendar">View calendar</a></div>
+          <div class="section-title"><div><h2>Upcoming</h2><p class="muted">Today, tomorrow, and this week.</p></div><a class="button-like" href="/aftersales/preventivemaintenance/calendar">View calendar</a></div>
           <div id="upcomingList" class="upcoming"></div>
         </section>
       </div>
@@ -149,7 +149,7 @@
     async function api(url,opts){const res=await fetch(url,opts);if(!res.ok)throw new Error(await res.text());return res.json()}
     function setView(id){const meta=viewMeta[id]||viewMeta.dashboard;viewTitle.textContent=meta[0];viewSubtitle.textContent=meta[1];document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===id));updateUtilityActions(id);if(id!=="dashboard")loadDetails().catch(err=>{importResult.hidden=false;importResult.textContent=err.message})}
     function selectTab(id){setView(id)}
-    function viewFromPath(){const p=location.pathname.replace(/\/$/,"");if(p==="/aftersales"||p==="/after-sales"||p.endsWith("/dashboard"))return"dashboard";if(p.includes("/service-calls")||p.includes("/service-cases")||p.includes("/service-history"))return"calls";if(p.includes("/spare-parts"))return"parts";if(p.includes("/contracts")||p.includes("/coverage")||p.endsWith("/warranty"))return"warranty";if(p.includes("/installed-base")||p.endsWith("/history"))return"installed";if(p.includes("/preventive-maintenance")||p.endsWith("/pm"))return"pm";if(p.includes("/quotations")||p.includes("/installations")||p.includes("/deliveries")||p.includes("/trainings")||p.includes("/training-demo")||p.includes("/technical-cases")||p.includes("/fmi-field-modifications")||p.includes("/analytics"))return"operations";return"dashboard"}
+    function viewFromPath(){const p=location.pathname.replace(/\/$/,"");if(p==="/aftersales"||p==="/after-sales"||p.endsWith("/dashboard"))return"dashboard";if(p.includes("/service-calls")||p.includes("/service-cases")||p.includes("/service-history"))return"calls";if(p.includes("/spare-parts"))return"parts";if(p.includes("/contracts")||p.includes("/coverage")||p.endsWith("/warranty"))return"warranty";if(p.includes("/installed-base")||p.endsWith("/history"))return"installed";if(p.includes("/preventivemaintenance")||p.includes("/preventive-maintenance")||p.endsWith("/pm"))return"pm";if(p.includes("/quotations")||p.includes("/installations")||p.includes("/deliveries")||p.includes("/trainings")||p.includes("/training-demo")||p.includes("/technical-cases")||p.includes("/fmi-field-modifications")||p.includes("/analytics"))return"operations";return"dashboard"}
     function viewLabel(id){return (viewMeta[id]||viewMeta.dashboard)[0]}
     function updateUtilityActions(id){contextImportButton.textContent=`Import ${viewLabel(id)}`;contextExportButton.textContent=`Export ${viewLabel(id)}`}
     function assetMatches(a){const q=assetSearch.value.toLowerCase().trim();return !q||[a.serial_number,a.model,a.supplier,a.institution,a.company,a.product_type,a.unit_status].join(" ").toLowerCase().includes(q)}

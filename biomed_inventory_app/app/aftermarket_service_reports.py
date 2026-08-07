@@ -707,7 +707,7 @@ def aftermarket_dashboard_summary():
         activities = [
             DashboardActivity(key="service-calls", label="Service Calls", icon="call", pending=open_reports, overdue=overdue_reports, blocked=unmatched_reports, completed=completed_today, href="/aftersales/service-calls"),
             DashboardActivity(key="quotations", label="Quotations", icon="quote", pending=quotation_pending, overdue=0, blocked=quotation_approval, href="/aftersales/quotations"),
-            DashboardActivity(key="pm", label="Preventive Maintenance", icon="pm", pending=pm_pending, overdue=pm_due_today, href="/aftersales/preventive-maintenance"),
+            DashboardActivity(key="pm", label="Preventive Maintenance", icon="pm", pending=pm_pending, overdue=pm_due_today, href="/aftersales/preventivemaintenance"),
             DashboardActivity(key="installations", label="Installations", icon="install", pending=installations, href="/aftersales/installations"),
             DashboardActivity(key="deliveries", label="Deliveries", icon="delivery", pending=deliveries, href="/aftersales/deliveries"),
             DashboardActivity(key="trainings", label="Trainings", icon="training", pending=trainings, href="/aftersales/trainings"),
@@ -755,12 +755,12 @@ def aftermarket_dashboard_summary():
 
         blockers = [
             DashboardCountItem(key="customer", label="Waiting customer", count=status_count(conn, "service_reports", f"{is_open_status_sql()} AND lower(COALESCE(status,'')) LIKE '%customer%'"), tone="warning", icon="customer", href="/aftersales/service-calls?blocked=customer"),
-            DashboardCountItem(key="engineer", label="Waiting engineer", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventive-maintenance#schedule-import"),
+            DashboardCountItem(key="engineer", label="Waiting engineer", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventivemaintenance#schedule-import"),
             DashboardCountItem(key="approval", label="Quote approval", count=quotation_approval, tone="blocked", icon="approval", href="/aftersales/quotations?status=approval"),
             DashboardCountItem(key="parts", label="Spare parts", count=parts_pending, tone="blocked", icon="parts", href="/aftersales/spare-parts"),
             DashboardCountItem(key="supplier", label="Supplier", count=status_count(conn, "service_reports", f"{is_open_status_sql()} AND lower(COALESCE(supplier,''))!=''"), tone="blocked", icon="supplier", href="/aftersales/service-calls?blocked=supplier"),
             DashboardCountItem(key="manufacturer", label="Manufacturer", count=fmi_cases, tone="blocked", icon="factory", href="/aftersales/technical-cases"),
-            DashboardCountItem(key="scheduling", label="Scheduling", count=scheduled_events, tone="active", icon="calendar", href="/aftersales/preventive-maintenance"),
+            DashboardCountItem(key="scheduling", label="Scheduling", count=scheduled_events, tone="active", icon="calendar", href="/aftersales/preventivemaintenance"),
         ]
         blockers.sort(key=lambda item: item.count, reverse=True)
 
@@ -793,17 +793,17 @@ def aftermarket_dashboard_summary():
                 ORDER BY start_datetime
                 LIMIT 6
             """).fetchall()
-        upcoming = [DashboardUpcoming(title=row["title"], when=row["start_datetime"], type=row["event_type"], href="/aftersales/preventive-maintenance") for row in upcoming_rows]
+        upcoming = [DashboardUpcoming(title=row["title"], when=row["start_datetime"], type=row["event_type"], href="/aftersales/preventivemaintenance") for row in upcoming_rows]
         if contracts_expiring:
             upcoming.append(DashboardUpcoming(title="Contracts expiring soon", when="45 days", type="contract", href="/aftersales/contracts"))
 
     alerts = [
         DashboardCountItem(key="overdue-calls", label="Overdue calls", count=overdue_reports, tone="critical", icon="alert", href="/aftersales/service-calls?status=overdue"),
-        DashboardCountItem(key="pm-today", label="PM due today", count=pm_due_today, tone="critical", icon="pm", href="/aftersales/preventive-maintenance"),
+        DashboardCountItem(key="pm-today", label="PM due today", count=pm_due_today, tone="critical", icon="pm", href="/aftersales/preventivemaintenance"),
         DashboardCountItem(key="contracts", label="Contracts expiring", count=contracts_expiring, tone="warning", icon="contract", href="/aftersales/contracts"),
         DashboardCountItem(key="quotation-approval", label="Quotes awaiting approval", count=quotation_approval, tone="warning", icon="quote", href="/aftersales/quotations"),
         DashboardCountItem(key="parts-delayed", label="Parts delayed", count=parts_pending, tone="blocked", icon="parts", href="/aftersales/spare-parts"),
-        DashboardCountItem(key="unassigned", label="Unassigned activities", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventive-maintenance"),
+        DashboardCountItem(key="unassigned", label="Unassigned activities", count=unassigned_events, tone="warning", icon="engineer", href="/aftersales/preventivemaintenance"),
         DashboardCountItem(key="stale", label="No update >10 days", count=aging[-1].count if aging else 0, tone="critical", icon="clock", href="/aftersales/service-calls?age=10-plus"),
     ]
     alerts = [item for item in alerts if item.count > 0]
@@ -814,7 +814,7 @@ def aftermarket_dashboard_summary():
         metrics=[
             DashboardMetric(key="critical", label="Critical / Overdue", count=critical, tone="critical", icon="alert", secondary=f"{overdue_reports} calls", href="/aftersales/service-calls?status=overdue"),
             DashboardMetric(key="pending", label="Pending", count=pending_total, tone="warning", icon="inbox", secondary=f"{open_reports} calls", href="/aftersales/operations"),
-            DashboardMetric(key="scheduled", label="Scheduled", count=scheduled_events, tone="active", icon="calendar", secondary="next 7 days", href="/aftersales/preventive-maintenance"),
+            DashboardMetric(key="scheduled", label="Scheduled", count=scheduled_events, tone="active", icon="calendar", secondary="next 7 days", href="/aftersales/preventivemaintenance"),
             DashboardMetric(key="completed", label="Completed Today", count=completed_today, tone="healthy", icon="check", secondary="closed work", href="/aftersales/service-calls?status=completed"),
         ],
         activities=activities,
