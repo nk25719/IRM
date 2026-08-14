@@ -118,3 +118,14 @@ def check_database_health() -> bool:
     with get_engine().connect() as connection:
         connection.execute(text("SELECT 1"))
     return True
+
+
+def get_database_revisions() -> list[str]:
+    """Return applied Alembic revisions without changing database state."""
+    with get_engine().connect() as connection:
+        result = connection.execute(text("SELECT version_num FROM alembic_version ORDER BY version_num"))
+        return [str(version) for version in result.scalars().all()]
+
+
+def check_database_schema_current() -> bool:
+    return bool(get_database_revisions())

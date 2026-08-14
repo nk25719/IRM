@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 from app.config.database import get_database_url, is_postgresql_database, is_sqlite_database
-from app.database import build_engine
+from app.database import build_engine, get_database_revisions
 
 
 class PostgreSQLDatabasePolicyTest(unittest.TestCase):
@@ -26,3 +26,12 @@ class PostgreSQLDatabasePolicyTest(unittest.TestCase):
                 self.skipTest(f"PostgreSQL test database is not available locally: {exc}")
         finally:
             engine.dispose()
+
+    def test_alembic_revision_table_is_available_after_migrations(self):
+        try:
+            revisions = get_database_revisions()
+        except OperationalError as exc:
+            if os.getenv("CI"):
+                raise
+            self.skipTest(f"PostgreSQL test database is not available locally: {exc}")
+        self.assertTrue(revisions)
