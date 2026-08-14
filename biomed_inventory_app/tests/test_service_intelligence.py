@@ -23,9 +23,9 @@ from app.data_management.template_registry import get_dataset
 
 class ServiceIntelligenceTest(unittest.TestCase):
     def setUp(self):
-        engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(engine)
-        self.Session = sessionmaker(bind=engine)
+        self.engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
         self.db = self.Session()
         self.today = date(2026, 7, 23)
         self.client = Client(name="Hospital A")
@@ -34,6 +34,7 @@ class ServiceIntelligenceTest(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+        self.engine.dispose()
 
     def equipment(self, **values):
         payload = {

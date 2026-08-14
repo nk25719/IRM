@@ -32,6 +32,15 @@ APP_USERNAME = os.getenv("APP_USERNAME", "admin")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "admin123")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "local-dev-session-secret-change-me")
 APP_ROLE = os.getenv("APP_ROLE", "admin")
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+IS_PRODUCTION = APP_ENV in {"prod", "production"}
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true" if IS_PRODUCTION else "false").lower() in {"1", "true", "yes"}
+
+if IS_PRODUCTION:
+    if SESSION_SECRET == "local-dev-session-secret-change-me" or len(SESSION_SECRET) < 32:
+        raise RuntimeError("SESSION_SECRET must be set to a strong value in production.")
+    if APP_USERNAME == "admin" and APP_PASSWORD == "admin123":
+        raise RuntimeError("Default APP_USERNAME/APP_PASSWORD are not allowed in production.")
 
 
 @asynccontextmanager
@@ -46,7 +55,6 @@ async def lifespan(app_instance: FastAPI):
 app = FastAPI(title="Biomedical Warehouse ERP", version="1.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/pm/assets", StaticFiles(directory=BASE_DIR / "static" / "pm" / "assets"), name="pm-assets")
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(erp_router)
 app.include_router(quotation_router)
 
@@ -70,7 +78,12 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    https_only=SESSION_COOKIE_SECURE,
+    same_site="lax",
+)
 
 
 class InventoryItem(BaseModel):

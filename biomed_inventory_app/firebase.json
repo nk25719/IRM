@@ -28,16 +28,6 @@
         "type": 302
       },
       {
-        "source": "/aftersales/contracts/dashboard",
-        "destination": "/aftersales/preventivemaintenance",
-        "type": 302
-      },
-      {
-        "source": "/after-sales/contracts/dashboard",
-        "destination": "/aftersales/preventivemaintenance",
-        "type": 302
-      },
-      {
         "source": "/aftersales/preventive-maintenance",
         "destination": "/aftersales/preventivemaintenance",
         "type": 302

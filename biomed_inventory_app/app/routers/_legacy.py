@@ -8,8 +8,15 @@ from app import legacy_main
 
 def mount_legacy_routes(router: APIRouter, matches: Callable[[str], bool]) -> None:
     """Attach selected legacy routes while route handlers are being untangled."""
-    mounted_paths = {route.path for route in router.routes if isinstance(route, APIRoute)}
+    mounted_routes = {
+        (route.path, frozenset(route.methods or set()))
+        for route in router.routes
+        if isinstance(route, APIRoute)
+    }
     for route in legacy_main.app.routes:
-        if isinstance(route, APIRoute) and matches(route.path) and route.path not in mounted_paths:
+        if not isinstance(route, APIRoute):
+            continue
+        route_key = (route.path, frozenset(route.methods or set()))
+        if matches(route.path) and route_key not in mounted_routes:
             router.routes.append(route)
-            mounted_paths.add(route.path)
+            mounted_routes.add(route_key)

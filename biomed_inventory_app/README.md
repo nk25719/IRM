@@ -1,5 +1,16 @@
 
-# Biomedical Inventory ERP Web App v4
+# IRM Biomedical Inventory ERP
+
+FastAPI/SQLAlchemy application for biomedical equipment, warehouse, sales, procurement, after-sales, contracts, scheduling, and administration workflows.
+
+## Production Rules
+
+- Cloud Run/FastAPI owns authenticated application routes, APIs, sessions, uploads, and database-backed pages.
+- Firebase Hosting may serve static assets and legacy redirects only; it must not map business routes to different content than FastAPI.
+- PostgreSQL and SQLAlchemy are the target database architecture.
+- Some existing workflows and tests still depend on legacy SQLite compatibility code scheduled for migration.
+- Production must set `APP_ENV=production`, a strong `SESSION_SECRET`, non-default credentials, and `SESSION_COOKIE_SECURE=true`.
+- `/uploads/*` is delivered through the authenticated FastAPI app, not public static hosting.
 
 ## Current checkpoint: database-foundation
 
@@ -23,7 +34,7 @@ Deliberately not included yet:
 - Validation correction editing.
 - New department workflows or stock/procurement side effects from imports.
 
-The SQLite file `app/data/inventory.db` is local development/runtime state and is intentionally ignored by Git. Rebuild or reset it from Alembic migrations when the schema changes; do not commit runtime database churn.
+Runtime data and generated exports are intentionally ignored by Git. Rebuild schema from Alembic migrations when it changes; do not commit runtime database churn.
 
 ### Run locally
 
@@ -51,18 +62,12 @@ APP_PASSWORD=admin123
 
 ### Database and file storage
 
-For SQLite development, the app defaults to:
-
-```text
-sqlite:///./app/data/inventory.db
-```
-
-Use these environment variables when needed:
+Use a PostgreSQL SQLAlchemy URL:
 
 ```bash
-export DATABASE_URL="sqlite:///./app/data/inventory.db"
-export DB_PATH="./app/data/inventory.db"
+export DATABASE_URL="postgresql+psycopg2://irm_user:change_me@localhost:5432/irm"
 export IRM_DATA_ROOT="$HOME/IRM-data"
+export SESSION_SECRET="replace-with-a-long-random-secret"
 ```
 
 For local PostgreSQL:
@@ -80,15 +85,19 @@ Use these before changing this checkpoint:
 
 ```bash
 python3 -m compileall app tests
-python3 -m unittest tests.test_database_foundation -v
-python3 -m unittest tests.test_master_data_backfill -v
-python3 -m unittest tests.test_data_management_center -v
-python3 -m unittest tests.test_aftermarket_service_reports tests.test_quotation_generator -v
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests/unit -v
+python3 -m unittest tests.test_static_layout tests.test_service_intelligence -v
 node --check app/static/app_layout.js
 ```
 
-Known at this checkpoint: the full legacy suite still has older workflow failures documented in `docs/database/foundation-stabilization-review.md` and `docs/architecture/data-management-structural-review.md`.
+CI separates the test suites temporarily:
+
+- `tests/unit`: blocking, no database.
+- `tests/postgres`: blocking, PostgreSQL/SQLAlchemy integration after `alembic upgrade head`.
+- `tests/legacy`: non-blocking compatibility debt marker.
+- Existing top-level `tests/test_*.py`: still run in the non-blocking legacy CI job until migrated.
+
+Known at this checkpoint: the full legacy suite still has SQLite-dependent failures. Track migration progress in `docs/architecture/database-ownership-and-migration-policy.md`.
 
 ### Key documentation
 

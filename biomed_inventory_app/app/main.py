@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -61,7 +63,6 @@ app.mount(
     StaticFiles(directory=legacy_main.BASE_DIR / "static" / "pm" / "assets"),
     name="pm-assets",
 )
-app.mount("/uploads", StaticFiles(directory=legacy_main.UPLOADS_DIR), name="uploads")
 
 
 @app.middleware("http")
@@ -102,7 +103,23 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-app.add_middleware(SessionMiddleware, secret_key=legacy_main.SESSION_SECRET, https_only=False)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=legacy_main.SESSION_SECRET,
+    https_only=legacy_main.SESSION_COOKIE_SECURE,
+    same_site="lax",
+)
+
+
+@app.get("/uploads/{filename:path}", include_in_schema=False)
+def authorized_upload(filename: str):
+    upload_root = legacy_main.UPLOADS_DIR.resolve()
+    requested_path = (upload_root / filename).resolve()
+    if upload_root not in requested_path.parents and requested_path != upload_root:
+        raise HTTPException(status_code=404, detail="File not found")
+    if not requested_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(requested_path, filename=Path(filename).name)
 
 app.include_router(erp_router)
 app.include_router(quotation_router)

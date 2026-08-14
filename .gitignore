@@ -1,1 +1,72 @@
 .aider*
+
+# macOS and editor files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs and runtime
+logs/
+*.log
+pids/
+*.pid
+*.pid.lock
+
+# Databases and local runtime data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+biomed_inventory_app/app/data/*.db
+biomed_inventory_app/app/data/*.sqlite*
+biomed_inventory_app/app/data/*.xlsx
+biomed_inventory_app/app/data/*.xls
+biomed_inventory_app/app/data/*.csv
+biomed_inventory_app/app/uploads/
+biomed_inventory_app/uploads/
+biomed_inventory_app/app/backups/
+
+# Node and frontend builds
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pm-frontend/dist/
+biomed_inventory_app/pm-frontend/dist/
+biomed_inventory_app/app/static/pm/assets/
+
+# Firebase and deployment caches
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+
+# Generated archives
+*.zip
+*.tar
+*.tar.gz
